@@ -1,0 +1,17 @@
+serverscale M
+db2user tsminst1 
+db2userpw <passwordrequired>
+db2group tsmsrvrs
+db2userhomedir /home/tsminst1
+instdirmountpoint /home/tsminst1/tsminst1
+dbdirpaths /tsminst1/TSMdbspace00,/tsminst1/TSMdbspace01,/tsminst1/TSMdbspace02,/tsminst1/TSMdbspace03,/tsminst1/TSMdbspace04,/tsminst1/TSMdbspace05,/tsminst1/TSMdbspace06,/tsminst1/TSMdbspace07
+tsmstgpaths /tsminst1/TSMfile00,/tsminst1/TSMfile01,/tsminst1/TSMfile02,/tsminst1/TSMfile03,/tsminst1/TSMfile04,/tsminst1/TSMfile05,/tsminst1/TSMfile06,/tsminst1/TSMfile07,/tsminst1/TSMfile08,/tsminst1/TSMfile09,/tsminst1/TSMfile10,/tsminst1/TSMfile11
+actlogpath /tsminst1/TSMalog
+archlogpath /tsminst1/TSMarchlog
+dbbackdirpaths /tsminst1/TSMbkup00,/tsminst1/TSMbkup01,/tsminst1/TSMbkup02
+backupstarttime 22:00
+tsmsysadminid  admin
+tsmsysadminpw  <passwordrequired> 
+tcpport        1500
+servername     P9B-AIX1 
+serverpassword <passwordrequired>

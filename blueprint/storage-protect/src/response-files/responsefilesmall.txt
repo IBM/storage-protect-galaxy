@@ -1,0 +1,17 @@
+serverscale S
+db2user tsminst1 
+db2userpw <passwordrequired>
+db2group tsmsrvrs
+db2userhomedir /home/tsminst1
+instdirmountpoint /home/tsminst1/tsminst1
+dbdirpaths /tsminst1/TSMdbspace00,/tsminst1/TSMdbspace01,/tsminst1/TSMdbspace02,/tsminst1/TSMdbspace03
+tsmstgpaths /tsminst1/TSMfile00,/tsminst1/TSMfile01,/tsminst1/TSMfile02,/tsminst1/TSMfile03
+actlogpath /tsminst1/TSMalog
+archlogpath /tsminst1/TSMarchlog
+dbbackdirpaths /tsminst1/TSMbkup00,/tsminst1/TSMbkup01
+backupstarttime 22:00
+tsmsysadminid  admin
+tsmsysadminpw  <passwordrequired> 
+tcpport        1500
+servername     TAPSRV09
+serverpassword <passwordrequired>
