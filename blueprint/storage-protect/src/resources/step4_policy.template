@@ -1,0 +1,160 @@
+/*---------------------------------------------------------------*/
+/* Define policies for FILE, backup-archive client               */
+/*---------------------------------------------------------------*/
+define domain <serverName>_FILE description='Policy domain for file backups using the Backup-Archive client'
+define policyset <serverName>_FILE SET1 description='Container for policy management classes' 
+
+/* Define backup copy groups */
+define mgmtclass <serverName>_FILE SET1 BACKUP_DISK_KEEP7DAYS description='Backup to deduplicated disk storage. Backups retained for 7 days.'
+define copygroup <serverName>_FILE SET1 BACKUP_DISK_KEEP7DAYS type=BACKUP destination=DEDUPPOOL verexists=NOLIMIT verdeleted=NOLIMIT retextra=7 retonly=7
+define mgmtclass <serverName>_FILE SET1 BACKUP_DISK_KEEP14DAYS description='Backup to deduplicated disk storage. Backups retained for 14 days.'
+define copygroup <serverName>_FILE SET1 BACKUP_DISK_KEEP14DAYS type=BACKUP destination=DEDUPPOOL verexists=NOLIMIT verdeleted=NOLIMIT retextra=14 retonly=14
+define mgmtclass <serverName>_FILE SET1 BACKUP_DISK_KEEP30DAYS_ARCH730 description='Backup and archive to deduplicated disk storage. Backups retained for 30 days, archives retained for 730 days.'
+define copygroup <serverName>_FILE SET1 BACKUP_DISK_KEEP30DAYS_ARCH730 type=BACKUP destination=DEDUPPOOL verexists=NOLIMIT verdeleted=NOLIMIT retextra=30 retonly=30
+define copygroup <serverName>_FILE SET1 BACKUP_DISK_KEEP30DAYS_ARCH730 type=ARCHIVE destination=DEDUPPOOL retver=730
+define mgmtclass <serverName>_FILE SET1 BACKUP_DISK_KEEP90DAYS description='Backup to deduplicated disk storage. Backups retained for 90 days.'
+define copygroup <serverName>_FILE SET1 BACKUP_DISK_KEEP90DAYS type=BACKUP destination=DEDUPPOOL verexists=NOLIMIT verdeleted=NOLIMIT retextra=90 retonly=90
+define mgmtclass <serverName>_FILE SET1 BACKUP_DISK_KEEP365DAYS description='Backup to deduplicated disk storage. Backups retained for 365 days.'
+define copygroup <serverName>_FILE SET1 BACKUP_DISK_KEEP365DAYS type=BACKUP destination=DEDUPPOOL verexists=NOLIMIT verdeleted=NOLIMIT retextra=365 retonly=365
+
+/* Define archive copy groups */
+define mgmtclass <serverName>_FILE SET1 ARCHIVE_DISK_KEEP1YEAR description='Archive to deduplicated disk storage. Archives retained for 1 year.'
+define copygroup <serverName>_FILE SET1 ARCHIVE_DISK_KEEP1YEAR type=ARCHIVE destination=DEDUPPOOL retver=365
+define mgmtclass <serverName>_FILE SET1 ARCHIVE_DISK_KEEP3YEARS description='Archive to deduplicated disk storage. Archives retained for 3 years.'
+define copygroup <serverName>_FILE SET1 ARCHIVE_DISK_KEEP3YEARS type=ARCHIVE destination=DEDUPPOOL retver=1095
+define mgmtclass <serverName>_FILE SET1 ARCHIVE_DISK_KEEP7YEARS description='Archive to deduplicated disk storage. Archives retained for 7 years.'
+define copygroup <serverName>_FILE SET1 ARCHIVE_DISK_KEEP7YEARS type=ARCHIVE destination=DEDUPPOOL retver=2555
+define mgmtclass <serverName>_FILE SET1 ARCHIVE_DISK_KEEPFOREVER description='Archive to deduplicated disk storage. Archives retained forever.'
+define copygroup <serverName>_FILE SET1 ARCHIVE_DISK_KEEPFOREVER type=ARCHIVE destination=DEDUPPOOL retver=NOLIMIT
+
+assign defmgmtclass <serverName>_FILE SET1 BACKUP_DISK_KEEP30DAYS_ARCH730
+activate policyset <serverName>_FILE SET1
+
+
+/*------------------------------------------------------------------------*/
+/* Define policies for VIRTUAL, TSM for virtual environments and hyper-v  */
+/*------------------------------------------------------------------------*/
+define domain <serverName>_VIRTUAL description='Policy domain for virtual machine backups'
+define policyset <serverName>_VIRTUAL SET1 description='Container for policy management classes' 
+
+/* Define backup copy groups */
+define mgmtclass <serverName>_VIRTUAL SET1 BACKUP_DISK_KEEP7DAYS description='Backup to deduplicated disk storage. Backups retained for 7 days.'
+define copygroup <serverName>_VIRTUAL SET1 BACKUP_DISK_KEEP7DAYS type=BACKUP destination=DEDUPPOOL verexists=NOLIMIT verdeleted=NOLIMIT retextra=7 retonly=7
+define mgmtclass <serverName>_VIRTUAL SET1 BACKUP_DISK_KEEP14DAYS description='Backup to deduplicated disk storage. Backups retained for 14 days.'
+define copygroup <serverName>_VIRTUAL SET1 BACKUP_DISK_KEEP14DAYS type=BACKUP destination=DEDUPPOOL verexists=NOLIMIT verdeleted=NOLIMIT retextra=14 retonly=14
+define mgmtclass <serverName>_VIRTUAL SET1 BACKUP_DISK_KEEP30DAYS description='Backup to deduplicated disk storage. Backups retained for 30 days.'
+define copygroup <serverName>_VIRTUAL SET1 BACKUP_DISK_KEEP30DAYS type=BACKUP destination=DEDUPPOOL verexists=NOLIMIT verdeleted=NOLIMIT retextra=30 retonly=30
+define mgmtclass <serverName>_VIRTUAL SET1 BACKUP_DISK_KEEP90DAYS description='Backup to deduplicated disk storage. Backups retained for 90 days.'
+define copygroup <serverName>_VIRTUAL SET1 BACKUP_DISK_KEEP90DAYS type=BACKUP destination=DEDUPPOOL verexists=NOLIMIT verdeleted=NOLIMIT retextra=90 retonly=90
+define mgmtclass <serverName>_VIRTUAL SET1 BACKUP_DISK_KEEP365DAYS description='Backup to deduplicated disk storage. Backups retained for 365 days.'
+define copygroup <serverName>_VIRTUAL SET1 BACKUP_DISK_KEEP365DAYS type=BACKUP destination=DEDUPPOOL verexists=NOLIMIT verdeleted=NOLIMIT retextra=365 retonly=365
+
+assign defmgmtclass <serverName>_VIRTUAL SET1 BACKUP_DISK_KEEP30DAYS
+activate policyset <serverName>_VIRTUAL SET1
+
+/*------------------------------------------------------------------------*/
+/* Define policies for DATABASE, DP for SQL                               */
+/*------------------------------------------------------------------------*/
+define domain <serverName>_DATABASE description='Policy domain for database backups'
+define policyset <serverName>_DATABASE SET1 description='Container for policy management classes' 
+
+/* Define backup copy groups */
+define mgmtclass <serverName>_DATABASE SET1 BACKUP_DISK_KEEP7DAYS description='Backup to deduplicated disk storage. Backups retained for 7 days.'
+define copygroup <serverName>_DATABASE SET1 BACKUP_DISK_KEEP7DAYS type=BACKUP destination=DEDUPPOOL verexists=NOLIMIT verdeleted=NOLIMIT retextra=7 retonly=7
+define mgmtclass <serverName>_DATABASE SET1 BACKUP_DISK_KEEP30DAYS description='Backup to deduplicated disk storage. Backups retained for 30 days.'
+define copygroup <serverName>_DATABASE SET1 BACKUP_DISK_KEEP30DAYS type=BACKUP destination=DEDUPPOOL verexists=NOLIMIT verdeleted=NOLIMIT retextra=30 retonly=30
+define mgmtclass <serverName>_DATABASE SET1 BACKUP_DISK_KEEP90DAYS description='Backup to deduplicated disk storage. Backups retained for 90 days.'
+define copygroup <serverName>_DATABASE SET1 BACKUP_DISK_KEEP90DAYS type=BACKUP destination=DEDUPPOOL verexists=NOLIMIT verdeleted=NOLIMIT retextra=90 retonly=90
+define mgmtclass <serverName>_DATABASE SET1 BACKUP_DISK_KEEP365DAYS description='Backup to deduplicated disk storage. Backups retained for 365 days.'
+define copygroup <serverName>_DATABASE SET1 BACKUP_DISK_KEEP365DAYS type=BACKUP destination=DEDUPPOOL verexists=NOLIMIT verdeleted=NOLIMIT retextra=365 retonly=365
+
+assign defmgmtclass <serverName>_DATABASE SET1 BACKUP_DISK_KEEP30DAYS
+activate policyset <serverName>_DATABASE SET1
+
+/*------------------------------------------------------------------------*/
+/* Define policies for Oracle databases                                   */
+/*------------------------------------------------------------------------*/
+define domain <serverName>_ORACLE description='Policy domain for Oracle database backups'
+define policyset <serverName>_ORACLE SET1 description='Container for policy management classes'
+
+/* Define backup copy groups */
+define mgmtclass <serverName>_ORACLE SET1 BACKUP_DISK description='Backup to deduplicated disk storage. Oracle manages deletions.'
+define copygroup <serverName>_ORACLE SET1 BACKUP_DISK type=BACKUP destination=DEDUPPOOL verexists=1 verdeleted=0 retextra=0 retonly=0
+
+assign defmgmtclass <serverName>_ORACLE SET1 BACKUP_DISK
+activate policyset <serverName>_ORACLE SET1
+
+/*------------------------------------------------------------------------*/
+/* Define policies for DB2 databases                                      */
+/*------------------------------------------------------------------------*/
+define domain <serverName>_DB2 description='Policy domain for DB2 database backups'
+define policyset <serverName>_DB2 SET1 description='Container for policy management classes' 
+
+/* Define backup copy groups */
+define mgmtclass <serverName>_DB2 SET1 BACK_ARCH_DISK description='Backup and archive to deduplicated disk storage. DB2 manages deletions.'
+define copygroup <serverName>_DB2 SET1 BACK_ARCH_DISK type=BACKUP destination=DEDUPPOOL verexists=1 verdeleted=0 retextra=0 retonly=0
+define copygroup <serverName>_DB2 SET1 BACK_ARCH_DISK type=ARCHIVE destination=DEDUPPOOL retver=NOLIMIT
+
+assign defmgmtclass <serverName>_DB2 SET1 BACK_ARCH_DISK
+activate policyset <serverName>_DB2 SET1
+
+/*------------------------------------------------------------------------*/
+/* Define policies for SAP HANA                                           */
+/*------------------------------------------------------------------------*/
+define domain <serverName>_HANA description='Policy domain for SAP HANA backups'
+define policyset <serverName>_HANA SET1 description='Container for policy management classes' 
+
+/* Define copy groups */
+define mgmtclass <serverName>_HANA SET1 MDEFAULT description='HANA default to deduplicated disk storage. Retained for 90 days.'
+define copygroup <serverName>_HANA SET1 MDEFAULT type=BACKUP destination=DEDUPPOOL verexists=NOLIMIT verdeleted=NOLIMIT retextra=90 retonly=90
+define copygroup <serverName>_HANA SET1 MDEFAULT type=ARCHIVE destination=DEDUPPOOL retver=90
+define mgmtclass <serverName>_HANA SET1 MDB description='HANA db archive to deduplicated disk storage. Retained for 90 days.'
+define copygroup <serverName>_HANA SET1 MDB type=ARCHIVE destination=DEDUPPOOL retver=90
+define mgmtclass <serverName>_HANA SET1 MLOG1 description='HANA log1 archive to deduplicated disk storage. Retained for 90 days.'
+define copygroup <serverName>_HANA SET1 MLOG1 type=ARCHIVE destination=DEDUPPOOL retver=90
+define mgmtclass <serverName>_HANA SET1 MLOG2 description='HANA log2 archive to deduplicated disk storage. Retained for 90 days.'
+define copygroup <serverName>_HANA SET1 MLOG2 type=ARCHIVE destination=DEDUPPOOL retver=90
+
+assign defmgmtclass <serverName>_HANA SET1 MDEFAULT
+activate policyset <serverName>_HANA SET1
+
+/*------------------------------------------------------------------------*/
+/* Define policies for MAIL, DP for Exchange, Domino                      */
+/*------------------------------------------------------------------------*/
+define domain <serverName>_MAIL description='Policy domain for mail application backups'
+define policyset <serverName>_MAIL SET1 description='Container for policy management classes' 
+
+/* Define backup copy groups */
+define mgmtclass <serverName>_MAIL SET1 BACKUP_DISK_KEEP7DAYS description='Backup to deduplicated disk storage. Backups retained for 7 days.'
+define copygroup <serverName>_MAIL SET1 BACKUP_DISK_KEEP7DAYS type=BACKUP destination=DEDUPPOOL verexists=NOLIMIT verdeleted=NOLIMIT retextra=7 retonly=7
+define mgmtclass <serverName>_MAIL SET1 BACKUP_DISK_KEEP30DAYS description='Backup to deduplicated disk storage. Backups retained for 30 days.'
+define copygroup <serverName>_MAIL SET1 BACKUP_DISK_KEEP30DAYS type=BACKUP destination=DEDUPPOOL verexists=NOLIMIT verdeleted=NOLIMIT retextra=30 retonly=30
+define mgmtclass <serverName>_MAIL SET1 BACKUP_DISK_KEEP90DAYS description='Backup to deduplicated disk storage. Backups retained for 90 days.'
+define copygroup <serverName>_MAIL SET1 BACKUP_DISK_KEEP90DAYS type=BACKUP destination=DEDUPPOOL verexists=NOLIMIT verdeleted=NOLIMIT retextra=90 retonly=90
+define mgmtclass <serverName>_MAIL SET1 BACKUP_DISK_KEEP365DAYS description='Backup to deduplicated disk storage. Backups retained for 365 days.'
+define copygroup <serverName>_MAIL SET1 BACKUP_DISK_KEEP365DAYS type=BACKUP destination=DEDUPPOOL verexists=NOLIMIT verdeleted=NOLIMIT retextra=365 retonly=365
+
+assign defmgmtclass <serverName>_MAIL SET1 BACKUP_DISK_KEEP30DAYS
+activate policyset <serverName>_MAIL SET1
+
+/*------------------------------------------------------------------------*/
+/* Define policies for OBJECT data                                       */
+/*------------------------------------------------------------------------*/
+define domain <serverName>_OBJECT description='Policy domain for OBJECT database backups'
+define policyset <serverName>_OBJECT SET1 description='Container for policy management classes' 
+
+/* Define backup copy groups */
+define mgmtclass <serverName>_OBJECT SET1 BACK_DISK description='Backup and archive to deduplicated disk storage. Client manages deletions.'
+define copygroup <serverName>_OBJECT SET1 BACK_DISK type=BACKUP destination=DEDUPPOOL verexists=1 verdeleted=0 retextra=0 retonly=0
+
+assign defmgmtclass <serverName>_OBJECT SET1 BACK_DISK
+activate policyset <serverName>_OBJECT SET1
+
+
+
+/*------------------------------------------------------------------------*/
+/* Update STANDARD policies to target the dedup stgpool                   */
+/*------------------------------------------------------------------------*/
+update copygroup STANDARD STANDARD STANDARD type=BACKUP destination=DEDUPPOOL
+update copygroup STANDARD STANDARD STANDARD type=ARCHIVE destination=DEDUPPOOL
+activate policyset STANDARD STANDARD
