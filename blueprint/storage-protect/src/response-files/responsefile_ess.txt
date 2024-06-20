@@ -1,0 +1,17 @@
+serverscale L
+db2user   tsminst1
+db2userpw <passwordrequired>
+db2userhomedir  /esstsm1/tsminst1/tsminst1
+db2group  tsmsrvrs
+instdirmountpoint /esstsm1/tsminst1
+dbdirpaths /esstsm1/tsminst1/database/db01,/esstsm1/tsminst1/database/db02,/esstsm1/tsminst1/database/db03,/esstsm1/tsminst1/database/db04,/esstsm1/tsminst1/database/db05,/esstsm1/tsminst1/database/db06,/esstsm1/tsminst1/database/db07,/esstsm1/tsminst1/database/db08
+tsmstgpaths /esstsm1/tsminst1/deduppool
+actlogpath /esstsm1/tsminst1/database/alog
+archlogpath /esstsm1/tsminst1/database/archlog
+dbbackdirpaths /esstsm1/tsminst1/dbback
+backupstarttime 02:00
+tsmsysadminid  admin
+tsmsysadminpw  <passwordrequired>
+tcpport        1500
+servername     CLIENT21
+serverpassword <passwordrequired>

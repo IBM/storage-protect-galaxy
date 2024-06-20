@@ -1,0 +1,15 @@
+serverscale L
+db2user   tsminst1
+db2userpw <passwordrequired>
+instdirmountpoint c:\tsminst1
+dbdirpaths c:\tsminst1\TSMdbspace00,c:\tsminst1\TSMdbspace01,c:\tsminst1\TSMdbspace02,c:\tsminst1\TSMdbspace03,c:\tsminst1\TSMdbspace04,c:\tsminst1\TSMdbspace05,c:\tsminst1\TSMdbspace06,c:\tsminst1\TSMdbspace07,c:\tsminst1\TSMdbspace08,c:\tsminst1\TSMdbspace09,c:\tsminst1\TSMdbspace10,c:\tsminst1\TSMdbspace11
+tsmstgpaths c:\tsminst1\TSMfile00,c:\tsminst1\TSMfile01,c:\tsminst1\TSMfile02,c:\tsminst1\TSMfile03,c:\tsminst1\TSMfile04,c:\tsminst1\TSMfile05,c:\tsminst1\TSMfile06,c:\tsminst1\TSMfile07,c:\tsminst1\TSMfile08,c:\tsminst1\TSMfile09,c:\tsminst1\TSMfile10,c:\tsminst1\TSMfile11,c:\tsminst1\TSMfile12,c:\tsminst1\TSMfile13,c:\tsminst1\TSMfile14,c:\tsminst1\TSMfile15,c:\tsminst1\TSMfile16,c:\tsminst1\TSMfile17,c:\tsminst1\TSMfile18,c:\tsminst1\TSMfile19,c:\tsminst1\TSMfile20,c:\tsminst1\TSMfile21,c:\tsminst1\TSMfile22,c:\tsminst1\TSMfile23,c:\tsminst1\TSMfile24,c:\tsminst1\TSMfile25,c:\tsminst1\TSMfile26,c:\tsminst1\TSMfile27,c:\tsminst1\TSMfile28,c:\tsminst1\TSMfile29,c:\tsminst1\TSMfile30,c:\tsminst1\TSMfile31,c:\tsminst1\TSMfile32,c:\tsminst1\TSMfile33,c:\tsminst1\TSMfile34,c:\tsminst1\TSMfile35,c:\tsminst1\TSMfile36,c:\tsminst1\TSMfile37,c:\tsminst1\TSMfile38,c:\tsminst1\TSMfile39,c:\tsminst1\TSMfile40,c:\tsminst1\TSMfile41,c:\tsminst1\TSMfile42,c:\tsminst1\TSMfile43,c:\tsminst1\TSMfile44,c:\tsminst1\TSMfile45,c:\tsminst1\TSMfile46,c:\tsminst1\TSMfile47,c:\tsminst1\TSMfile48,c:\tsminst1\TSMfile49,c:\tsminst1\TSMfile50,c:\tsminst1\TSMfile51,c:\tsminst1\TSMfile52,c:\tsminst1\TSMfile53,c:\tsminst1\TSMfile54,c:\tsminst1\TSMfile55,c:\tsminst1\TSMfile56,c:\tsminst1\TSMfile57,c:\tsminst1\TSMfile58,c:\tsminst1\TSMfile59,c:\tsminst1\TSMfile60,c:\tsminst1\TSMfile61,c:\tsminst1\TSMfile62,c:\tsminst1\TSMfile63,c:\tsminst1\TSMfile64,c:\tsminst1\TSMfile65,c:\tsminst1\TSMfile66,c:\tsminst1\TSMfile67,c:\tsminst1\TSMfile68,c:\tsminst1\TSMfile69
+actlogpath c:\tsminst1\TSMalog
+archlogpath c:\tsminst1\TSMarchlog
+dbbackdirpaths c:\tsminst1\TSMbkup00,c:\tsminst1\TSMbkup01,c:\tsminst1\TSMbkup02,c:\tsminst1\TSMbkup03,c:\tsminst1\TSMbkup04,c:\tsminst1\TSMbkup05
+backupstarttime 22:00
+tsmsysadminid  admin
+tsmsysadminpw  <passwordrequired>
+tcpport        1500
+servername     tapsrv04
+serverpassword <passwordrequired>

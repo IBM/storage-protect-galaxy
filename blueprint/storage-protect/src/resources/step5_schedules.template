@@ -1,0 +1,43 @@
+/*---------------------------------------------------------------*/
+/* Define schedules for FILE incremental-forever backup          */
+/*---------------------------------------------------------------*/
+define schedule <serverName>_FILE FILE_INCRFOREVER_<backupStartString> starttime=<backupStartTime> period=1 perunit=day duration=60 durunit=minutes act=incremental description="File incremental-forever backup starting at <backupStartString>"
+
+
+/*----------------------------------------------*/
+/* Define schedules for VIRTUAL machine  backup */
+/*----------------------------------------------*/
+
+/* VMware incremental-forever backup schedule */
+define schedule <serverName>_VIRTUAL VMWARE_INCRFOREVER_<backupStartString> starttime=<backupStartTime> period=1 perunit=day duration=60 durunit=minutes action=backup subaction=vm options='-vmbackuptype=fullvm -asnodename=UPDATE_TO_YOUR_DC_NODENAME -domain.vmfull="SCHEDULE-TAG" -MODE=IFINCR' description="VMware incremental-forever backup starting at <backupStartString>"
+
+/* hyper-v full backup schedule */
+define schedule <serverName>_VIRTUAL HYPERV_INCRFOREVER_<backupStartString> starttime=<backupStartTime> period=1 perunit=day duration=60 durunit=minutes action=backup subaction=vm options='-vmbackuptype=HYPERVFULL -asnodename=UPDATE_TO_YOUR_CLUSTER_NODENAME -MODE=IFINCR' description="Hyper-V incremental-forever backup starting at <backupStartString>"
+
+
+/*----------------------------------------------*/
+/* Define schedules for DATABASE backup         */
+/*----------------------------------------------*/
+
+/* Microsoft SQL FULL backup schedule */
+define schedule <serverName>_DATABASE SQL_DAILYFULL_<backupStartString> starttime=<backupStartTime> period=1 perunit=day duration=60 durunit=minutes action=command object="sqlfull.cmd" description="Microsoft SQL Daily FULL backup starting at <backupStartString>"
+
+
+/*----------------------------------------------*/
+/* Define schedules for ORACLE backup           */
+/*----------------------------------------------*/
+
+/* Oracle FULL backup schedule */
+define schedule <serverName>_ORACLE ORACLE_DAILYFULL_<backupStartString> starttime=<backupStartTime> period=1 perunit=day duration=60 durunit=minutes action=command object="schedbkdb.scr" description="Oracle Daily FULL backup starting at <backupStartString>"
+
+
+/*----------------------------------------------*/
+/* Define schedules for MAIL backup             */
+/*----------------------------------------------*/
+
+/* Microsoft Exchange FULL backup schedule */
+define schedule <serverName>_MAIL EXCHANGE_DAILYFULL_<backupStartString> starttime=<backupStartTime> period=1 perunit=day duration=60 durunit=minutes action=command object="excfull.cmd" description="Microsoft Exchange Daily FULL backup starting at <backupStartString>"
+
+/* Domino FULL backup schedule */
+define schedule <serverName>_MAIL DOMINO_DAILYFULL_<backupStartString> starttime=<backupStartTime> period=1 perunit=day duration=60 durunit=minutes action=command object="domsel.cmd" description="Domino Daily FULL backup starting at <backupStartString>"
+
