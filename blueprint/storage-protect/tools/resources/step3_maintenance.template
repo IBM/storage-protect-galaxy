@@ -1,0 +1,43 @@
+/*------------------------------------------------------*/
+/* IDENTIFY, 12 hours beginning @ time of backup start  */
+/*------------------------------------------------------*/
+def script DEDUPLICATE description="Run identify duplicate processes."
+upd script DEDUPLICATE "identify duplicates DEDUPPOOL numprocess=<numIdentProc> duration=720" line=010
+def sched  DEDUPLICATE type=admin cmd="run DEDUPLICATE" active=yes description="Run identify duplicates." startdate=today starttime=<backupStartTime> dur=15 durunit=minutes period=1 perunit=day
+
+/*---------------------------------------------------------------------*/
+/* EXPIRE, as long as needed beginning @ backup start + 17 hours       */
+/*---------------------------------------------------------------------*/
+def script EXPIRE description="Run expire inventory to remove backup objects which have exceeded retention."
+upd script EXPIRE "expire inventory wait=yes resource=<expireResource>" line=010
+def sched  EXPIRE type=admin cmd="run expire" active=yes desc="Run expiration to remove backup objects which have exceeded retention." startdate=today starttime=<backupStartPlusSeventeen> dur=15 durunit=minutes period=1 perunit=day
+
+
+/*---------------------------------------------------------------------*/
+/* DB BACKUP, as long as needed beginning @ backup start + 13 hours    */
+/*---------------------------------------------------------------------*/
+/* Create the device class of type file for database backups */
+define devclass DBBACK_FILEDEV devtype=file maxcapacity=<maxcap> mountlimit=32 directory=<dbbackdirpaths>
+
+/* Set the DB recovery properties */
+set dbrecovery DBBACK_FILEDEV numstreams=<dbbkstreams> <dbbkcompress> <dbbkpassword>
+
+/* Setup DB backup maintenance script and schedule to run at 9AM */
+def script DBBACKUP description="Run full TSM server database backup and remove old backups."
+upd script DBBACKUP "backup db devc=DBBACK_FILEDEV type=full numstreams=<dbbkstreams> <dbbkcompress> wait=yes" line=010
+upd script DBBACKUP "if(error) goto done" line=020
+upd script DBBACKUP "backup volhist" line=030
+upd script DBBACKUP "backup devconf" line=040
+upd script DBBACKUP "delete volhist type=dbb todate=today-5 totime=now" line=050
+upd script DBBACKUP "done:exit" line=060
+def sched  DBBACKUP type=admin cmd="run DBBACKUP" active=yes description="Run database backup and remove old backups." startdate=today starttime=<backupStartPlusThirteen> dur=15 duru=minute period=1 perunit=day
+
+
+/*-------------------------------------------------------------------*/
+/* RECLAMATION, 8 hours beginning @ backup start  + 14 hours         */
+/*-------------------------------------------------------------------*/
+def script RECLAIM description="Run storage pool reclamation to release unused space."
+upd script RECLAIM "reclaim stgpool DEDUPPOOL threshold=25 duration=480 wait=yes" line=010
+def sched  RECLAIM type=admin cmd="run RECLAIM" active=yes desc="Run storage pool reclamation to release unused space." startdate=today starttime=<backupStartPlusFourteen> dur=15 durunit=minutes period=1 perunit=day
+
+

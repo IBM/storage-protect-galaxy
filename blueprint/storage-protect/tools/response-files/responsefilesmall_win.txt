@@ -1,0 +1,15 @@
+serverscale S
+db2user   tsminst1
+db2userpw <passwordrequired>
+instdirmountpoint c:\tsminst1
+dbdirpaths c:\tsminst1\TSMdbspace00,c:\tsminst1\TSMdbspace01,c:\tsminst1\TSMdbspace02,c:\tsminst1\TSMdbspace03
+tsmstgpaths c:\tsminst1\TSMfile00,c:\tsminst1\TSMfile01,c:\tsminst1\TSMfile02,c:\tsminst1\TSMfile03
+actlogpath c:\tsminst1\TSMalog
+archlogpath c:\tsminst1\TSMarchlog
+dbbackdirpaths c:\tsminst1\TSMbkup00,c:\tsminst1\TSMbkup01
+backupstarttime 22:00
+tsmsysadminid  admin
+tsmsysadminpw  <passwordrequired>
+tcpport        1500
+servername     tapsrv04
+serverpassword <passwordrequired>
