@@ -20,14 +20,13 @@ The repository of assets (blueprints, tools, solution, best practices, and refer
 ### Solution assets
 | Assets    |        |
 |-----------|--------|
-| Cyber Resiliency Solution for IBM Storage Scale (using IBM Storage Protect) | <ul><li>[Cyber Resiliency Solution for IBM Storage Scale](https://github.com/IBM/storage-protect-galaxy/blob/hampi-0.5-draft/solutions/cyber-resiliency-solution-for-storage-scale/Cyber%20Resiliency%20Solution%20for%20IBM%20Storage%20Scale.md)</li></ul> |
-| Petascale Data Protection Solution | <ul><li>[Petascale Data Protection Solution](https://github.com/IBM/storage-protect-galaxy/blob/hampi-0.5-draft/solutions/petascale-data-protection/Petascale%20Data%20Protection.md)</li></ul> |
+| Cyber Resiliency Solution for IBM Storage Scale (using IBM Storage Protect) | <ul><li>[Cyber Resiliency Solution for IBM Storage Scale](https://www.redbooks.ibm.com/redpapers/pdfs/redp5559.pdf)</li></ul> |
+| Petascale Data Protection Solution | <ul><li>[Petascale Data Protection Solution](https://www.ibm.com/support/pages/system/files/inline-files/$FILE/Petascale_Data_Protection.pdf)</li></ul> |
 
 ### Best practices assets
 | Assets    |        |
 |-----------|--------|
-|IBM Storage Protect - Container Storage Pools and Data Deduplication - Best Practices | <ul><li>[Technical background, general guidelines, and best practices for using IBM Storage Protect container storage pool and data deduplication technologies](https://github.com/IBM/storage-protect-galaxy/blob/hampi-0.5-draft/best-practices/storage-protect/Container%20Storage%20Pools%20-%20Best%20Practices/Storage%20Protect%20Container%20Storage%20Pools%20-%20Best%20Practices.md)</li></ul> |
-
+|IBM Storage Protect - Container Storage Pools and Data Deduplication - Best Practices | <ul><li>[Technical background, general guidelines, and best practices for using IBM Storage Protect container storage pool and data deduplication technologies](https://www.ibm.com/support/pages/system/files/inline-files/$FILE/IBM%20Spectrum%20Protect%20Container%20StoragePool%20Best%20Practices%20v3.1.pdf)</li></ul> |
 
 ### Tools
 | Assets    |        |
