@@ -1,0 +1,27 @@
+/* Set standard IBM Storage Protect option overrides */
+set actlogretention        180
+set summaryretention       180
+set eventretention         180
+set maxschedsessions       80
+setopt maxsessions         <sessionLimit>
+setopt idletimeout         60
+setopt commtimeout         3600
+setopt expinterval         0
+setopt deduprequiresbackup no
+setopt numopenvolsallowed  20
+setopt allowreorgtable     <reorgTable>
+setopt allowreorgindex     <reorgIndex>
+setopt reorgbegintime      12:00
+setopt reorgduration       6
+
+
+/* Set server servername for server 2 server communications */
+set servername <serverName>
+set serverpassword <serverPassword>
+
+/* Register initial system level administrator ID */
+register admin <adminID> <adminPW> sessionsecurity=transitional
+grant authority <adminID> cl=system
+
+/* Register tsm.basic license */
+register lic file=tsmbasic.lic

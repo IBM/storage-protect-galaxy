@@ -1,0 +1,5 @@
+/* Create the device class of type file */
+define devclass FILEDEV devtype=file maxcapacity=<maxcap> mountlimit=4000 directory=<tsmstgpaths>
+
+/* Create the deduplicated storage pool */
+define stgpool DEDUPPOOL FILEDEV maxscratch=<computedScratch> deduplicate=yes identifyprocess=0 reclaim=100 reclaimprocess=<reclaimProc> description="Deduplicated disk storage"
