@@ -20,8 +20,8 @@ The repository of assets (blueprints, tools, solution, best practices, and refer
 ### Solution assets
 | Assets    |        |
 |-----------|--------|
-| Cyber Resiliency Solution for IBM Storage Scale (using IBM Storage Protect) | <ul><li>[Cyber Resiliency Solution for IBM Storage Scale](https://www.redbooks.ibm.com/redpapers/pdfs/redp5559.pdf)</li></ul> |
-| Petascale Data Protection Solution | <ul><li>[Petascale Data Protection Solution](https://www.ibm.com/support/pages/system/files/inline-files/$FILE/Petascale_Data_Protection.pdf)</li></ul> |
+| Cyber Resiliency Solution for IBM Storage Scale (using IBM Storage Protect) | <ul><li>git: [Cyber Resiliency Solution for IBM Storage Scale](./solutions/cyber-resiliency-solution-for-storage-scale/cyber%20resiliency%20solution%20for%20storage%20scale.md)</li><li>pdf: [Cyber Resiliency Solution for IBM Storage Scale.pdf](https://www.redbooks.ibm.com/redpapers/pdfs/redp5559.pdf)</li></ul> |
+| Petascale Data Protection Solution | <ul><li>git: [Petascale Data Protection Solution](./solutions/petascale-data-protection/petascale%20data%20protection.md)</li><li>pdf: [Petascale Data Protection Solution.pdf](https://www.ibm.com/support/pages/system/files/inline-files/$FILE/Petascale_Data_Protection.pdf)</li></ul> |
 
 ### Best practices assets
 | Assets    |        |
