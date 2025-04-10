@@ -1,0 +1,22 @@
+[
+  {
+    "instName": "tsminst1",
+    "dbName": "TSMDB1",
+    "snapPrefix": "tsminst1",
+    "snapRetention": "0",
+    "apiServerIP": "GUI host name or IP",
+    "apiServerPort": "GUI host port, default 443",
+    "apiCredentials": "GUI user credentials base64 encoded",
+    "dirsToSnap": ["tsmdb+srv01", "tsmlog+srv01", "tsmalog+srv01", "tsmstg+srv01", "tsminst+srv01", "tsmbackup+srv01"]
+  },
+  {
+    "instName": "tsminst2",
+    "dbName": "TSMDB1",
+    "snapPrefix": "tsminst2",
+    "snapRetention": "2",
+    "apiServerIP": "GUI host name or IP",
+    "apiServerPort": "GUI host port, default 443",
+    "apiCredentials": "GUI user credentials base64 encoded",
+    "dirsToSnap": ["tsmdb+srv02", "tsmlog+srv02", "tsmalog+srv02", "tsmstg+srv02", "tsminst+srv02", "tsmbackup+srv02"]
+  }
+]

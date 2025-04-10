@@ -1,0 +1,32 @@
+{
+"snap_warn":{
+       "cause":"Creating consistent snapshots ended with warnings.",
+        "user_action":"Investigate the error message and logs.",
+        "scope":"NODE",
+        "code":"cu_1803",
+        "description":"Creating snapshots using the isnap-create script ended with warnings.",
+        "event_type":"INFO",
+        "message":"Warning creating snapshot for instance {0}. Message: {1}",
+        "severity":"WARNING"
+ },
+"snap_fail":{
+       "cause":"Creating consistent snapshots ended with errors. ",
+        "user_action":"Investigate the error message and logs.",
+        "scope":"NODE",
+        "code":"cu_1804",
+        "description":"Creating snapshot using the isnap-create script ended with errors. Investigate the error message and logs.",
+        "event_type":"INFO",
+        "message":"Error creating snapshot for instance {0}. Message: {1}",
+        "severity":"ERROR"
+ },
+ "delsnap_fail":{
+       "cause":"Deleting snapshot(s) failed.",
+        "user_action":"Investigate the error message and logs.",
+        "scope":"NODE",
+        "code":"cu_1805",
+        "description":"Deleting snapshot using the isnap-del script ended with errors. Investigate the error message and logs.",
+        "event_type":"INFO",
+        "message":"Error deleting snapshot for instance {0}. Message: {1}",
+        "severity":"ERROR"
+ }
+}
