@@ -32,7 +32,7 @@ Find below some limitations for the usage of these scripts with IBM Flashsystem:
 
 ### License
 
-This project is under [MIT license](../LICENSE).
+This project is under [MIT license](../../LICENSE).
 
 ------------------------------
 
