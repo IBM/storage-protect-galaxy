@@ -9,13 +9,13 @@ This project provides scripts that facilitate the creation and restoration of co
 
 This project supports two types of storage systems:
 
-- IBM Storage Scale version 5.1.9 and above - see [Storage Scale scripts](scale/Readme.md)
+- IBM Storage Scale version 5.1.9 and above - see [Storage Scale scripts](storage-scale/Readme.md)
 
 
 
 ### License
 
-This project is under [MIT license](LICENSE).
+This project is under [MIT license](../LICENSE).
 
 
 ## Workflows
