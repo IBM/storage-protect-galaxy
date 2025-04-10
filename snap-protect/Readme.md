@@ -7,7 +7,7 @@
 
 This project provides scripts that facilitate the creation and restoration of consistent Safeguarded Copies (SGC)for IBM Storage Protect server instances. Storage Protect server instances store their data and metadata in storage systems. Managing SGC depends on the storage system. 
 
-This project supports two types of storage systems:
+This project supports the following storage system:
 
 - IBM Storage Scale version 5.1.9 and above - see [Storage Scale scripts](storage-scale/Readme.md)
 
@@ -43,7 +43,7 @@ The SGC creation workflow is facilitated by the `*snap-create.sh` scripts for th
 
 
 
-### Safeguarded yope restoration
+### Safeguarded copy restoration
 
 To workflow to restore the SGC  for all relevant relevant data areas of a Storage Protect instance consists of 3 phases. This workflow requires the Storage Protect server instance to be stopped. The SGC restoration phases are:
 
