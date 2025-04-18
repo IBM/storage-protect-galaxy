@@ -1,34 +1,11 @@
 #!/bin/bash
-
-################################################################################
-# The MIT License (MIT)                                                        #
-#                                                                              #
-# Copyright (c) 2025 IBM Corporation                             			   #
-#                                                                              #
-# Permission is hereby granted, free of charge, to any person obtaining a copy #
-# of this software and associated documentation files (the "Software"), to deal#
-# in the Software without restriction, including without limitation the rights #
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell    #
-# copies of the Software, and to permit persons to whom the Software is        #
-# furnished to do so, subject to the following conditions:                     #
-#                                                                              #
-# The above copyright notice and this permission notice shall be included in   #
-# all copies or substantial portions of the Software.                          #
-#                                                                              #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR   #
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,     #
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE  #
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER       #
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,#
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE#
-# SOFTWARE.                                                                    #
-################################################################################
-
+#********************************************************************************
+# IBM Storage Protect
 #
-# Author: N. Haustein
-# 
-# Program:
-# delete snapshot from file systems and filesets via the CLI or REST API
+# (C) Copyright International Business Machines Corp. 2025
+#                                                                              
+# Name: isnap-del.sh
+# Desc: Delete snapshot from file systems and filesets via the CLI or REST API
 # this script runs on any node in the cluster and requires sudo when not using the REST API
 #
 # Input: 
@@ -49,11 +26,9 @@
 # - if custom events are installed (custom.json), sending events can be enabled by running this command:
 #   sed -i 's/\# $sudoCmd \$gpfsPath\/mmsysmonc/$sudoCmd \$gpfsPath\/mmsysmonc/g' isnap-del.sh
 #
-# History
-# 02/28/24 if jobID query fails, then do more debugging in del_apisnapshot()
-# 03/07/25 improve iterating dirsToSnap, wrap age snaps identification in api functions - version 1.6
-# 03/25/25 AIX compatibility changes
-# 03/25/25 add sudo command variable - version 1.7
+# Usage:
+#
+#********************************************************************************
 
 #---------------------------------------
 # global parameters
@@ -152,6 +127,42 @@ function parse_config()
 }
 
 # -----------------------------------------------------------------
+# function calc_expDate calculates the expiration date based on current date and $snapRet
+# This is a platform specific. On linux we use 'date -d', on AIX we use ksh93
+#
+# Requires: $delDate, $snapAge
+#
+# Output: $expDate 
+#
+# Return code:
+# 0: success
+# 1: failure
+#
+# -----------------------------------------------------------------
+calc_expDate()
+{
+   os=$(uname -s)
+   echo "DEBUG: calculating deletion date on platform $os"   
+
+   case "$os" in
+   Linux)
+    delDate=$(date +%Y%m%d%H%M%S -d "$DATE - $snapAge day");;
+   AIX)
+	  curEp=$(date +"%s")
+		(( expEp = curEp - ($snapAge * 86400) ))
+	  delDate=$(ksh93 -c 'printf "%(%Y%m%d%H%M%S)T\n" "#$1"' ksh93 $expEp);;
+   *)
+    delDate="";;
+   esac
+
+   if [[ -z $delDate ]]; then 
+     return 1
+   else 
+     return 0
+   fi 
+}
+
+# -----------------------------------------------------------------
 # function del_apisnapshot to delete snapshots for filesystem and fileset
 #
 # Requires $configFile
@@ -190,16 +201,16 @@ function del_apisnapshot()
       echo "INFO: checking job $jobId for completion ($loops)."
       sleep $sleeptime
 
-	  jState=$(curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/jobs?fields=%3Aall%3A&filter=jobId%3D$jobId" 2>>/dev/null | grep "status" | grep -v "{" | cut -d':' -f 2 | sed 's/,*$//g' | sed 's/"//g' | sed 's/^ *//g')
+	    jState=$(curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/jobs?fields=%3Aall%3A&filter=jobId%3D$jobId" 2>>/dev/null | grep "status" | grep -v "{" | cut -d':' -f 2 | sed 's/,*$//g' | sed 's/"//g' | sed 's/^ *//g')
 	 
-	  echo "  DEBUG: job $jobId status: $jState, loop: $loops"
-	  # if jState is empty, then perform the jobID query without parsing
-	  if [[ -z $jState ]]; then
-	    echo "DEBUG: Job status is empty, performing jobID query again."
-		curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/jobs?fields=%3Aall%3A&filter=jobId%3D$jobId"
-	  fi
+	    echo "  DEBUG: job $jobId status: $jState, loop: $loops"
+	    # if jState is empty, then perform the jobID query without parsing
+	    if [[ -z $jState ]]; then
+	      echo "  DEBUG: Job status is empty, performing jobID query again."
+		    curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/jobs?fields=%3Aall%3A&filter=jobId%3D$jobId"
+	    fi
 
-	  (( loops = loops + 1 ))
+	    (( loops = loops + 1 ))
     done
   else
     echo "ERROR: no REST API job was created, snapshot delete failed."
@@ -231,15 +242,17 @@ function match_apisnapshot()
     if [[ -z $line ]]; then
       continue
     fi
-    sDate=$(date +%Y%m%d%H%M%S -d "$(echo $line | awk '{print $4" "$5}')")
-    sName=""
+
+    # get the snapshot creation date from the snapname, last 14 chars
+    sName=$(echo $line | awk '{print $1}')
+    sDate=$(echo "${sName: -14}")
+    # old code: sDate=$(date +%Y%m%d%H%M%S -d "$(echo $line | awk '{print $4" "$5}')")
     # echo "DEBUG: snapDate=$sDate, delDate=$delDate"
     if [[ "$sDate" < "$delDate" ]]; then
-      sName=$(echo $line | awk '{print $1}')
       snapName=$snapName" "$sName
       # echo "DEBUG: identified snap: $sName $sDate"
     fi
-  done  <<< $(curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/filesystems/$fsName$fSet/snapshots?fields=snapshotName%2Cstatus%2CsnapID%2Ccreated%2CexpirationTime%2CfilesetName" 2>/dev/null | jq -r '.snapshots[] | [.snapshotName, .snapID, .status, .created, .expirationTime, .filesetName] | @csv' | sed 's/,/\" \"/g' | sed 's/\"//g')
+  done  <<< $(curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/filesystems/$fsName$fSet/snapshots?fields=snapshotName%2Cstatus%2CsnapID%2Ccreated%2CexpirationTime%2CfilesetName" 2>/dev/null | jq -r '.snapshots[] | [.snapshotName] | @csv' | sed 's/,/\" \"/g' | sed 's/\"//g')
 
   return 0
 
@@ -343,8 +356,18 @@ if (( preview == 1 )); then
 else
   op=perform
 fi
+
+# calculate platform specific deletion date 
+delDate=""
 if [[ ! -z $snapAge ]]; then
-  delDate=$(date +%Y%m%d%H%M%S -d "$DATE - $snapAge day")
+  delDate=""
+  calc_expDate
+  rc=$?
+  if (( rc > 0 )); then
+    echo "ERROR: Unable to calculate deletion date. Contact support."
+    # $sudoCmd $gpfsPath/mmsysmonc event custom snap_fail "$instUser,Unable to calculate expiration date."
+    exit 2
+  fi
   if [[ -z $apiServer ]]; then
     echo "INFO: $op snapshots deletion for snaps older than $snapAge days ($delDate) using CLI as $instUser"
   else
@@ -395,11 +418,12 @@ do
 		      if [[ -z $line ]]; then
 		        continue
 		      fi
-	        sDate=$(date +%Y%m%d%H%M%S -d "$(echo $line | awk '{print $5" "$6" "$7" "$8}')")
-	        sName=""
-	        #echo "DEBUG: snapDate=$sDate, delDate=$delDate"
+          # get the snapshot creation date from the snapname, last 14 chars
+          sName=$(echo $line | awk '{print $1}')
+          sDate=$(echo "${sName: -14}")
+	        # old code: sDate=$(date +%Y%m%d%H%M%S -d "$(echo $line | awk '{print $5" "$6" "$7" "$8}')")
+	        # echo "DEBUG: snapDate=$sDate, delDate=$delDate"
 	        if [[ "$sDate" < "$delDate" ]]; then
-		        sName=$(echo $line | awk '{print $1}')
 		        snapName=$snapName" "$sName
 		        # echo "DEBUG: identified snap: $sName $sDate"
 	        fi
@@ -438,7 +462,7 @@ if (( rc > 0 )); then
   echo "ERROR: $op snapshot deletion failed, check the log."
   if [[ $op = "perform" ]]; then 
     # if this path is not active, just pretend to sleep a second
-	sleep 0
+	  sleep 0
     # $sudoCmd $gpfsPath/mmsysmonc event custom delsnap_fail "$instUser,Snapshot deletion failed, check the log."
   fi
   exit 5

@@ -1,34 +1,11 @@
 #!/bin/bash
-
-################################################################################
-# The MIT License (MIT)                                                        #
-#                                                                              #
-# Copyright (c) 2025 IBM Corporation                             			   #
-#                                                                              #
-# Permission is hereby granted, free of charge, to any person obtaining a copy #
-# of this software and associated documentation files (the "Software"), to deal#
-# in the Software without restriction, including without limitation the rights #
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell    #
-# copies of the Software, and to permit persons to whom the Software is        #
-# furnished to do so, subject to the following conditions:                     #
-#                                                                              #
-# The above copyright notice and this permission notice shall be included in   #
-# all copies or substantial portions of the Software.                          #
-#                                                                              #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR   #
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,     #
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE  #
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER       #
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,#
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE#
-# SOFTWARE.                                                                    #
-################################################################################
-
+#********************************************************************************
+# IBM Storage Protect
 #
-# Author: N. Haustein
-# 
-# Program: isnap-fscap.sh
-# Determines the capacity allocated in the file system / fileset for active data and snapshots
+# (C) Copyright International Business Machines Corp. 2025
+#                                                                              
+# Name: isnap-fscap.sh
+# Desc: Determines the capacity allocated in the file system / fileset for active data and snapshots
 #
 # Input: 
 # -i instance-user: (optional) name of the instance user, default is the user running this script
@@ -41,12 +18,9 @@
 # - API server (optional) if REST API is used instead of command line
 # requires jq to be installed 
 #
-# History:
-# 2/14/24 added support for TSLM and removed mmSharedTmpDir from output
-# 03/07/25 improve iterating dirsToSnap, use du -hs to make it simpler - version 1.2
-# 03/25/25 AIX compatibility changes
-# 03/25/25 add sudo command variable - version 1.3
-# 04/01/25 remove sudo for du
+# Usage:
+# 
+#********************************************************************************
 
 #---------------------------------------
 # global parameters
@@ -234,10 +208,25 @@ do
     if [[ ! -z $fsPath ]]; then	 
 	    fsPath="$fsPath"
 	    # echo "DEBUG: fsPath=$fsPath"
-      /usr/bin/du -hs $fsPath
-      /usr/bin/du -hs $fsPath/$snapshotDir
-      (( rc = rc + $? ))    
-	    echo "---------------------------------------------------"
+      # du is platform specific, -h is not available in AIX
+      os=$(uname -s)
+      duOpt=""
+      dfOpt=""
+      case "$os" in
+      Linux)
+         duOpt="-hs"
+         dfOpt="-h";;
+      AIX)
+         duOpt="-gs"
+         dfOpt="-g";;
+      *)
+         duOpt="-unknownOS"
+         dfOpt="-unknownOS";;
+      esac
+      /usr/bin/du "$duOpt" $fsPath
+      /usr/bin/du "$duOpt" $fsPath/$snapshotDir
+      (( rc = rc + $? ))
+      echo "---------------------------------------------------"
   	else 
       echo "  WARNING: Unable to determine path for filesystem $fsName and fileset $fsetName."
 	    (( rc = rc + 1 ))
@@ -247,7 +236,7 @@ do
 done
 
 echo "Getting global file system statistic"
-df -h | grep -E "Size|tsm|tslm"
+df "$dfOpt" | grep -E "Size|tsm|tslm"
 
 echo
 echo "============================================================================================"

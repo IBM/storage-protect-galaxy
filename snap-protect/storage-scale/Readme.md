@@ -17,14 +17,14 @@ Find below a description of the prerequisites, installation and configuration an
 
 ### Requirements and Limitations
 
-Find below some limitations for the usage of these scripts with IBM Flashsystem:
+Find below some limitations for the usage of these scripts with IBM Storage Scale:
 
 - Storage Scale version 5.1.9, 5.2.1 and 5.2.2 were tested on RHEL 8 and RHEL 9
 - Storage Scale ESS and Storage Scale software defined deployments were tested
 - Single cluster and remote cluster architectures (Storage Protect instances running in remote cluster) were tested
 - Stretched cluster was tested
 - Each instance must either have dedicated filesystem or dedicated independent fileset for all instance specific backup data and metadata
-- Storage Protect version 8.1.23 and above were tested
+- Storage Protect version 8.1.25 and above were tested
 - Storage Protect disk, file and container pools were tested
 - Volume reuse delay for Storage Protect volumes must be set to the retention period of the snapshots plus 1
 - JSON parser program `jq` is required
@@ -32,7 +32,7 @@ Find below some limitations for the usage of these scripts with IBM Flashsystem:
 
 ### License
 
-This project is under [MIT license](../../LICENSE).
+This project is under [Apache License 2.0](../../LICENSE).
 
 ------------------------------
 
@@ -77,9 +77,12 @@ This section describes the installation and configuration of the scripts associa
 Copy or git clone the scripts to the Storage Protect server (e.g. `/usr/local/bin`) and make the script files `*.sh` executable:
 
 ```
-# git clone https://github.ibm.com/IBM-Client-Engineering-EMEA/snap-protect/tree/master/scale ./
-# chmod +x scale/*.sh
+# git clone https://github.com/IBM/storage-protect-galaxy.git ./
+# cd snap-protect/
+# chmod +x storage-scale/*.sh
 ```
+
+**Note:** The gitHub repository is only accessible by the IBM organization. If you obtained the scripts from IBM, then copy the scripts to the Storage Protect servers. 
 
 The following files are included in this project:
 
@@ -108,6 +111,7 @@ For each Storage Protect instance a list of configuration parameters is required
 | dirsToSnap | file system name and fileset name, used to create and restore snapshot. If fileset name is not given, global snapshot are used. | yes |	fsname+fsetname  |
 | dbName | Name of the Db2, usually this is TSMDB1 | yes | TSMDB1 | 
 | snapRetention | Retention time in days for the snapshot, default is 0 days. Snapshots cannot be deleted during retention time	| no | 5 |
+| serverInstDir | Instance directory of the server (where dsmserv.opt resides). Must only be specified if different to instance user home. Default is instance user home directory.	| no | /tsminst/inst01/home |
 | apiServerIP | IP address or host name of the REST API server. If this parameter is set, then the REST API is used instead of the CLI. | no | x.x.x.x |
 | apiServerPort | IP port of the REST API server. If not set it defaults to 443 | yes | 443 |
 | apiCredentials | REST API user and password encoded in base64 as User:Password  | yes | YWRtaW46VGVzdDEyMzRhIQ== |
@@ -123,6 +127,7 @@ The configuration parameter for each instance is stored in a configuration file:
 	"dbName": "TSMDB1",
 	"snapPrefix": "tsminst1-snap",
 	"snapRetention": "4",
+  "serverInstDir": "/tsminst/inst01/home",
 	"apiServerIP": "REST API server IP",
 	"apiServerPort": "REST API server IP, default is 443",
 	"apiCredentials": "base64 encoded API user User:Password",
@@ -133,6 +138,7 @@ The configuration parameter for each instance is stored in a configuration file:
 	"dbName": "TSMDB1",
 	"snapPrefix": "tsminst2-snap",
 	"snapRetention": "4",
+  "serverInstDir": "/tsminst/inst02/home",
 	"apiServerIP": "REST API server IP",
 	"apiServerPort": "REST API server IP, default is 443",
 	"apiCredentials": "base64 encoded API user UserPassword",
@@ -261,6 +267,45 @@ $ isnap-create.sh --help
 $ isnap-restore.sh --help
 ```
 
+### Create schedules
+
+The creation of consistent SGC can be scheduled using `cron`. The creation of SGC must be executed by the instance user (for example `tsminst1`), hence the schedule must be created in the context of the instance user. 
+
+**Note:** Do not schedule the SGC creation at the same time when a Storage Protect Db backup is executed or during heavy backup or housekeeping workloads!!
+
+The example below creates an SGC every day at midnight using `isnap-create.sh`. It requires to enter the `home-directory-of-instance-user` for parameters `HOME` and `BASH_ENV`:
+
+
+```
+# su - tsminst1
+$ crontab -e
+
+SHELL=/bin/bash
+HOME=[/home-directory-of-instance-user]
+PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin
+BASH_ENV=[/home-directory-of-instance-user].profile
+MAILTO=root
+
+# create snapshot at midnight every day
+00 00 *  *  * /usr/local/bin/isnap-create.sh -r >> /tmp/snaplogs/tsminst1-snapcreate.log 2>&1
+```
+
+An alternative way to schedule the creation of SGC - e.g. for AIX - is to source the `profile` of the instance user prior to executing `isnap-create.sh`:
+
+```
+# create snapshot at midnight every day
+00 00 *  *  * source [/home-directory-of-instance-user].profile; /usr/local/bin/isnap-create.sh -r >> /tmp/snaplogs/tsminst1-snapcreate.log 2>&1
+```
+
+
+SGC that are expired based on the snapshot retention time can be deleted. The snapshot retention time is configured in the configuration file as parameter `snapRetention` (see [Adjust configuration files](#Adjust-configuration-files)). To accommodate the automated deletion of SGC that are older than the retention time, the script `isnap-del.sh` is used. The example below deletes SGC that are older than 10 days. 
+
+```
+# delete snapshots older than 10 days at 00:00
+15 00 * * * /usr/local/bin/isnap-del.sh -i tsminst1 -g 10 >> /tmp/snapdel/tsminst1-snapdel.log 2>&1
+```
+
+**Note:** the age of the snapshot given with the parameter `-g` must be equal or greater than the snapshot retention time given in configuration parameter `snapRetention`. 
 
 
 ------------------------------

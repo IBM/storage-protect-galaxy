@@ -1,55 +1,28 @@
 #!/bin/bash
-
-################################################################################
-# The MIT License (MIT)                                                        #
-#                                                                              #
-# Copyright (c) 2025 IBM Corporation                             			   #
-#                                                                              #
-# Permission is hereby granted, free of charge, to any person obtaining a copy #
-# of this software and associated documentation files (the "Software"), to deal#
-# in the Software without restriction, including without limitation the rights #
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell    #
-# copies of the Software, and to permit persons to whom the Software is        #
-# furnished to do so, subject to the following conditions:                     #
-#                                                                              #
-# The above copyright notice and this permission notice shall be included in   #
-# all copies or substantial portions of the Software.                          #
-#                                                                              #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR   #
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,     #
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE  #
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER       #
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,#
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE#
-# SOFTWARE.                                                                    #
-################################################################################
-
-# Author: N. Haustein
-# 
-# Program:
-#   Create snapshots for instance in scale using CLI or REST API
+#********************************************************************************
+# IBM Storage Protect
+#
+# (C) Copyright International Business Machines Corp. 2025
+#                                                                              
+# Name: isnap-create.sh
+# Desc: Create snapshots for instance in scale using CLI or REST API
 #
 # Dependencies:
-# this scripts must run on the host where the instance is running, it must be run by the instance user and uses sudo or the REST API
-# requires snapconfig.json that defines the instance specific parameters:
+# This scripts must run on the host where the instance is running,
+# it must be run by the instance user and uses sudo or the REST APIs.
+# Requires snapconfig.json that defines the instance specific parameters:
 # - instance user name
 # - database name
 # - file systems and fileset belonging to the instance
 # - snapshot prefix
 # - REST API server if snapshots are to be done through rest API
-# if custom events are installed (custom.json), sending events can be enabled by running this command:
-#   sed -i 's/\# $sudoCmd \$gpfsPath\/mmsysmonc/$sudoCmd \$gpfsPath\/mmsysmonc/g' del-snaps.sh
+# If custom events are installed (custom.json),
+# sending events can be enabled by running this command:
+#  sed -i 's/\# $sudoCmd \$gpfsPath\/mmsysmonc/$sudoCmd \$gpfsPath\/mmsysmonc/g' del-snaps.sh
+# 
+# Usage:
 #
-#---------------------------------------
-# history
-# 12/20/23 fixed loop waiting for snapshot create to complete (type mismatch) - version 1.4
-# 02/20/24 adjust for TSLM: check if TSM or TSLM Media Manager is running - version 1.5
-# 02/28/24 if jobID query fails, then do more debugging in create_apisnapshot()
-# 03/07/25 use ps instead of pgrep (AIX compatibility), improve iterating dirsToSnap
-# 03/25/25 AIX compatibility changes
-# 03/25/25 add sudo command variable - version 1.8
-# 01/04/15 add full path of sync command
-#
+#********************************************************************************
 
 
 #---------------------------------------
@@ -67,6 +40,12 @@ maxSuspendRetry=5
 # number of second to sleep inbetween of suspend retries
 suspendWait=50
 
+# sudo command to be used
+sudoCmd=/usr/bin/sudo
+
+# determine operating system
+os=$(uname -s)
+
 # determine the name of the instance user for reference
 instUser=$(id -un)
 #### temp setting ######
@@ -76,11 +55,8 @@ instUser=$(id -un)
 # temporary file for json constructs used with API call to create snapshot
 tmpFile="$HOME/$instUser-crsnap.json"
 
-# sudo command to be used
-sudoCmd=/usr/bin/sudo
-
 # version of the program
-ver=1.8
+ver=1.9
 
 # -----------------------------------------------------------------
 # function parse_config to parse the config file
@@ -121,16 +97,19 @@ function parse_config()
             if [[ "$name" = "dirsToSnap" ]]; then
               dirsToSnap=$val
             fi
-			if [[ "$name" = "snapRetention" ]]; then
+			      if [[ "$name" = "snapRetention" ]]; then
               snapRet=$val
             fi
-			if [[ "$name" = "apiServerIP" ]]; then
+            if [[ "$name" = "serverInstDir" ]]; then
+              serverInstDir=$val
+            fi
+			      if [[ "$name" = "apiServerIP" ]]; then
               apiServer=$val
             fi
-			if [[ "$name" = "apiServerPort" ]]; then
+			      if [[ "$name" = "apiServerPort" ]]; then
               apiPort=$val
             fi
-			if [[ "$name" = "apiCredentials" ]]; then
+			      if [[ "$name" = "apiCredentials" ]]; then
               apiAuth=$val
             fi
           fi
@@ -140,6 +119,43 @@ function parse_config()
   done < $configFile
   return 0
 }
+
+# -----------------------------------------------------------------
+# function calc_expDate calculates the expiration date based on current date and $snapRet
+# This is a platform specific. On linux we use 'date -d', on AIX we use ksh93
+#
+# Requires: $expDate, $snapRet
+#
+# Output: $expDate 
+#
+# Return code:
+# 0: success
+# 1: failure
+#
+# -----------------------------------------------------------------
+calc_expDate()
+{
+   echo "DEBUG: calculating expiration date on platform $os"   
+
+   case "$os" in
+   Linux)
+    expDate=$(date +%Y-%m-%d-%H:%M:%S -d "$DATE + $snapRet day");;
+   AIX)
+	  curEp=$(date +"%s")
+		(( expEp = curEp + ($snapRet * 86400) ))
+	  expDate=$(ksh93 -c 'printf "%(%Y-%m-%d-%T)T\n" "#$1"' ksh93 $expEp);;
+   *)
+    expDate="";;
+   esac
+
+   if [[ -z $expDate ]]; then 
+     return 1
+   else 
+     return 0
+   fi 
+
+}
+
 
 # -----------------------------------------------------------------
 # function create_apisnapshot creates snapshot using the REST API
@@ -214,7 +230,7 @@ function create_apisnapshot()
 #---------------------------------------
 
 # present banner
-echo "INFO: $(date) program $0 version $ver started for instance $instUser"
+echo "INFO: $(date) program $0 version $ver started for instance $instUser on platform $os"
 
 
 ### check if the run parameter is specified
@@ -238,6 +254,7 @@ dbName=""
 dirsToSnap=""
 snapPrefix=""
 snapRet=0
+serverInstDir="$HOME"
 apiServer=""
 apiPort=""
 apiAuth=""
@@ -251,6 +268,14 @@ if [[ -z $dirsToSnap ]]; then
   # $sudoCmd $gpfsPath/mmsysmonc event custom snap_fail "$instUser,Instance configuration file does not contain valid file system and fileset information."
   exit 2
 fi
+
+# If serverInstDir does not exist then exit because it might be mis-configured
+if [[ ! -d $serverInstDir ]]; then 
+  echo "ERROR: Server instance directory $serverInstDir does not exist in the file system."
+  echo "       Specify a valid directory for parameter serverInstDir in config file $configFile."
+  exit 2
+fi
+
 # if API server was specified and no credentials then exit, set API port to default 443 if not set
 if [[ ! -z $apiServer ]]; then
   if [[ -z $apiAuth ]]; then
@@ -290,6 +315,30 @@ else
 fi
 
 
+# compose the expiration-time string. If snapRet=0, then we ommit this string because it only works 5.1.5 onwards
+# echo "DEBUG: snapshot retention time is $snapRet days"
+expClause=""
+expDate=""
+if (( $snapRet > 0 )); then 
+  # calculate the expDate string dependent on the OS
+  calc_expDate
+  rc=$?
+  if (( rc > 0 )); then
+    echo "ERROR: Unable to calculate expiration date. Contact support."
+    # $sudoCmd $gpfsPath/mmsysmonc event custom snap_fail "$instUser,Unable to calculate expiration date."
+    exit 2
+  fi
+  if [[ -z $apiServer ]]; then
+    #expClause="--expiration-time $(date +%Y-%m-%d-%H:%M:%S -d "$DATE + $snapRet day")"
+    expClause="--expiration-time $expDate"
+  else
+    #expClause="\"expirationTime\": \"$(date +%Y-%m-%d-%H:%M:%S -d "$DATE + $snapRet day")\","
+    expClause="\"expirationTime\": \"$expDate\","
+  fi
+fi
+# echo "DEBUG: expiration clause: $expClause"
+
+
 ### suspend protect Db
 echo "INFO: $(date) Suspending the data base for instance $instUser"
 db2 connect to $dbName
@@ -319,30 +368,34 @@ if (( rc > 0 )); then
 fi
 #db2 commit
 #db2 disconnect $dbName
-/usr/bin/sync
+
+# run sync depending on the platform
+echo "DEBUG: Sync all file systems on platform $os"
+if [[ $os = "AIX" ]]; then
+  /usr/sbin/sync
+else
+  /usr/bin/sync
+fi
 
 
 ### create snapshot in Storage Scale
+# print message
+echo -e "\n-----------------------------------------------------------------------------"
 if [[ -z $apiServer ]]; then
-  echo "INFO: $(date) creating snapshots using CLI for: $dirsToSnap"
+  echo -e "INFO: $(date) creating snapshots with retention time $snapRet day using CLI for: $dirsToSnap\n"
 else 
-  echo "INFO: $(date) creating snapshots using API ($apiServer) for: $dirsToSnap"
+  echo -e "INFO: $(date) creating snapshots with retention time $snapRet day using API ($apiServer) for: $dirsToSnap\n"
+fi
+
+# on AIX remove sqllib/tsmdbauth socket file prior to taking the snapshot
+if [[ $os = "AIX" ]]; then
+  echo -e "DEBUG: removing socket file $HOME/sqllib/tsmdbauth on platform $os.\n"
+  rm -f $HOME/sqllib/tsmdbauth
 fi
 
 # determine date string as snapshot name postfix
 snapPostfix=$(date +%Y%m%d%H%M%S)
 
-# compose the expiration-time string. If snapRet=0, then we ommit this string because it only works 5.1.5 onwards
-# echo "DEBUG: snapshot retention time is $snapRet days"
-if [[ $snapRet = "0" ]]; then
-  expClause=""
-else
-  if [[ -z $apiServer ]]; then
-    expClause="--expiration-time $(date +%Y-%m-%d-%H:%M:%S -d "$DATE + $snapRet day")"
-  else
-    expClause="\"expirationTime\": \"$(date +%Y-%m-%d-%H:%M:%S -d "$DATE + $snapRet day")\","
-  fi 
-fi
 
 # initialize variable and iterate through the dirsToSnap and create snapshot
 item=""
@@ -392,6 +445,7 @@ fi
 
 
 ### resume protect Db
+echo -e "\n-----------------------------------------------------------------------------"
 echo "INFO: $(date) resuming Db for instance $instUser"
 db2 set write resume for db
 rc=$?

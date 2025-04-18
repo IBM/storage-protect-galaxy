@@ -1,33 +1,11 @@
 #!/bin/bash
-
-################################################################################
-# The MIT License (MIT)                                                        #
-#                                                                              #
-# Copyright (c) 2025 IBM Corporation                             			   #
-#                                                                              #
-# Permission is hereby granted, free of charge, to any person obtaining a copy #
-# of this software and associated documentation files (the "Software"), to deal#
-# in the Software without restriction, including without limitation the rights #
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell    #
-# copies of the Software, and to permit persons to whom the Software is        #
-# furnished to do so, subject to the following conditions:                     #
-#                                                                              #
-# The above copyright notice and this permission notice shall be included in   #
-# all copies or substantial portions of the Software.                          #
-#                                                                              #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR   #
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,     #
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE  #
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER       #
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,#
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE#
-# SOFTWARE.                                                                    #
-################################################################################
-
-# Author: N. Haustein
-# 
-# Program:
-# restore file system or filesets from snapshot and start the database manager
+#********************************************************************************
+# IBM Storage Protect
+#
+# (C) Copyright International Business Machines Corp. 2025
+#                                                                              
+# Name: isnap-restore.sh
+# Desc: Restore file system or filesets from snapshot and start the database manager
 # this scripts runs on the host where the instance is running and uses sudo or the REST API
 #
 # Input: 
@@ -43,15 +21,9 @@
 # - snapshot prefix
 # - API server: optional, when REST API is used. In this case, the snapshot restore is not performed.
 #
-#---------------------------------------
-# history
-# 03/02/24 adjust for TSLM: check if TSM or TSLM Media Manager is running - version 1.4
-# 03/20/24 adjust for TSLM: elif for ERMM db - version 1.5
-# 02/19/25 use DB2_HOME instead of INST_DIR variable, add -? syntax - version 1.6
-# 03/07/25 use ps instead of pgrep (AIX compatibility), improve iterating dirsToSnap
-# 03/25/25 AIX compatibility changes
-# 03/25/25 add sudo command variable 
-# 03/25/25 add variable for server instance dir if this this is different than instance user dir - version 1.8
+# Usage:
+# 
+#********************************************************************************
 
 
 #---------------------------------------
@@ -75,11 +47,9 @@ instUser=$(id -un)
 # sudo command to be used
 sudoCmd=/usr/bin/sudo
 
-# server instance directory if this is different to instance user directory
-serverInstDir=""
 
 # program version
-ver=1.8
+ver=1.9
 
 # -----------------------------------------------------------------
 # function parse_config to parse the config file
@@ -120,13 +90,16 @@ function parse_config()
             if [[ "$name" = "dirsToSnap" ]]; then
               dirsToSnap=$val
             fi
-			if [[ "$name" = "apiServerIP" ]]; then
+            if [[ "$name" = "serverInstDir" ]]; then
+              serverInstDir=$val
+            fi
+			      if [[ "$name" = "apiServerIP" ]]; then
               apiServer=$val
             fi
-			if [[ "$name" = "apiServerPort" ]]; then
+			      if [[ "$name" = "apiServerPort" ]]; then
               apiPort=$val
             fi
-			if [[ "$name" = "apiCredentials" ]]; then
+			      if [[ "$name" = "apiCredentials" ]]; then
               apiAuth=$val
             fi
           fi
@@ -213,8 +186,8 @@ snapPrefix=""
 apiServer=""
 apiPort=""
 apiAuth=""
+serverInstDir="$HOME"
 parse_config
-
 
 ### check the required parameters
 # if dirsToSnap is empty, then exist
@@ -222,6 +195,13 @@ if [[ -z $dirsToSnap ]]; then
   echo "ERROR: parameter dirsToSnap is emtpy."
   exit 2
 fi
+
+# Present Warning if serverInstDir does not exist (could be corrupted)
+if [[ ! -d $serverInstDir ]]; then 
+  echo "WARNING: Server instance directory $serverInstDir does not exist in the file system. This may be normal in case the file system is corrupted."
+  echo "         Specify a valid directory for parameter serverInstDir in config file $configFile."
+fi
+
 # if API server was specified and no credentials then exit, set API port to default 443 if not set
 if [[ ! -z $apiServer ]]; then
   if [[ -z $apiAuth ]]; then
@@ -379,7 +359,9 @@ cd $curDir
 # if rc is 0 then restart the Db and start the server in maintenance (not the case if the APi is used)
 if (( rc == 0 )); then
   ### starting the Db manager and resuming the DB
+  echo -e "\n-----------------------------------------------------------------------------"
   echo "INFO: $(date) snapshot restore finished, starting Db manager and resuming the DB $dbName."
+  echo -e "-----------------------------------------------------------------------------\n"
   db2start
   db2 restart db $dbName write resume
   rc=$?
@@ -392,9 +374,7 @@ if (( rc == 0 )); then
     ### start dsmserv (TSM)
 
     # if the server instance directory is given, then change to this directory
-    if [[ ! -z $serverInstDir ]]; then
-      cd $serverInstDir
-    fi 
+    cd $serverInstDir
 
     echo "INFO: $(date) starting the instance in maintenance mode, client session are not allowed."
     echo "      Check the instance and if everything is good, stop it (halt) and start it as service." 
@@ -522,11 +502,9 @@ if [[ "$a" == "yes" ]]; then
     echo
     
     # if the server instance directory is given, then change to this directory
-    if [[ ! -z $serverInstDir ]]; then
-      echo "ACTION: Change the directory to server instance directory $serverInstDir"
-      echo "# cd $serverInstDir"
-      echo
-    fi 
+    echo "ACTION: Change the directory to server instance directory $serverInstDir"
+    echo "# cd $serverInstDir"
+    echo
 
     echo "ACTION: Start the instance in maintenance mode, client session are not allowed."
     echo "Check the instance and if everything is good, stop it (halt) and start it as service." 
