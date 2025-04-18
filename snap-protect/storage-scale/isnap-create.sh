@@ -21,6 +21,8 @@
 #  sed -i 's/\# $sudoCmd \$gpfsPath\/mmsysmonc/$sudoCmd \$gpfsPath\/mmsysmonc/g' del-snaps.sh
 # 
 # Usage:
+# $ ./isnap-create.sh -r | --run
+#   -r | --run: perform the snapshot if the prerequisites are satisfied
 #
 #********************************************************************************
 

@@ -22,6 +22,8 @@
 # - API server: optional, when REST API is used. In this case, the snapshot restore is not performed.
 #
 # Usage:
+# $ ./isnap-restore.sh snapshot-name
+#   snapshot-name: name of the snapshot to be restored on all relevant file sets.
 # 
 #********************************************************************************
 

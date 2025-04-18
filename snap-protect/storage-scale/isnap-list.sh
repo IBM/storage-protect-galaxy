@@ -19,6 +19,11 @@
 # - snapshot prefix
 #
 # Usage:
+# $ ./isnap-list.sh [-i instance-user-name -s snapshot-name -v -h | --help]
+#   -i instance-user-name:  Name of the instance (user) for which the snapshots are listed (optional, default is user running this command).
+#   -s snapshot-name:       Snapshot name to be listed (checked) for all relevant file systems and filesets (optional, lists all snapshot by default).
+#   -v:                     Show allocated blocks (optional, does not work with REST API)
+#   -h | --help:            Show this help message (optional).
 # 
 #********************************************************************************
 
