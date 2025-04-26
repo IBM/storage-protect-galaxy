@@ -21,8 +21,10 @@
 #  sed -i 's/\# $sudoCmd \$gpfsPath\/mmsysmonc/$sudoCmd \$gpfsPath\/mmsysmonc/g' del-snaps.sh
 # 
 # Usage:
-# $ ./isnap-create.sh -r | --run
-#   -r | --run: perform the snapshot if the prerequisites are satisfied
+# ./isnap-create.sh -r | --run | -h | --help
+# -r | --run:  Perform the snapshot if the prerequisites are satisfied
+# -h | --help: Show this help message (optional).
+# *: show usage.
 #
 #********************************************************************************
 
@@ -236,10 +238,12 @@ echo "INFO: $(date) program $0 version $ver started for instance $instUser on pl
 
 
 ### check if the run parameter is specified
-if [[ ! $1 = "-r" && ! $1 = "--run" ]]; then
-  echo "Syntax: isnap-create.sh -r | --run"
-  echo "  -r | --run: perform the snapshot if the prerequisites are satisfied"
-  echo "  *: show syntax."
+if [[ $1 = "-h" || $1 = "--help" ]] || [[ ! $1 = "-r" && ! $1 = "--run" ]]; then
+  echo "Usage: "
+  echo "./isnap-create.sh -r | --run | -h | --help"
+  echo " -r | --run : Perform the snapshot if the prerequisites are satisfied"
+  echo " -h | --help: Show this help message (optional)."
+  echo " *: show usage."
   echo
   exit 0
 fi
@@ -387,12 +391,6 @@ if [[ -z $apiServer ]]; then
   echo -e "INFO: $(date) creating snapshots with retention time $snapRet day using CLI for: $dirsToSnap\n"
 else 
   echo -e "INFO: $(date) creating snapshots with retention time $snapRet day using API ($apiServer) for: $dirsToSnap\n"
-fi
-
-# on AIX remove sqllib/tsmdbauth socket file prior to taking the snapshot
-if [[ $os = "AIX" ]]; then
-  echo -e "DEBUG: removing socket file $HOME/sqllib/tsmdbauth on platform $os.\n"
-  rm -f $HOME/sqllib/tsmdbauth
 fi
 
 # determine date string as snapshot name postfix

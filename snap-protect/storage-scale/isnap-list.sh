@@ -33,6 +33,7 @@
 #---------------------------------------
 # name of the config file
 configFile=/usr/local/bin/snapconfig.json
+#configFile=snapconfig.json
 
 # path of GPFS commands
 gpfsPath="/usr/lpp/mmfs/bin"
@@ -44,6 +45,20 @@ instUser=$(id -un)
 sudoCmd=/usr/bin/sudo
 
 
+#------------------------------------------------------------------
+# Print usage
+#------------------------------------------------------------------
+function usage()
+{
+     echo "Usage:"
+     echo "./isnap-list.sh [-i instance-user-name -s snapshot-name -v -h | --help]"
+     echo " -i instance-user-name:  Name of the instance (user) for which the snapshots are listed (optional, default is user running this command)."
+     echo " -s snapshot-name:       Snapshot name to be listed (checked) for all relevant file systems and filesets (optional, lists all snapshot by default)."
+     echo " -v:                     Show allocated blocks (optional, does not work with REST API)"
+     echo " -h | --help:            Show this help message (optional)."
+     echo
+     return 0
+}
 
 # -----------------------------------------------------------------
 # function syntax 
@@ -51,14 +66,12 @@ sudoCmd=/usr/bin/sudo
 # -----------------------------------------------------------------
 function syntax()
 {
-  echo
-  echo "ERROR: $1"
-  echo "Syntax: isnap-list.sh [-i instance-user-name -s snapshot-name -v -h | --help]"
-  echo "  -i instance-user-name:  Name of the instance (user) for which the snapshots are listed (optional, default is user running this command)."
-  echo "  -s snapshot-name:       Snapshot name to be listed (checked) for all relevant file systems and filesets (optional, lists all snapshot by default)."
-  echo "  -v:                     Show allocated blocks (optional, does not work with REST API)"
-  echo "  -h | --help:            Show this help message (optional)."
-  echo
+  if [[ ! -z $1 ]]; then
+     echo "ERROR: $1"
+     usage
+  else
+     usage
+  fi
   return 0
 }
 
@@ -188,7 +201,7 @@ do
 		  snapName=$1
 		fi;;
   "-h" | "--help")
-        syntax "command syntax"
+        syntax
         exit 1;;
   *)    syntax "wrong argument $1"
         exit 1;;

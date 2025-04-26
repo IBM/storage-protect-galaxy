@@ -19,6 +19,9 @@
 # requires jq to be installed 
 #
 # Usage:
+# ./isnap-fscap.sh [-i instance-user-name]
+#  -i instance-user-name: instance name to the fileset capacities
+#  -h | --help:            Show this help message (optional).
 # 
 #********************************************************************************
 
@@ -97,21 +100,33 @@ function parse_config()
   return 0
 }
 
+#------------------------------------------------------------------
+# Print usage
+#------------------------------------------------------------------
+function usage()
+{
+     echo "Usage:"
+     echo "./isnap-fscap.sh [-i instance-user-name]"
+     echo " -i instance-user-name: instance name to the fileset capacities"
+     echo " -h | --help:            Show this help message (optional)."
+     echo
+     return 0
+}
 
 # -----------------------------------------------------------------
-# function syntax 
+# function syntax
 #
 # -----------------------------------------------------------------
 function syntax()
 {
-  echo
-  echo "ERROR: $1"
-  echo "Syntax: isnap-fscap.sh [-i instance-user-name]"
-  echo "  -i instance-user-name: instance name to the fileset capacities"
-  echo
+  if [[ ! -z $1 ]]; then
+     echo "ERROR: $1"
+     usage
+  else
+     usage
+  fi
   return 0
 }
-
 
 #---------------------------------------
 # Main
@@ -131,7 +146,7 @@ do
 		  instUser=$1
 		fi;;
   "-h" | "--help")
-        syntax "command syntax"
+        syntax
         exit 1;;
   *)    syntax "wrong argument $1"
         exit 1;;

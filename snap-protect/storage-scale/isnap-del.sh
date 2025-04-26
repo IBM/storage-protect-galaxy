@@ -27,14 +27,13 @@
 #   sed -i 's/\# $sudoCmd \$gpfsPath\/mmsysmonc/$sudoCmd \$gpfsPath\/mmsysmonc/g' isnap-del.sh
 #
 # Usage:
-# $ ./isnap-del.sh -s snapshot-name | -g snapshot-age [-i instance-name -p]
-#   -s snapshot-name: Name of the snapshot to be deleted from all file systems. Required if -g is not specified.
-#   -g snapshot-age:  Age of snapshots in days to be deleted from all file systems. Required if -s is not specified.
-#   -i instance-name: Instance user name, default is the user running this script (optional)
-#   -p:               Preview snapshot names to be deleted from all file systems (optional)
+# ./isnap-del.sh -s snapshot-name | -g snapshot-age [-i instance-name -p]
+#  -s snapshot-name: Name of the snapshot to be deleted from all file systems. Required if -g is not specified.
+#  -g snapshot-age:  Age of snapshots in days to be deleted from all file systems. Required if -s is not specified.
+#  -i instance-name: Instance user name, default is the user running this script (optional)
+#  -p:               Preview snapshot names to be deleted from all file systems (optional)
+#  -h | --help:      Show this help message (optional).
 #
-#********************************************************************************
-
 #---------------------------------------
 # global parameters
 #---------------------------------------
@@ -59,20 +58,34 @@ sudoCmd=/usr/bin/sudo
 # version
 ver=1.7
 
+#------------------------------------------------------------------
+# Print usage
+#------------------------------------------------------------------
+function usage()
+{
+     echo "Usage:"
+     echo "./isnap-del.sh -s snapshot-name | -g snapshot-age [-i instance-name -p]"
+     echo " -s snapshot-name: Name of the snapshot to be deleted from all file systems. Required if -g is not specified."
+     echo " -g snapshot-age:  Age of snapshots in days to be deleted from all file systems. Required if -s is not specified."
+     echo " -i instance-name: Instance user name, default is the user running this script (optional)"
+     echo " -p:               Preview snapshot names to be deleted from all file systems (optional)"
+     echo " -h | --help:      Show this help message (optional)."
+     echo
+     return 0
+}
+
 # -----------------------------------------------------------------
-# function syntax 
+# function syntax
 #
 # -----------------------------------------------------------------
 function syntax()
 {
-  echo
-  echo "ERROR: $1"
-  echo "Syntax: isnap-del.sh -s snapshot-name | -g snapshot-age [-i instance-name -p]"
-  echo "  -s snapshot-name: Name of the snapshot to be deleted from all file systems. Required if -g is not specified."
-  echo "  -g snapshot-age:  Age of snapshots in days to be deleted from all file systems. Required if -s is not specified."
-  echo "  -i instance-name: Instance user name, default is the user running this script (optional)"
-  echo "  -p:               Preview snapshot names to be deleted from all file systems (optional)"  
-  echo
+  if [[ ! -z $1 ]]; then
+     echo "ERROR: $1"
+     usage
+  else
+     usage
+  fi
   return 0
 }
 
@@ -302,7 +315,7 @@ do
 		fi;;
   "-p") preview=1;;
   "-h" | "--help")
-        syntax "command syntax"
+        syntax
         exit 1;;
   *)    syntax "wrong argument $1"
         exit 1;;

@@ -22,8 +22,9 @@
 # - API server: optional, when REST API is used. In this case, the snapshot restore is not performed.
 #
 # Usage:
-# $ ./isnap-restore.sh snapshot-name
-#   snapshot-name: name of the snapshot to be restored on all relevant file sets.
+# ./isnap-restore.sh snapshot-name
+#  snapshot-name: Name of the snapshot to be restored on all relevant file sets.
+#  -h | --help:   Show this help message (optional)."
 # 
 #********************************************************************************
 
@@ -169,8 +170,10 @@ echo "INFO: $(date) program $0 version $ver started for instance $instUser"
 
 ### Provide syntax with help parameter, otherwise $1 is the name of the snapshot
 if [[ $1 = "-h" || $1 = "--help" || $1 = "-?" || -z $1 ]]; then
-  echo "Syntax: isnap-restore.sh snapshot-name"
-  echo "  snapshot-name: name of the snapshot to be restored on all relevant file sets."
+  echo "Usage:"
+  echo "./isnap-restore.sh snapshot-name"
+  echo " snapshot-name: Name of the snapshot to be restored on all relevant file sets."
+  echo " -h | --help:   Show this help message (optional)."
   echo
   exit 0
 fi
@@ -259,7 +262,11 @@ else
 fi
 if [[ -z $snapName ]]; then
   echo "ERROR: snapshot name not specified."
-  echo "       syntax: isnap-restore.sh snapshotname"
+  echo "Usage:"
+  echo "./isnap-restore.sh snapshot-name"
+  echo " snapshot-name: Name of the snapshot to be restored on all relevant file sets."
+  echo " -h | --help:   Show this help message (optional)."
+  echo
   exit 4
 else
   rc=0
