@@ -188,7 +188,7 @@ If the snapshots are managed via the CLI, then the instance user can be configur
 ``` 
 ### add /usr/lpp/mmfs/bin to secure_path
 Defaults    secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/lpp/mmfs/bin
-…
+
 ### Allow a specifig instance user to run snapshot commands and mmsysmonc without password
 tsminst1 ALL=(ALL)       NOPASSWD: /usr/lpp/mmfs/bin/mmcrsnapshot,/usr/lpp/mmfs/bin/mmlssnapshot,/usr/lpp/mmfs/bin/mmdelsnapshot,/usr/lpp/mmfs/bin/mmrestorefs,/usr/lpp/mmfs/bin/mmsysmonc,/usr/lpp/mmfs/bin/mmlsfileset,/usr/bin/du
 
