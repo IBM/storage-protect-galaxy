@@ -15,7 +15,7 @@ This project supports the following storage system:
 
 ### License
 
-This project is under [MIT license](../LICENSE).
+This project is under [Apache License 2.0](../LICENSE).
 
 
 ## Workflows
