@@ -28,6 +28,7 @@ Find below some limitations for the usage of these scripts with IBM Storage Scal
 - Storage Protect disk, file and container pools were tested
 - Volume reuse delay for Storage Protect volumes must be set to the retention period of the snapshots plus 1
 - JSON parser program `jq` is required
+- The Snap-Protect scripts are currently not supported for Storage Scale installed on an AIX platform
 
 
 ### License
