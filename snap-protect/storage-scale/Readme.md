@@ -75,12 +75,13 @@ This section describes the installation and configuration of the scripts associa
 
 ### Copy and explore scripts
 
-Copy or git clone the scripts to the Storage Protect server (e.g. `/usr/local/bin`) and make the script files `*.sh` executable:
+Copy or git clone the scripts to the Storage Protect server (e.g. `/tmp/`), copy all the files under `snap-protect/storage-scale/` directory to `/usr/local/bin` and make the script files `*.sh` executable:
 
 ```
-# git clone https://github.com/IBM/storage-protect-galaxy.git ./
-# cd snap-protect/
-# chmod +x storage-scale/*.sh
+# git clone https://github.com/IBM/storage-protect-galaxy.git /tmp/
+# cd /tmp/snap-protect/storage-scale/
+# cp * /usr/local/bin/
+# chmod +x *.sh
 ```
 
 **Note:** The gitHub repository is only accessible by the IBM organization. If you obtained the scripts from IBM, then copy the scripts to the Storage Protect servers. 
