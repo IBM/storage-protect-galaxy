@@ -19,16 +19,16 @@ Find below a description of the prerequisites, installation and configuration an
 
 Find below some limitations for the usage of these scripts with IBM Storage Scale:
 
-- Storage Scale version 5.1.9, 5.2.1 and 5.2.2 were tested on RHEL 8 and RHEL 9
-- Storage Scale ESS and Storage Scale software defined deployments were tested
-- Single cluster and remote cluster architectures (Storage Protect instances running in remote cluster) were tested
-- Stretched cluster was tested
+- Storage Scale version 5.2.1 and above are supported. Note, the scripts where also tested with version 5.1.9. However, there is a issue when restoring independent filesets that contain nested dependent filesets. For this reason, the recommended Storage Scale version is 5.2.1 where this issue was fixed. 
+- Supported operating system versions are Red Hat Enterprise Linux 8 and 9. AIX is not yet supported
+- Storage Protect version 8.1.25 and above are supported
+- Storage Scale ESS and Storage Scale software defined deployments are supported
+- Single cluster and remote cluster architectures (Storage Protect instances running in remote cluster) are supported
 - Each instance must either have dedicated filesystem or dedicated independent fileset for all instance specific backup data and metadata
-- Storage Protect version 8.1.25 and above were tested
-- Storage Protect disk, file and container pools were tested
-- Volume reuse delay for Storage Protect volumes must be set to the retention period of the snapshots plus 1
-- JSON parser program `jq` is required
-- The Snap-Protect scripts are currently not supported for Storage Scale installed on an AIX platform
+- Storage Protect disk, file and container pools are supported
+- Volume reuse delay for Storage Protect storage pools must be set to the retention period of the snapshots plus 1. This especially applies to storage pools that are not snapped, for example copy pools on tape
+- JSON parser program `jq` is required to be installed on the Storage Protect servers
+- Bash shell is required
 
 
 ### License
@@ -75,7 +75,7 @@ This section describes the installation and configuration of the scripts associa
 
 ### Copy and explore scripts
 
-Copy or git clone the scripts to the Storage Protect server (e.g. `/tmp/`), copy all the files under `snap-protect/storage-scale/` directory to `/usr/local/bin` and make the script files `*.sh` executable:
+Copy or git clone the scripts to the Storage Protect server (e.g. `/usr/local/bin`) and make the script files `*.sh` executable:
 
 ```
 # git clone https://github.com/IBM/storage-protect-galaxy.git /tmp/storage-protect-galaxy
@@ -94,8 +94,9 @@ The following files are included in this project:
 ├── isnap-fscap.sh
 ├── isnap-list.sh
 ├── isnap-restore.sh
-├── snapconfig.json
-└── isnap-create.sh
+├── isnap-wrapper.sh
+├── isnap-create.sh
+└── snapconfig.json
 ``` 
 
 The script files (`*.sh`) are further described in sectio [Workflows and scripts](#Workflows-and-scripts). The configuration file (`snapconfig.json`) is described in the next section [Adjust configuration files](#Adjust-configuration-files).
@@ -114,6 +115,7 @@ For each Storage Protect instance a list of configuration parameters is required
 | dbName | Name of the Db2, usually this is TSMDB1 | yes | TSMDB1 | 
 | snapRetention | Retention time in days for the snapshot, default is 0 days. Snapshots cannot be deleted during retention time	| no | 5 |
 | serverInstDir | Instance directory of the server (where dsmserv.opt resides). Must only be specified if different to instance user home. Default is instance user home directory.	| no | /tsminst/inst01/home |
+| sudoCommand | Full qualified path of command used by the instance user run other commands with root privileges. Default is `/usr/bin/sudo`. | no | /usr/bin/dzdo |
 | apiServerIP | IP address or host name of the REST API server. If this parameter is set, then the REST API is used instead of the CLI. | no | x.x.x.x |
 | apiServerPort | IP port of the REST API server. If not set it defaults to 443 | yes | 443 |
 | apiCredentials | REST API user and password encoded in base64 as User:Password  | yes | YWRtaW46VGVzdDEyMzRhIQ== |
@@ -130,6 +132,7 @@ The configuration parameter for each instance is stored in a configuration file:
 	"snapPrefix": "tsminst1-snap",
 	"snapRetention": "4",
   "serverInstDir": "/tsminst/inst01/home",
+  "sudoCommand": "/usr/bin/sudo",
 	"apiServerIP": "REST API server IP",
 	"apiServerPort": "REST API server IP, default is 443",
 	"apiCredentials": "base64 encoded API user User:Password",
@@ -141,6 +144,7 @@ The configuration parameter for each instance is stored in a configuration file:
 	"snapPrefix": "tsminst2-snap",
 	"snapRetention": "4",
   "serverInstDir": "/tsminst/inst02/home",
+  "sudoCommand": "/usr/bin/sudo",
 	"apiServerIP": "REST API server IP",
 	"apiServerPort": "REST API server IP, default is 443",
 	"apiCredentials": "base64 encoded API user UserPassword",
@@ -200,7 +204,7 @@ tsminst1 ALL=(ALL)       NOPASSWD: /usr/lpp/mmfs/bin/mmcrsnapshot,/usr/lpp/mmfs/
 
 **Note:** to raise events if the snapshot creation fails, the `mmsysmonc` command must also be allowed in the sudo context (see [Event notification](#Event-notification). 
 
-If a different command than `/usr/bin/sudo` is used for privilege escalation, then the variable `sudoCmd` can be adjusted and set to the command that is used. By default the variable `sudoCmd` is set to `/usr/bin/sudo` in all isnap-scripts. 
+If a different command than `/usr/bin/sudo` is used for privilege escalation, then the configuration parameter `sudoCommand` can be set to the command that is used in the configuration file `snapconfig.json` (see [Adjust configuration files](#Adjust-configuration-files)).
 
 If the snapshots are managed via the REST API, then the instance user does not need the sudo-privileges for the CLI based snapshot commands. 
 
@@ -271,11 +275,16 @@ $ isnap-restore.sh --help
 
 ### Create schedules
 
-The creation of consistent SGC can be scheduled using `cron`. The creation of SGC must be executed by the instance user (for example `tsminst1`), hence the schedule must be created in the context of the instance user. 
+The creation and deletion of consistent SGC can be scheduled with different methods, such as system scheduler like `cron`, Storage Protect client schedules or external schedulers. The creation of SGC must be executed by the instance user (for example `tsminst1`), hence the schedule must be created in the context of the instance user. 
 
 **Note:** Do not schedule the SGC creation at the same time when a Storage Protect Db backup is executed or during heavy backup or housekeeping workloads!!
 
-The example below creates an SGC every day at midnight using `isnap-create.sh`. It requires to enter the `home-directory-of-instance-user` for parameters `HOME` and `BASH_ENV`:
+
+#### Scheduling with cron
+
+Schedules with `cron` must be defined on all servers where Storage Protect instances are running. Each Storage Protect can have its own schedule. This also requires that the `isnap` scripts are installed on all servers hosting Storage Protect instances. 
+
+The example below creates an SGC every day at midnight using `isnap-create.sh` (see [Create safeguarded copy](#Create-safeguarded-copy)). Adjust the setting of `home-directory-of-instance-user` for parameters `HOME` and `BASH_ENV`:
 
 
 ```
@@ -292,7 +301,7 @@ MAILTO=root
 00 00 *  *  * /usr/local/bin/isnap-create.sh -r >> /tmp/snaplogs/tsminst1-snapcreate.log 2>&1
 ```
 
-An alternative way to schedule the creation of SGC - e.g. for AIX - is to source the `profile` of the instance user prior to executing `isnap-create.sh`:
+An alternative way to schedule the creation of SGC is to source the `profile` of the instance user prior to executing `isnap-create.sh`:
 
 ```
 # create snapshot at midnight every day
@@ -300,7 +309,7 @@ An alternative way to schedule the creation of SGC - e.g. for AIX - is to source
 ```
 
 
-SGC that are expired based on the snapshot retention time can be deleted. The snapshot retention time is configured in the configuration file as parameter `snapRetention` (see [Adjust configuration files](#Adjust-configuration-files)). To accommodate the automated deletion of SGC that are older than the retention time, the script `isnap-del.sh` is used. The example below deletes SGC that are older than 10 days. 
+SGC that are expired based on the snapshot retention time can be deleted. The snapshot retention time is configured in the configuration file as parameter `snapRetention` (see [Adjust configuration files](#Adjust-configuration-files)). To accommodate the automated deletion of SGC that are older than the retention time, the script `isnap-del.sh` is used (see [Delete safeguarded copy](#Delete-safeguarded-copy)). The example below deletes SGC that are older than 10 days. 
 
 ```
 # delete snapshots older than 10 days at 00:00
@@ -308,6 +317,88 @@ SGC that are expired based on the snapshot retention time can be deleted. The sn
 ```
 
 **Note:** the age of the snapshot given with the parameter `-g` must be equal or greater than the snapshot retention time given in configuration parameter `snapRetention`. 
+
+
+#### Scheduling with Storage Protect client schedules
+
+The Storage Protect scheduler can be used to schedule the creation and deletion of consistent SGC. This requires two additional components on all servers running Storage Protect instances that are snapped:
+
+- `isnap-wrapper.sh` script that is invoked by the client schedule and runs the appropriate `isnap` script (see [Wrapper script](#Wrapper-script)).
+- Storage Protect client acceptor daemon `dsmcad`
+
+
+On the server, install `isnap-wrapper.sh` script in `/usr/local/bin`, or a different path that is accessible by the root user. 
+
+
+In the Storage Protect instance register client node for scheduling. The client node name in this example is `isnap-scheduler`:
+
+```
+> REGISTER NODE ISNAP-SCHEDULER ?***? USERID=NONE DOMAIN=STANDARD EMAILADDRESS=admin@my-company.org CONTACT=admin-name
+```
+
+
+In the Storage Protect instance create the client schedule for node `isnap-scheduler`. In the following example a schedule for SGC creation (`isnap-create`) starting daily at 5 AM and a schedule for SGC deletion (`isnap-delete`) starting daily at 6 AM are defined. The command executed by the schedule is `isnap-wrapper.sh` which wraps the `isnap` scripts (see [Wrapper script](#Wrapper-script)).
+
+```
+> DEFINE SCHEDULE STANDARD isnap-create action=command objects='/usr/local/bin/isnap-wrapper.sh -i tsminst1 -c' startt=05:00
+> DEFINE SCHEDULE STANDARD isnap-delete action=command objects='/usr/local/bin/isnap-wrapper.sh -i tsminst1 -d 5' startt=06:00
+> DEFINE ASSOCIATION standard ISNAP-CREATE ISNAP-SCHEDULER
+> DEFINE ASSOCIATION standard ISNAP-DELETE ISNAP-SCHEDULER
+``` 
+
+On the server, configure client acceptor daemon. First, add the following stanza to dsm.sys. This stanze references the previously create client node `isnap-scheduler` which is used in Storage Protect to execute the client schedule: 
+
+
+```
+	*  ========================ISNAP-SCHEDULER=============================
+	Servername              isnap-scheduler
+	NODename                isnap-scheduler
+	PASSWORDAccess          generate
+	PASSWORDDIR             /opt/tivoli/tsm/client/ba/bin/tsmpwd
+	
+	TCPServeraddress        server1.ibm.lab
+	TCPPort                 1500
+	COMMMethod              TCPip
+	
+	SCHEDMODe               PRompted
+	MANAGEDSERVICES         SCHEDULE
+	TCPCLIENTPort           1501
+	ERRORLOGRetention       90
+	SCHEDLOGRetention       90
+	SCHEDLOGName            /opt/tivoli/tsm/client/ba/bin/dsmsched-isnap-scheduler.log
+	ERRORLOGName            /opt/tivoli/tsm/client/ba/bin/dsmerror-isnap-scheduler.log
+```
+
+Second create an option file that references the server name `isnap-scheduler`. In this example, the option file is named `dsm_isnap-scheduler.opt`:
+
+```
+	Servername isnap-scheduler
+```
+
+Now, install and configure the client acceptor daemon (`dsmcad`)
+
+```
+cp /opt/tivoli/tsm/client/ba/bin/rc.dsmcad /opt/tivoli/tsm/client/ba/bin/rc.dsmcad.isnap-scheduler
+
+vi /opt/tivoli/tsm/client/ba/bin/rc.dsmcad.isnap-scheduler
+	==> replace all "daemon $DSMCAD_BIN" with "daemon $DSMCAD_BIN -optfile=/opt/tivoli/tsm/client/ba/bin/dsm_isnap-scheduler.opt"
+
+ln -s /opt/tivoli/tsm/client/ba/bin/rc.dsmcad.isnap-scheduler /etc/rc.d/init.d/dsmcad.isnap-scheduler
+```
+
+Start and enable the client acceptor daemon service:
+
+```
+# Start DSMCAD for scheduling
+#########################################
+
+# systemctl enable dsmcad.isnap-scheduler
+# systemctl start dsmcad.isnap-scheduler
+# systemctl status dsmcad.isnap-scheduler
+```
+
+
+Test and monitor the client schedules. The `isnap-wrapper.sh` scripts stores log files by default in `/var/log/isnap`. The client acceptor stores log files in `/opt/tivoli/tsm/client/ba/bin/dsmsched-isnap-scheduler.log` (as provided as parameter `SCHEDLOGName` in file `dsm.sys` above.)
 
 
 ------------------------------
@@ -396,6 +487,17 @@ The script does not perform the restore under the following conditions
 **Note:** If quota is enabled on file systems and filesets, then the snapshot restore may fail. Disable quota prior to restore and enable quota after the snapshot restore. Alternatively, unmount the file system and perform the snapshot restore. 
 
 **Note:** The script must be exectured as instance user on the server where the instance was running. The script requires that the instance is stopped. When running the script on one server while the instance is running on another server, the script does not detect this and performs the restore operation while the instance may be running on another server. This will cause the instance to become unavailable and potentially corrupted.
+
+
+**Note:** When running isnap-restore.sh in automated mode (no GUI is used) and the instance home directory is not accessible, then it requires to run isnap-restore.sh two times. The first time isnap-restore.sh restores the instance home directory but fails to start the db2 because it could not source the environment initially. Prior running isnap-restore.sh a second time, login as instance user again to source the environment. After the second run, the db2 will be started, set to write resume and the instance is started in maintenance mode. 
+Note, after the first run, the instance could be started manually, without running isnap-restore.sh again. Follow these steps:
+•	Logout as instance user
+•	Login as instance user
+•	Run: db2start
+•	Run: db2 restart db $dbName write resume
+•	Change to the server instance directory (may be the same as instance user home directory)
+•	Run: dsmserv maintenance
+After the instance started in maintenance mode and was verified, then halt the instance and start it normally. 
 
 
 
@@ -538,7 +640,37 @@ tsmbackup              2.0T  135G  1.9T   7% /gpfs/tsmbackup
 The first portion of the output shows the total allocation in the fileset and the capacity allocated by snapshots. The second portions shows the filel system usage statistic. 
 
 Note, the scipt uses the configuration file (see [Adjust configuration files](#Adjust-configuration-files)) to determine file system and fileset combination of the instance. When running this script as non-instance user, then specify the instance user name with the parameter `-i instance-user`.
- 
+
+
+### Wrapper script
+
+The wrapper script `isnap-wrapper.sh` can be used to schedule SGC operations such as creation, deletion, list and file system capacity statistics. The wrapper script is launched by the root user and executes the specified SGC operations as instance user (via `su instanceUser -c "SGC operation command"`). The `isnap-wrapper.sh` is placed on the Storage Protect server and can be invoked by a scheduler running either local on the server or remotely. 
+
+
+**Syntax:**
+
+```
+./isnap-wrapper.sh -i inst-name [-c | -d age | -l | -f ]
+  -i inst-name: name of the instance to be processed (required)
+
+  Even one of the following operation arguments is required.
+  -c:     create snapshot - invokes isnap-create.sh -r
+  -d age: delete snapshots older than age - invokes isnap-del.sh -g age
+  -l:     list snapshots - invokes isnap-list.sh
+  -f:     list fileset and snapshot capacities - invokes isnap-fscap.sh
+
+  To get help
+  -h | --help:   Show this help message (optional).
+```
+
+The instance name must match the name of the Storage Protect instance scheduling the operation.
+
+One operation (create, delete, list or fscap) can be specified for each invokation of `isnap-wrapper.sh`. 
+
+The `isnap-wrapper.sh` parses the command line parameters and invokes the appropriate `isnap` script to execute the requested operation. 
+
+The `isnap-wrapper.sh` creates log files for each instance and operation in the directory `/var/log/isnap`. The log file name is composes as `instanceName-operation.log`. For example, for the creation of SGC for instance tsminst1, the log file name is `tsminst1-create.log`. When required log rotation should be configured for this directory. 
+
 
 
 END OF DOCUMENT
