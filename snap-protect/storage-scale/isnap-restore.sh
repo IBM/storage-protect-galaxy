@@ -27,6 +27,9 @@
 #  -h | --help:   Show this help message (optional)."
 # 
 #********************************************************************************
+#
+# History
+# 04/30/25 added sudoCmd to snapconfig.json - version 1.9.1
 
 
 #---------------------------------------
@@ -47,12 +50,9 @@ instUser=$(id -un)
 #instUser=tsminst1
 ########################
 
-# sudo command to be used
-sudoCmd=/usr/bin/sudo
-
-
 # program version
-ver=1.9
+ver=1.9.1
+
 
 # -----------------------------------------------------------------
 # function parse_config to parse the config file
@@ -95,6 +95,9 @@ function parse_config()
             fi
             if [[ "$name" = "serverInstDir" ]]; then
               serverInstDir=$val
+            fi
+            if [[ "$name" = "sudoCommand" ]]; then
+              sudoCmd=$val
             fi
 			      if [[ "$name" = "apiServerIP" ]]; then
               apiServer=$val
@@ -165,7 +168,8 @@ function check_apisnapshot()
 #---------------------------------------
 
 ### present banner
-echo "INFO: $(date) program $0 version $ver started for instance $instUser"
+echo -e "\n============================================================================================="
+echo -e "INFO: $(date) program $0 version $ver started for instance $instUser on platform $(uname -s)\n"
 
 
 ### Provide syntax with help parameter, otherwise $1 is the name of the snapshot
@@ -188,11 +192,14 @@ fi
 dbName=""
 dirsToSnap=""
 snapPrefix=""
+sudoCmd="/usr/bin/sudo"
 apiServer=""
 apiPort=""
 apiAuth=""
 serverInstDir="$HOME"
 parse_config
+# echo -e "DEBUG: Snapshot configuration from $configFile:\n  dbName=$dbName\n  dirsToSnap=$dirsToSnap\n  snapPrefix=$snapPrefix\n  snapRet=$snapRet\n  serverInstDir=$serverInstDir\n  sudoCommand=$sudoCmd\n  apiServer=$apiServer\n  apiPort=$apiPort\n  apiAuth=$apiAuth\n"
+
 
 ### check the required parameters
 # if dirsToSnap is empty, then exist
