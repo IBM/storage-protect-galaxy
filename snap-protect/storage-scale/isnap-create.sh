@@ -27,7 +27,9 @@
 # *: show usage.
 #
 #********************************************************************************
-
+#
+# History
+# 04/30/25 added sudoCmd to snapconfig.json - version 1.9.1
 
 #---------------------------------------
 # Global parameters
@@ -44,9 +46,6 @@ maxSuspendRetry=5
 # number of second to sleep inbetween of suspend retries
 suspendWait=50
 
-# sudo command to be used
-sudoCmd=/usr/bin/sudo
-
 # determine operating system
 os=$(uname -s)
 
@@ -60,7 +59,7 @@ instUser=$(id -un)
 tmpFile="$HOME/$instUser-crsnap.json"
 
 # version of the program
-ver=1.9
+ver=1.9.1
 
 # -----------------------------------------------------------------
 # function parse_config to parse the config file
@@ -106,6 +105,9 @@ function parse_config()
             fi
             if [[ "$name" = "serverInstDir" ]]; then
               serverInstDir=$val
+            fi
+            if [[ "$name" = "sudoCommand" ]]; then
+              sudoCmd=$val
             fi
 			      if [[ "$name" = "apiServerIP" ]]; then
               apiServer=$val
@@ -234,6 +236,7 @@ function create_apisnapshot()
 #---------------------------------------
 
 # present banner
+echo -e "\n============================================================================================="
 echo "INFO: $(date) program $0 version $ver started for instance $instUser on platform $os"
 
 
@@ -261,10 +264,12 @@ dirsToSnap=""
 snapPrefix=""
 snapRet=0
 serverInstDir="$HOME"
+sudoCmd="/usr/bin/sudo"
 apiServer=""
 apiPort=""
 apiAuth=""
 parse_config
+#echo -e "DEBUG: Snapshot configuration from $configFile:\n  dbName=$dbName\n  dirsToSnap=$dirsToSnap\n  snapPrefix=$snapPrefix\n  snapRet=$snapRet\n  serverInstDir=$serverInstDir\n  sudoCommand=$sudoCmd\n  apiServer=$apiServer\n  apiPort=$apiPort\n  apiAuth=$apiAuth\n"
 
 
 ### check parameters
@@ -457,9 +462,6 @@ db2 commit
 db2 disconnect $dbName
 
 ### end program
-echo
-echo "INFO: $(date) program $0 completed successfully."
-echo "============================================================================="
-echo
+echo -e "\nINFO: $(date) program $0 completed successfully.\n"
 
 exit 0
