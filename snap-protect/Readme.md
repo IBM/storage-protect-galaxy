@@ -3,7 +3,7 @@
 -----------------------------------
 
 
-## Introduction Test
+## Introduction
 
 This project provides scripts that facilitate the creation and restoration of consistent Safeguarded Copies (SGC)for IBM Storage Protect server instances. Storage Protect server instances store their data and metadata in storage systems. Managing SGC depends on the storage system. 
 
