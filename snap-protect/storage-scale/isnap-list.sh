@@ -19,14 +19,16 @@
 # - snapshot prefix
 #
 # Usage:
-# $ ./isnap-list.sh [-i instance-user-name -s snapshot-name -v -h | --help]
+# isnap-list.sh [-i instance-user-name -s snapshot-name -v -h | --help]
 #   -i instance-user-name:  Name of the instance (user) for which the snapshots are listed (optional, default is user running this command).
 #   -s snapshot-name:       Snapshot name to be listed (checked) for all relevant file systems and filesets (optional, lists all snapshot by default).
 #   -v:                     Show allocated blocks (optional, does not work with REST API)
 #   -h | --help:            Show this help message (optional).
 # 
 #********************************************************************************
-
+#
+# History
+# 04/30/25 added sudoCmd to snapconfig.json - version 1.2.1
 
 #---------------------------------------
 # global parameters
@@ -41,8 +43,8 @@ gpfsPath="/usr/lpp/mmfs/bin"
 # determine the name of the instance user for reference
 instUser=$(id -un)
 
-# sudo command to be used
-sudoCmd=/usr/bin/sudo
+# version of the program
+ver="1.2.1"
 
 
 #------------------------------------------------------------------
@@ -51,7 +53,7 @@ sudoCmd=/usr/bin/sudo
 function usage()
 {
      echo "Usage:"
-     echo "./isnap-list.sh [-i instance-user-name -s snapshot-name -v -h | --help]"
+     echo "isnap-list.sh [-i instance-user-name -s snapshot-name -v -h | --help]"
      echo " -i instance-user-name:  Name of the instance (user) for which the snapshots are listed (optional, default is user running this command)."
      echo " -s snapshot-name:       Snapshot name to be listed (checked) for all relevant file systems and filesets (optional, lists all snapshot by default)."
      echo " -v:                     Show allocated blocks (optional, does not work with REST API)"
@@ -112,13 +114,16 @@ function parse_config()
             if [[ "$name" = "dirsToSnap" ]]; then
               dirsToSnap=$val
             fi
-			if [[ "$name" = "apiServerIP" ]]; then
+            if [[ "$name" = "sudoCommand" ]]; then
+              sudoCmd=$val
+            fi
+			      if [[ "$name" = "apiServerIP" ]]; then
               apiServer=$val
             fi
-			if [[ "$name" = "apiServerPort" ]]; then
+			      if [[ "$name" = "apiServerPort" ]]; then
               apiPort=$val
             fi
-			if [[ "$name" = "apiCredentials" ]]; then
+			      if [[ "$name" = "apiCredentials" ]]; then
               apiAuth=$val
             fi
           fi
@@ -178,6 +183,10 @@ function list_apisnapshot()
 # Main
 #---------------------------------------
 
+# present banner
+echo -e "\n============================================================================================="
+echo -e "INFO: $(date) program $0 version $ver started by $instUser\n"
+
 # parse arguments from the command line
 verbose=0
 snapName=""
@@ -216,10 +225,13 @@ if [[ ! -a $configFile ]]; then
 fi
 dirsToSnap=""
 snapPrefix=""
+sudoCmd="/usr/bin/sudo"
 apiServer=""
 apiPort=""
 apiAuth=""
 parse_config
+#echo -e "DEBUG: Snapshot configuration from $configFile:\n  dbName=$dbName\n  dirsToSnap=$dirsToSnap\n  snapPrefix=$snapPrefix\n  snapRet=$snapRet\n  serverInstDir=$serverInstDir\n  sudoCommand=$sudoCmd\n  apiServer=$apiServer\n  apiPort=$apiPort\n  apiAuth=$apiAuth\n"
+
 
 
 ### Check required parameters
@@ -311,7 +323,5 @@ do
    fi
 done
 
-echo
-echo "============================================================================================"
 echo
 exit 0

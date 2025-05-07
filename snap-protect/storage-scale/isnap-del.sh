@@ -27,13 +27,19 @@
 #   sed -i 's/\# $sudoCmd \$gpfsPath\/mmsysmonc/$sudoCmd \$gpfsPath\/mmsysmonc/g' isnap-del.sh
 #
 # Usage:
-# ./isnap-del.sh -s snapshot-name | -g snapshot-age [-i instance-name -p]
+# isnap-del.sh -s snapshot-name | -g snapshot-age [-i instance-name -p]
 #  -s snapshot-name: Name of the snapshot to be deleted from all file systems. Required if -g is not specified.
 #  -g snapshot-age:  Age of snapshots in days to be deleted from all file systems. Required if -s is not specified.
 #  -i instance-name: Instance user name, default is the user running this script (optional)
 #  -p:               Preview snapshot names to be deleted from all file systems (optional)
 #  -h | --help:      Show this help message (optional).
 #
+#********************************************************************************
+#
+# History
+# 04/30/25 added sudoCmd to snapconfig.json - version 1.7.1
+
+
 #---------------------------------------
 # global parameters
 #---------------------------------------
@@ -52,11 +58,8 @@ instUser=$(id -un)
 # time to sleep between snapshot deletes
 sleepTime=1
 
-# sudo command to be used
-sudoCmd=/usr/bin/sudo
-
 # version
-ver=1.7
+ver=1.7.1
 
 #------------------------------------------------------------------
 # Print usage
@@ -64,7 +67,7 @@ ver=1.7
 function usage()
 {
      echo "Usage:"
-     echo "./isnap-del.sh -s snapshot-name | -g snapshot-age [-i instance-name -p]"
+     echo "isnap-del.sh -s snapshot-name | -g snapshot-age [-i instance-name -p]"
      echo " -s snapshot-name: Name of the snapshot to be deleted from all file systems. Required if -g is not specified."
      echo " -g snapshot-age:  Age of snapshots in days to be deleted from all file systems. Required if -s is not specified."
      echo " -i instance-name: Instance user name, default is the user running this script (optional)"
@@ -126,13 +129,16 @@ function parse_config()
             if [[ "$name" = "dirsToSnap" ]]; then
               dirsToSnap=$val
             fi
-			if [[ "$name" = "apiServerIP" ]]; then
+            if [[ "$name" = "sudoCommand" ]]; then
+              sudoCmd=$val
+            fi
+			      if [[ "$name" = "apiServerIP" ]]; then
               apiServer=$val
             fi
-			if [[ "$name" = "apiServerPort" ]]; then
+			      if [[ "$name" = "apiServerPort" ]]; then
               apiPort=$val
             fi
-			if [[ "$name" = "apiCredentials" ]]; then
+			      if [[ "$name" = "apiCredentials" ]]; then
               apiAuth=$val
             fi
 
@@ -281,8 +287,8 @@ function match_apisnapshot()
 #---------------------------------------
 
 ### present banner
-echo "========================================================================================"
-echo "INFO: $(date) program $0 version $ver started for instance $instUser"
+echo -e "\n============================================================================================="
+echo "INFO: $(date) program $0 version $ver started by $instUser"
 
 # parse arguments from the command line
 snapName=""
@@ -342,10 +348,12 @@ if [[ ! -a $configFile ]]; then
 fi
 dirsToSnap=""
 snapPrefix=""
+sudoCmd="/usr/bin/sudo"
 apiServer=""
 apiPort=""
 apiAuth=""
 parse_config
+#echo -e "DEBUG: Snapshot configuration from $configFile:\n  dbName=$dbName\n  dirsToSnap=$dirsToSnap\n  snapPrefix=$snapPrefix\n  snapRet=$snapRet\n  serverInstDir=$serverInstDir\n  sudoCommand=$sudoCmd\n  apiServer=$apiServer\n  apiPort=$apiPort\n  apiAuth=$apiAuth\n"
 
 
 # check parameters
