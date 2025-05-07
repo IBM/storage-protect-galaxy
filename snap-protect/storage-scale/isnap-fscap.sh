@@ -19,7 +19,7 @@
 # requires jq to be installed 
 #
 # Usage:
-# ./isnap-fscap.sh [-i instance-user-name]
+# isnap-fscap.sh [-i instance-user-name]
 #  -i instance-user-name: instance name to the fileset capacities
 #  -h | --help:            Show this help message (optional).
 # 
@@ -109,7 +109,7 @@ function parse_config()
 function usage()
 {
      echo "Usage:"
-     echo "./isnap-fscap.sh [-i instance-user-name]"
+     echo "isnap-fscap.sh [-i instance-user-name]"
      echo " -i instance-user-name: instance name to the fileset capacities"
      echo " -h | --help:            Show this help message (optional)."
      echo

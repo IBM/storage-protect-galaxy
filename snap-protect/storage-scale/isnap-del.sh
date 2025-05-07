@@ -27,7 +27,7 @@
 #   sed -i 's/\# $sudoCmd \$gpfsPath\/mmsysmonc/$sudoCmd \$gpfsPath\/mmsysmonc/g' isnap-del.sh
 #
 # Usage:
-# ./isnap-del.sh -s snapshot-name | -g snapshot-age [-i instance-name -p]
+# isnap-del.sh -s snapshot-name | -g snapshot-age [-i instance-name -p]
 #  -s snapshot-name: Name of the snapshot to be deleted from all file systems. Required if -g is not specified.
 #  -g snapshot-age:  Age of snapshots in days to be deleted from all file systems. Required if -s is not specified.
 #  -i instance-name: Instance user name, default is the user running this script (optional)
@@ -67,7 +67,7 @@ ver=1.7.1
 function usage()
 {
      echo "Usage:"
-     echo "./isnap-del.sh -s snapshot-name | -g snapshot-age [-i instance-name -p]"
+     echo "isnap-del.sh -s snapshot-name | -g snapshot-age [-i instance-name -p]"
      echo " -s snapshot-name: Name of the snapshot to be deleted from all file systems. Required if -g is not specified."
      echo " -g snapshot-age:  Age of snapshots in days to be deleted from all file systems. Required if -s is not specified."
      echo " -i instance-name: Instance user name, default is the user running this script (optional)"

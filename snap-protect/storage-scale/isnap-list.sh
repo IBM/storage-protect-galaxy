@@ -19,7 +19,7 @@
 # - snapshot prefix
 #
 # Usage:
-# $ ./isnap-list.sh [-i instance-user-name -s snapshot-name -v -h | --help]
+# isnap-list.sh [-i instance-user-name -s snapshot-name -v -h | --help]
 #   -i instance-user-name:  Name of the instance (user) for which the snapshots are listed (optional, default is user running this command).
 #   -s snapshot-name:       Snapshot name to be listed (checked) for all relevant file systems and filesets (optional, lists all snapshot by default).
 #   -v:                     Show allocated blocks (optional, does not work with REST API)
@@ -53,7 +53,7 @@ ver="1.2.1"
 function usage()
 {
      echo "Usage:"
-     echo "./isnap-list.sh [-i instance-user-name -s snapshot-name -v -h | --help]"
+     echo "isnap-list.sh [-i instance-user-name -s snapshot-name -v -h | --help]"
      echo " -i instance-user-name:  Name of the instance (user) for which the snapshots are listed (optional, default is user running this command)."
      echo " -s snapshot-name:       Snapshot name to be listed (checked) for all relevant file systems and filesets (optional, lists all snapshot by default)."
      echo " -v:                     Show allocated blocks (optional, does not work with REST API)"

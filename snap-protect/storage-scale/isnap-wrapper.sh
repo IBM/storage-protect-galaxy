@@ -13,7 +13,7 @@
 # - must be executed by privileged user that can invoke the $instUser via su
 #
 # Usage:
-# ./isnap-wrapper.sh -i inst-name [-c | -d age | -l | -f ]
+# isnap-wrapper.sh -i inst-name [-c | -d age | -l | -f ]
 # -i inst-name: name of the instance to be processed
 # -c: create snapshot - invokes isnap-create.sh -r
 # -d age: delete snapshots older than age - invokes isnap-del.sh -g age
@@ -57,7 +57,7 @@ ver=0.91
 function usage()
 {
      echo "Usage:"
-     echo "./isnap-wrapper.sh -i inst-name [-c | -d age | -l | -f ]"
+     echo "isnap-wrapper.sh -i inst-name [-c | -d age | -l | -f ]"
      echo "  -i inst-name: name of the instance to be processed (required)"
      echo
      echo "  Even one of the following operation arguments is required."
