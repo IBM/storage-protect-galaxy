@@ -75,7 +75,7 @@ This section describes the installation and configuration of the scripts associa
 
 ### Copy and explore scripts
 
-Copy or git clone the scripts to the Storage Protect server (e.g. `/usr/local/bin`) and make the script files `*.sh` executable:
+Copy or git clone the scripts to the Storage Protect server (e.g. `/tmp/`), copy all the files under `snap-protect/storage-scale/` directory to `/usr/local/bin` and make the script files `*.sh` executable:
 
 ```
 # git clone https://github.com/IBM/storage-protect-galaxy.git /tmp/storage-protect-galaxy
@@ -85,6 +85,7 @@ Copy or git clone the scripts to the Storage Protect server (e.g. `/usr/local/bi
 ```
 
 **Note:** The gitHub repository is only accessible by the IBM organization. If you obtained the scripts from IBM, then copy the scripts to the Storage Protect servers. 
+
 
 The following files are included in this project:
 
@@ -100,6 +101,9 @@ The following files are included in this project:
 ``` 
 
 The script files (`*.sh`) are further described in sectio [Workflows and scripts](#Workflows-and-scripts). The configuration file (`snapconfig.json`) is described in the next section [Adjust configuration files](#Adjust-configuration-files).
+
+
+**Note:** Add the script path (e.g. `/usr/local/bin`) to the `$PATH` variable of the instance user.
 
 
 ### Adjust configuration file
@@ -156,7 +160,7 @@ The configuration parameter for each instance is stored in a configuration file:
 The exact location of the configuration file must be updated in the scripts itself. The default location is `/usr/local/bin`.   
 
 
-### REST API 
+### Obtain REST API credentials
 
 When the parameter `apiServer` along with the `apiCredentials` are defined in the configuration file (see, [Adjust configuration files](#Adjust-configuration-files)), then the Storage Scale REST API is used instead of the command line. Using the Storage Scale REST API to manage consistent immutable snapshots requires an API user with the role snapAdmin to be created. This can be done via the Storage Scale GUI under Services - GUI - Users, or via the command line on the GUI node(s). The following command creates a user `snapadmin` with the role `SnapAdmin`:
 
@@ -183,7 +187,7 @@ When using the REST API, there are some limitations:
 - When listing snapshots using `isnap-list.sh` right after deleting snapshots, then the deleted snapshots may still be shown temporarily. In this case list the snapshots again. 
 
 
-### Sudo configuration
+### Adjust sudo configuration
 
 To create consistent snapshots for a Storage Protect instance via command line, the Storage Protect Db2 of the instance must be suspended. For the restoration of snapshots the instance Db2 must be restarted and resumed. These steps require authorization to perform Db2 commands. By default, the instance user is authorized to connect to the instance Db2 and perform Db2 commands. Therefore, the instance user can create the snapshots for its instance. To do this, the instance user must be allowed to create snapshots in Storage Scale. 
 
@@ -209,7 +213,7 @@ If a different command than `/usr/bin/sudo` is used for privilege escalation, th
 If the snapshots are managed via the REST API, then the instance user does not need the sudo-privileges for the CLI based snapshot commands. 
 
 
-### Event notification
+### Configure custom event notification
 
 When SGC creation fails (see section [Create safeguarded copy](#Creating-safeguarded-copy)) then an event can be raised with the Storage Scale system health monitoring. This event is visible in the GUI and can be forwarded to the datacenter monitoring infrastructure via SNMP, email or webhooks. 
 
@@ -262,7 +266,7 @@ mmhealth event show delsnap_fail
 The scripts `isnap-create.sh` and `isnap-del.sh` raise custom events using the Storage Scale command `mmsysmonc`. This requires the instance user to have privileges to run the `mmsysmonc` command (see [Sudo configuration](#Sudo-configuration)). By default, the command to raise events (`mmsysmonc`) is commented out in the scripts. 
 
 
-### Test scripts
+### Test the scripts
 
 To test scripts change to the instance user (for example `tsminst1`) and test the scripts:
 
@@ -272,6 +276,21 @@ $ isnap-list.sh
 $ isnap-create.sh --help
 $ isnap-restore.sh --help
 ```
+
+If the scripts are not found, then add the path where the scripts are installed (e.g. `/usr/local/bin`) to the `PATH` variable. This can be done in the file `.profile` located in the home directory of the instance user. To add the path `/usr/local/bin` to the path variable, add the following lines to `.profile`:
+
+```
+PATH=$PATH:/usr/local/bin
+export PATH
+```
+
+Subsequently, source the `.profile`:
+
+```
+$ source .profile
+```
+
+
 
 ### Create schedules
 
@@ -644,13 +663,13 @@ Note, the scipt uses the configuration file (see [Adjust configuration files](#A
 
 ### Wrapper script
 
-The wrapper script `isnap-wrapper.sh` can be used to schedule SGC operations such as creation, deletion, list and file system capacity statistics. The wrapper script is launched by the root user and executes the specified SGC operations as instance user (via `su instanceUser -c "SGC operation command"`). The `isnap-wrapper.sh` is placed on the Storage Protect server and can be invoked by a scheduler running either local on the server or remotely. 
+The wrapper script `isnap-wrapper.sh` can be used to schedule SGC operations such as creation, deletion, list and file system capacity statistics. The wrapper script is launched by the root user and executes the specified SGC operations as instance user (via `su instanceUser -c "SGC operation command"`). The `isnap-wrapper.sh` script is placed on the Storage Protect server and can be invoked by a scheduler running either local on the server or remotely. 
 
 
 **Syntax:**
 
 ```
-./isnap-wrapper.sh -i inst-name [-c | -d age | -l | -f ]
+isnap-wrapper.sh -i inst-name [-c | -d age | -l | -f ]
   -i inst-name: name of the instance to be processed (required)
 
   Even one of the following operation arguments is required.
