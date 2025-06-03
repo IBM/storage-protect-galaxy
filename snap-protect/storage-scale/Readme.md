@@ -37,7 +37,7 @@ This project is under [Apache License 2.0](../../LICENSE).
 
 ------------------------------
 
-## Prerequisites
+## Planning
 
 This section describes the configuration model of the Storage Scale file systems and filesets used by the Storage Protect instance.
 
