@@ -5,30 +5,86 @@
 
 ## Introduction
 
-This project provides scripts (Unix bash) that facilitate the creation and restoration of consistent safeguarded copies (SGC) for IBM Storage Protect server instance storing their data in IBM Storage Scale file systems. These scripts use the Storage Scale CLI or REST API to manage snapshots. 
+This project provides a solution based on scripts (Unix bash) that facilitate the creation and restoration of consistent safeguarded copies (SGC) for IBM Storage Protect server instance storing their data in IBM Storage Scale file systems. In a world where cyber-attacks are widely spreading and becoming faster and faster there is a need for cyber-resilience, also for backup data. The focus of  cyber-resilience is to quickly recover non-infected data after a cyber-attack was detected. 
 
-The terms safeguarded copy (SGC) and immutable snapshots are used interchangibly. 
+While the legacy Storage Protect server backup and restore function allows the restoration to a consistent state, it is not fast. For example, the restoration of a Storage Protect server with container pools from tape takes approx. 34 hours for a 200 TB managed data (see IBM Documentation). Our prototype addresses this and allows to **restore a single Storage Protect instance more than 8 times** faster by leveraging consistent immutable snapshots. At the same time, **the creation of consistent immutable snapshots is more than 50 times faster** than the legaciy Storage Protect backup function.
 
-Multiple IBM Storage Protect server instance can share the same set of file systems provided by IBM Storage Scale. Each Storage Protect instance uses its own independent fileset in each file system to store data and metadata. This allows to create consistent and immutable snapshots for a particular Storage Protect instance in the relevant file systems and filesets. More importantly it allows fast restore of snapshots for a particular instance. 
+In Storage Scale safeguarded copies are called immutable snapshots. Therefore the terms consistent immutable snapshots and safeguarded copies (SGC) are used interchangibly. 
+
+The next section [Architecture](#Architecture) describes the architecture of IBM Storage Protect on IBM Storage Scale, where consistent immutable snapshots are provided using the `isnap-scripts`. 
 
 
-Find below a description of the prerequisites, installation and configuration and workflows and scripts.  
+### Architecture
+
+In the architecture with IBM Storage Protect running on IBM Storage Scale multiple IBM Storage Protect server instance can share the same set of file systems provided by IBM Storage Scale. The Storage Protect server instances run on Storage Scale nodes. Each Storage Protect instance uses its own independent fileset in each file system to store data and metadata. This allows to create consistent and immutable snapshots for a particular Storage Protect instance in the relevant file systems and filesets. More importantly it allows fast restore of snapshots for a particular instance. 
+
+There are two topologies for Storage Protect on Storage Scale. In the first topology - shown in figure 1 - the Storage Protect instances run on Storage Scale nodes that are member of the storage cluster. The storage cluster provides the flash and disk storage for the Storage Protect instance data and metadata.
+
+<img src="img/storage-cluster-architecture.jpg" width=400 height=300>
+
+Figure 1: Storage Scale topology in storage cluster
+
+
+
+As shown in figure 1, multiple Storage Protect instances run in a single Storage Scale storage cluster. Storage Scale provides highly available and scalable file systems that are used by all Storage Protect instances. Each Storage Protect instance includes a database for metadata and storage pools for backup data. 
+Multiple file systems are configured in Storage Scale for different types of Storage Protect data and metadata. For example, there is a file system for the Storage Protect database, one for the database logs, one for the storage pools and one for the instance itself. Within the file system each Storage Protect instance has its own fileset. This allows to create and restore consistent immutable snapshots per Storage Protect instance. 
+
+The `isnap-scripts` provided by the project run on the cluster nodes that host the Storage Protect instances in the storage cluster. In this topology the `isnap-scripts` can use the Storage Scale CLI or REST API to manage consistent immutable snapshots. When using the CLI, then immutable snapshots are restored in an automated manner. When the REST API is used, then the restore of immutable snapshots is executed in a manual way (see section [Restore safeguarded copy](#Restore-safeguarded-copy) for more details).
+
+
+In the second topology - shown in figure 2 - the Storage Protect instances run in a separate Storage Scale cluster (remote cluster). The storage for all data of the Storage Protect instances is provided by a storage cluster. 
+
+<img src="img/remote-cluster-architecture.jpg" width=400 height=380>
+
+Figure 2: Storage Scale topology with remote and storage cluster
+
+
+
+As shown in figure 2 multiple Storage Scale instances run in a remote cluster. The remote cluster is a storage-less Storage Scale cluster that remotely mounts the file systems provided by the storage cluster. Each Storage Protect instance uses its own fileset configured in the Storage Scale file systems provided by the storage cluster. This allows to create and restore consistent immutable snapshots per Storage Protect instance.
+
+The `isnap-scripts` provided by the project run on the cluster nodes of the remote cluster. In this topology the `isnap-scripts` use the Storage Scale REST API of the storage cluster to manage consistent immutable snapshots. With the Storage Scale REST API it is not possible to restore immutable snapshots in an automated manner. Therefore the restore is conducted in a manual way (see section [Restore safeguarded copy](#Restore-safeguarded-copy) for more details).
+
+The advantage of the remote cluster architecture shown in figure 2 is a separation of administrative domains. The servers in the Storage Protect cluster are administered by the Storage Protect administrators, while the Storage Scale file systems and storage are administered by the Storage administrators. The Storage Protect administrators have no access to the file system disk in the Storage cluster, only to the file system itself. Furthermore, a cyber attack on the Storage Protect servers in the remote cluster cannot tamper with the file system resources provided by the storage cluster, because this infrastructure is decoupled from the remote cluster.
+
+
+Find below a guidance for planning, installation and configuration as well as a reference for all scripts. 
 
 
 ### Requirements and Limitations
 
-Find below some limitations for the usage of these scripts with IBM Storage Scale:
+Find below some requirements and limitations for the usage of these scripts with IBM Storage Scale. 
 
 - Storage Scale version 5.2.1 and above are supported. Note, the scripts where also tested with version 5.1.9. However, there is a issue when restoring independent filesets that contain nested dependent filesets. For this reason, the recommended Storage Scale version is 5.2.1 where this issue was fixed. 
 - Supported operating system versions are Red Hat Enterprise Linux 8 and 9. AIX is not yet supported
 - Storage Protect version 8.1.25 and above are supported
 - Storage Scale ESS and Storage Scale software defined deployments are supported
 - Single cluster and remote cluster architectures (Storage Protect instances running in remote cluster) are supported
+- When Storage Protect instances run in a remote cluster, then the REST API must be used.
+- When using the Storage Scale REST API, then it is not possible to automatically restore consistent immutable snapshots for a given instance.
+- The current implementation uses the Storage Scale REST API version 2. This is the legacy implementation in Storage Scale version 5. 
 - Each instance must either have dedicated filesystem or dedicated independent fileset for all instance specific backup data and metadata
+- Nested independent fileset - where the parent of an independent fileset is an independent fileset - are not supported. This is because the snapshot of the parent independent fileset does not snap the date of the nested independent fileset.  
 - Storage Protect disk, file and container pools are supported
 - Volume reuse delay for Storage Protect storage pools must be set to the retention period of the snapshots plus 1. This especially applies to storage pools that are not snapped, for example copy pools on tape
 - JSON parser program `jq` is required to be installed on the Storage Protect servers
 - Bash shell is required
+- Tool `curl` is required
+
+
+Some requirements are further explained in the [Planning](#Planning) section. 
+
+
+### Known issues
+
+This section describes known issues:
+
+| Issue | Mitigation |
+|-------|------------|
+| The Storage Scale REST API does not allow to restore snapshots | There is no mitigation because current implementation of the Storage Scale REST API (version 2) does not provide an endpoint to restore snapshots. Restore must be conducted in a manual way. |
+| The creating of consistent immutable snapshots during Storage Protect database backup fails. | This is because both operations cannot be run simultaneously. Define schedules where Storage Protect database backup and creation of snapshots to not overlap |
+| ANR9999D occurs intermittently when creating snapshots | There is no mitigation. This issue is related to the `servermon` process that collects statistics from the Storage Protect database. If the database is suspended because a snapshot is created, then the statistic cannot be collected and the ANR9999D occurs. A typical entry in the activity log may look like this: `ANR9999D_2395808121 dbiDbSpaceStats(rdbdb.c:3806) Thread<294>: Unexpected rc 1114 from RdbExecuteSQLToStrings.` |
+| Restore of immutable snapshot fails | Examine the message on the console and solve the problem. Re-run the restore script. The restore script can be re-run at any time |
+| Snapshots may temporarily be shown after deletion when using the REST API | The REST API has some latency. Wait 2 minutes and list the snapshots again. |
 
 
 ### License
@@ -39,14 +95,26 @@ This project is under [Apache License 2.0](../../LICENSE).
 
 ## Planning
 
-This section describes the configuration model of the Storage Scale file systems and filesets used by the Storage Protect instance.
+This section describes planning aspects before implementing the solution.
+
+
+### Operating system specific tools
+
+The `isnap-scripts` require the following tools to be installed in the operating system of the Storage Protect instance:
+
+- bash:     Shell (all scripts are written in bash), should be installed in `/usr/bin`
+- jq:       JSON parser, should be installed in `/usr/bin`
+- curl:     interact with REST API, should be installed in `/usr/bin`
+- awk:      parse text, should be installed in `/usr/bin`
+
+Makes sure that these tools are installed prior to installing and configuring the `isnap-scripts`. 
 
 
 ### File system configuration
 
-The script for creating and restoring consistent and immutable Storage Protect instance snapshots requires that each Storage Protect instance stores its data and metadate in a Storage Scale independent fileset of each relevant file system. An independent fileset allow taking snapshots just for the fileset and not the entire file system. More importantly, it allows to restore an individual fileset in a file system. Restoring the entire file system (instead of the fileset) restores the data for all instances using the file system. This is not desirable because the restored snapshot must have been created while the Storage Protect instance was suspended. 
+The `isnap-scripts` for managing consistent safeguarded copies for Storage Protect on Storage Scale require that each Storage Protect instance stores its data and metadate in a independent fileset linked into a Storage Scale file system. An independent fileset allow creating and restoring snapshots just for the independent fileset and not the entire file system. This allows to create and restore snapshots on a Storage Protect instance basis. 
 
-Here is an example of a file system and fileset configuration for two Storage Protect instances. It does not matter if these two instances run on the same server or not. 
+Here is an example of a file system and fileset configuration for two Storage Protect instances (instance 1 and instance 2). It does not matter if these two instances run on the same server or not, as long as they are using the same Storage Scale file systems: 
 
 | File system purpose | File system mount point | Fileset path for Instance 1 | Fileset path for instance 2|
 |---------------------|-------------------------|-----------------------------|-----------------------------|
@@ -57,13 +125,84 @@ Here is an example of a file system and fileset configuration for two Storage Pr
 | Storage pools | /gpfs/tsmstg | /gpfs/tsmstg/inst01  | /gpfs/tsmstg/inst02 |
 | Instance | /gpfs/tsminst | /gpfs/tsminst/inst01 | /gpfs/tsminst/inst02 |
 
-As shown in the table above, each instance has its own independent filesets in the file system. For example, instance 1 has the filesets created in the subdirectory inst01 of each file system. 
+As shown in the table above, each instance has its own independent filesets in the file system. For example, `instance 1` has the filesets created in the subdirectory `inst01` of each file system. 
 
-Without independent filesets for each instance, the workflows presented below do not work!!
+The number of file systems and filesets per instance does not matter with regards to managing immutable snapshots. A single file system and independent fileset per instance is sufficient for managing snapshots on a per-instance basis. Creating multiple filesystems with independent filesets per instance has the advantage that each filesystem can be tuned for the workload. 
 
-**Note:** If there are nested independent filesets within the independent fileset to be snapped, then these nested independent are not included in the snapshot. Therefore, it is not supported to use nested independent fileset. 
+Without independent filesets for each instance, the workflows presented below do not work on an per instance basis!! Instead all instance storing data and metadata in the file system are snapped and restored at the same time. 
 
-**Note:** If there are nested dependent filesets within the independent fileset to be snapped, then these nested dependent are not restored. The files of the dependent fileset are included in the snapshot and can be restored by copying the files from the snapshot into the dependent fileset directory. Therefore, it is not recommended to use nested dependent filesets.  
+**Note:** If there are nested independent filesets within an independent fileset, then these nested independent are not included in the snapshot. Therefore, it is not supported to use nested independent fileset. 
+
+If the file system and fileset configuration does not provide independent fileset for each instance in each filesystem, then this must be adjusted before deploying the `isnap-scripts`. Adjusting the configuration may require downtime of the Storage Protect instance. Converting a traditional directory into a fileset may include the following high level steps:
+
+- stop the Storage Protect instance
+- rename the original directories to be converted into filesets
+- create and link independent filesets under the original directory names
+- copy all files from the orgininal directories including permissions and subdirectories (use cp-command, or the Storage Scale command mmxcp for this) to the independent fileset linked under the original directory name
+- verify that all files and permission were copied
+- start the Storage Protect instance
+
+**Note:** performing this procedure requires more storage capacity, especially for storage pool file directories. Consider to move the files from the original directory to the independent filesets. 
+
+
+The file system and fileset configuration is required when configuring the `isnap-scripts` (see section [Adjust configuration files](#Adjust-configuration-files)).
+
+
+### Storage Protect instance and network
+
+The Storage Protect must be error free. 
+
+The Storage Protect instance must be setup to access the relevant file systems and fileset in the Storage Scale file system. In a remote cluster configuration, this requires additional steps to make file systems and filesets avaible from the storage cluster in the remote cluster. 
+
+When the Storage Protect instance runs in the storage cluster, then the `isnap-scripts` can use the CLI or REST API to manage immutable snapshots. When the Storage Protect instance runs in a remote cluster, then the `isnap-scripts` must use REST API of the storage cluster to manage immutable snapshots. 
+
+When using the REST API, then the Storage Protect instance must be able to connect to the Storage Scale REST API of the storage cluster via a network. 
+
+
+### Storage Scale REST API
+
+The `isnap-scripts` can be configured to use the Storage Scale REST API to manage immutable snapshots. When using the REST API it does not matter if the Storage Protect instance run in the storage cluster or in a remote cluster. Important is, that the REST API of the storage cluster is used.
+
+When using the REST API, then a REST API user with the role `snapAdmin` must be created. Collect the following information for the REST API of the storage cluster:
+- IP address or IP alias of the REST API server
+- IP port of the REST API server
+- REST API user name in the `snapAdmin` role
+- REST API user password
+
+This information is required, when configuring the `isnap-scripts` (see section [Adjust configuration files](#Adjust-configuration-files))
+
+
+### Sudo configuration
+
+When **not using the REST API** to manage manage immutable snapshots, the Storage Protect instance user requires elevated permissions to:
+- create immutable snapshots
+- list immutable snapshots
+- delete immutable snapshots
+- restore immutable snapshots
+- list filesets in a file system
+- send event notifications (optional)
+
+The elevated permissions should be implemented prior to the configuration of the ` isnap-scripts`.
+
+For example, to grant a single instance user (`tsminst1`) the required permission using `sudo`: 
+
+``` 
+### Allow a specifig instance user to run snapshot commands and mmsysmonc without password
+tsminst1 ALL=(ALL)       NOPASSWD: /usr/lpp/mmfs/bin/mmcrsnapshot,/usr/lpp/mmfs/bin/mmlssnapshot,/usr/lpp/mmfs/bin/mmdelsnapshot,/usr/lpp/mmfs/bin/mmrestorefs,/usr/lpp/mmfs/bin/mmsysmonc,/usr/lpp/mmfs/bin/mmlsfileset
+
+``` 
+
+
+If there are multiple Storage Protect instance, then the required permissin can be granted for the group of users (`tsmsrvrs`) as shown in the example below:
+
+``` 
+### Alternatively allow all users in group tsmsrvrs to run snapshot commands and mmsysmonc without password
+%tsmsrvrs ALL=(ALL)       NOPASSWD: /usr/lpp/mmfs/bin/mmcrsnapshot,/usr/lpp/mmfs/bin/mmlssnapshot,/usr/lpp/mmfs/bin/mmdelsnapshot,/usr/lpp/mmfs/bin/mmrestorefs,/usr/lpp/mmfs/bin/mmsysmonc,/usr/lpp/mmfs/bin/mmlsfileset
+``` 
+
+The command `/usr/lpp/mmfs/bin/mmsysmonc` is required, when using event notifications (see [Event notification](#Event-notification). 
+
+If a different command than `/usr/bin/sudo` is used for privilege escalation, then the configuration parameter `sudoCommand` can be set to the command that is used in the configuration file `snapconfig.json` (see [Adjust configuration files](#Adjust-configuration-files)).
 
 
 ------------------------------
@@ -80,35 +219,65 @@ Copy or git clone the scripts to the Storage Protect server (e.g. `/tmp/`), copy
 ```
 # git clone https://github.com/IBM/storage-protect-galaxy.git /tmp/storage-protect-galaxy
 # cd /tmp/storage-protect-galaxy/snap-protect/storage-scale/
-# cp * /usr/local/bin/
-# chmod +x *.sh
+# ls -l
 ```
-
-**Note:** The gitHub repository is only accessible by the IBM organization. If you obtained the scripts from IBM, then copy the scripts to the Storage Protect servers. 
-
 
 The following files are included in this project:
 
-```
-./
-├── isnap-del.sh
-├── isnap-fscap.sh
-├── isnap-list.sh
-├── isnap-restore.sh
-├── isnap-wrapper.sh
-├── isnap-create.sh
-└── snapconfig.json
-``` 
+| Filename | Description | More Information |
+|----------|-------------|------------------|
+| isnap-create.sh  | Creates consistent immutable snapshots on Storage Scale fileset used by the Storage Protect instance | [Create safeguarded copy](#Create-safeguarded-copy) |
+| isnap-delete.sh  | Deletes expired consistent immutable snapshots for Storage Protect instance. | [Delete safeguarded copy](#Delete-safeguarded-copy) |
+| isnap-fscap.sh   | Prints file system and snapshot capacity allocation | [Filesystem statistics](#Filesystem-statistics) |
+| isnap-list.sh    | Lists all consistent immutable snapshots for the Storage Protect instance | [List safeguarded copy](#List-safeguarded-copy) |
+| isnap-restore.sh | Restores consistent immutable snapshots for the Storage Protect instance | [Restore safeguarded copy](#Restore-safeguarded-copy) |
+| isnap-wrapper.sh | Wraps the other `isnap-scripts`, can be used with schedulers | [Wrapper script](#Wrapper-script) |
+| snapconfig.json | Configuration file describing the Storage Protect instance configuration and REST API connection | [Adjust configuration files](#Adjust-configuration-files) |
+
 
 The script files (`*.sh`) are further described in sectio [Workflows and scripts](#Workflows-and-scripts). The configuration file (`snapconfig.json`) is described in the next section [Adjust configuration files](#Adjust-configuration-files).
 
 
+### Copy files to common directory
+
+The creation (`isnap-create.sh`) and restoration (`isnap-restore.sh`) of consisten immutable snapshots must be executed by the Storage Protect instance user because it requires interaction with the Storage Protect database. For this reason, the scripts and configuration file of this project must be copied to a common directory and file permissions must be set to allow the Storage Protect instance user to execute these scripts. The default directory for the `isnap-scripts` and configuration file is `/usr/local/bin`. 
+
+Copy the `isnap-scripts` and configuration files to `/usr/local/bin` and adjust the permissions for the instance user and instance user group by replacing `instUser` and `instUserGroup` with the user and group name of the instance user:
+
+```
+# cd /tmp/storage-protect-galaxy/snap-protect/storage-scale/
+# cp * /usr/local/bin/
+# cd /usr/local/bin
+# chmod +x isnap-*.sh
+# chown instUser:instUserGroup isnap*.sh
+# chown instUser:instUserGroup snapconfig.json
+# chown root:root isnap-wrapper.sh
+```
+
+In this example the `isnap-scripts` were copied to directory `/usr/local/bin` and the permissions are adjusted to `755` for instance user `tsminst1` in instance user group `tsmsrvrs`. The `isnap-wrapper` script does not require permissions for the instance user `tsminst1` because it can be executed by root. Find below an example of the permission and ownership for the `isnap-scripts`:
+
+```
+-rw-r--r--. 1 tsminst1 tsmsrvrs  snapconfig.json
+-rwxr-xr-x. 1 tsminst1 tsmsrvrs  isnap-create.sh
+-rwxr-xr-x. 1 tsminst1 tsmsrvrs  isnap-delete.sh
+-rwxr-xr-x. 1 tsminst1 tsmsrvrs  isnap-fscap.sh
+-rwxr-xr-x. 1 tsminst1 tsmsrvrs  isnap-list.sh
+-rwxr-xr-x. 1 tsminst1 tsmsrvrs  isnap-restore.sh
+-rwxr-xr-x. 1 root     root      isnap-wrapper.sh
+```
+
+**Note: all scripts expect the configuration file in directory `/usr/local/bin`. If the configuration file is stored in a different directory, then all scripts must be updated to reflect the correct path of the configuration file. This is done with variable `configFile` defined at the beginning of each script.**
+
+**Do not copy the files to the Storage Protect instance user home directory, because this directory will be overwritten upon restore.**
+
 **Note:** Add the script path (e.g. `/usr/local/bin`) to the `$PATH` variable of the instance user.
 
 
-### Adjust configuration file
 
-For each Storage Protect instance a list of configuration parameters is required. The instance is identified by its instance username. This instance name is unique in a cluster and is mapped to the following configuration parameters in a configuration file:
+### Adjust configuration files
+
+The configuration of each Storage Protect instance is described in the configuration file `snapconfig.json`. For each Storage Protect instance a set of configuration parameters is required. Find below the configuration parameters for each instance. The column `Required` indicates if this parameter is required (`yes`) or not. Optional configuration parameters have default values that can be overwritten in the configuration file.
+
 
 | Parameter | Description | Required | Example |
 |-----------|-------------|---------|---------|
@@ -124,9 +293,11 @@ For each Storage Protect instance a list of configuration parameters is required
 | apiServerPort | IP port of the REST API server. If not set it defaults to 443 | yes | 443 |
 | apiCredentials | REST API user and password encoded in base64 as User:Password  | yes | YWRtaW46VGVzdDEyMzRhIQ== |
 
-When the parameter `apiServer` along with the `apiCredentials` are defined in the configuration file, then the Storage Scale REST API is used instead of the command line. 
 
-The configuration parameter for each instance is stored in a configuration file: `snapconfig.json`. Here is an example for the configuration file for two instances (tsminst1 and tsminst2). Note the concatination of filesystem and fileset names using the `+` character'
+When the parameters `apiServerIP`, `apiServerPort` and `apiCredentials` are defined in the configuration file, then the Storage Scale REST API is used instead of the command line. 
+
+
+The configuration parameter for each instance is described as a JSON-formatted objects in the configuration file `snapconfig.json`. Here is an example for the configuration file for two instances (`tsminst1` and `tsminst2`). Note the concatination of filesystem and fileset names using the `+` character'
 
 ```
 [
@@ -149,20 +320,18 @@ The configuration parameter for each instance is stored in a configuration file:
 	"snapRetention": "4",
   "serverInstDir": "/tsminst/inst02/home",
   "sudoCommand": "/usr/bin/sudo",
-	"apiServerIP": "REST API server IP",
-	"apiServerPort": "REST API server IP, default is 443",
-	"apiCredentials": "base64 encoded API user UserPassword",
 	"dirsToSnap": ["tsmdb+inst02", "tsmlog+inst02", "tsmalog+inst02", "tsmstg+inst02", "tsminst+inst02", "tsmbackup+inst02"]
   }
 ]
 ``` 
 
+In the example above, the Storage Protect instance `tsminst1` uses the REST API and the Storage Protect instance `tsminst2` does not use the REST API. This is just meant as an example, because usually all Storage Protect instances in one Storage Scale cluster use either the CLI or REST API. 
 The exact location of the configuration file must be updated in the scripts itself. The default location is `/usr/local/bin`.   
 
 
-### Obtain REST API credentials
+### Obtain REST API credentials 
 
-When the parameter `apiServer` along with the `apiCredentials` are defined in the configuration file (see, [Adjust configuration files](#Adjust-configuration-files)), then the Storage Scale REST API is used instead of the command line. Using the Storage Scale REST API to manage consistent immutable snapshots requires an API user with the role snapAdmin to be created. This can be done via the Storage Scale GUI under Services - GUI - Users, or via the command line on the GUI node(s). The following command creates a user `snapadmin` with the role `SnapAdmin`:
+When the Storage Scale REST API is used for managing consistent immutable copies, then a REST API user in the `snapAdmin` role must be created. The following Storage Scale CLI command creates a user `snapadmin` with the role `SnapAdmin`:
 
 ```
 /usr/lpp/mmfs/gui/cli/mkuser snapadmin -p <password> -g SnapAdmin
@@ -178,46 +347,47 @@ dXNlcjpzZWNyZXQ=
 It is recommended to test the API connection from the servers where the scripts are installed. The following example gets the cluster configuration using the REST API. The base64 encoded credential is following the string `Authorization: Basic`:
 
 ```
-curl -k -X GET --header 'Accept: application/json' --header 'Authorization: Basic dXNlcjpzZWNyZXQ=' 'https://GUI-Server:GUI-Port/scalemgmt/v2/cluster'
+curl -k -X GET --header 'Accept: application/json' --header 'Authorization: Basic [base64-encoded-user:secret]' 'https://GUI-Server:GUI-Port/scalemgmt/v2/cluster'
 ```
-
-When using the REST API, there are some limitations:
-
-- The `isnap-restore.sh` scripts does not perform the snapshot restore, because there is no API endpoint for this. Instead the script provides detailed instructions for performing the restore manually
-- When listing snapshots using `isnap-list.sh` right after deleting snapshots, then the deleted snapshots may still be shown temporarily. In this case list the snapshots again. 
 
 
 ### Adjust sudo configuration
 
-To create consistent snapshots for a Storage Protect instance via command line, the Storage Protect Db2 of the instance must be suspended. For the restoration of snapshots the instance Db2 must be restarted and resumed. These steps require authorization to perform Db2 commands. By default, the instance user is authorized to connect to the instance Db2 and perform Db2 commands. Therefore, the instance user can create the snapshots for its instance. To do this, the instance user must be allowed to create snapshots in Storage Scale. 
+To create consistent immutable snapshots for a Storage Protect instance, the Storage Protect Db2 of the instance must be suspended and resumed. For the restoration of snapshots the Storage Protect instance Db2 must be restarted and resumed. These steps require authorization to perform Db2 commands. By default, the instance user is authorized to connect to the instance Db2 and perform Db2 commands. Therefore, the instance user can create and restore snapshots for its instance.
 
-Sudo configuration is only required when the Storage Scale CLI is used. It enables the instance user to manage Storage Scale snapshots. 
-
-If the snapshots are managed via the CLI, then the instance user can be configured with privileges to create and restore snapshots. This can be done leveraging a sudo configuration. Find below the adjustments that should be done to the sudo configuration:
+The creation and restoration of immutable snapshots in Storage Scale via command line requires elevated privileges for the instance user. Elevated privileges are not required when using the Storage Scale REST API to manage snapshots. To provide the instance user with elevated privileges to manage snapshots in Storage Scale the sudo-configuration can be used. Adjusting the sudo-configuration requires root-privileges. The following example provides the instance user `tsminst1` the required privileges:
 
 ``` 
-### add /usr/lpp/mmfs/bin to secure_path
-Defaults    secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/lpp/mmfs/bin
-
 ### Allow a specifig instance user to run snapshot commands and mmsysmonc without password
-tsminst1 ALL=(ALL)       NOPASSWD: /usr/lpp/mmfs/bin/mmcrsnapshot,/usr/lpp/mmfs/bin/mmlssnapshot,/usr/lpp/mmfs/bin/mmdelsnapshot,/usr/lpp/mmfs/bin/mmrestorefs,/usr/lpp/mmfs/bin/mmsysmonc,/usr/lpp/mmfs/bin/mmlsfileset,/usr/bin/du
+tsminst1 ALL=(ALL)       NOPASSWD: /usr/lpp/mmfs/bin/mmcrsnapshot,/usr/lpp/mmfs/bin/mmlssnapshot,/usr/lpp/mmfs/bin/mmdelsnapshot,/usr/lpp/mmfs/bin/mmrestorefs,/usr/lpp/mmfs/bin/mmsysmonc,/usr/lpp/mmfs/bin/mmlsfileset
+```
 
+Alternatively, the user group of all instance users can be allowed to manage snapshots:
+
+```
 ### Alternatively allow all users in group tsmsrvrs to run snapshot commands and mmsysmonc without password
 %tsmsrvrs ALL=(ALL)       NOPASSWD: /usr/lpp/mmfs/bin/mmcrsnapshot,/usr/lpp/mmfs/bin/mmlssnapshot,/usr/lpp/mmfs/bin/mmdelsnapshot,/usr/lpp/mmfs/bin/mmrestorefs,/usr/lpp/mmfs/bin/mmsysmonc,/usr/lpp/mmfs/bin/mmlsfileset
 ``` 
 
-**Note:** to raise events if the snapshot creation fails, the `mmsysmonc` command must also be allowed in the sudo context (see [Event notification](#Event-notification). 
+In addition consider to provide the path of the Storage Scale commands as `secure_path` in the sudo configuration. This eliminates the need to spell out the path for each command:
 
-If a different command than `/usr/bin/sudo` is used for privilege escalation, then the configuration parameter `sudoCommand` can be set to the command that is used in the configuration file `snapconfig.json` (see [Adjust configuration files](#Adjust-configuration-files)).
+``` 
+### add /usr/lpp/mmfs/bin to secure_path
+Defaults    secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/lpp/mmfs/bin
+```
+
+**Note:** To leverage event notification (see [Event notification](#Event-notification)), the command `/usr/lpp/mmfs/bin/mmsysmonc` must also be allowed for the instance user.  
+
+**Note:** If a different command than `/usr/bin/sudo` is used for privilege escalation, then the configuration parameter `sudoCommand` can be set to the command that is used in the configuration file `snapconfig.json` (see [Adjust configuration files](#Adjust-configuration-files)).
 
 If the snapshots are managed via the REST API, then the instance user does not need the sudo-privileges for the CLI based snapshot commands. 
 
 
 ### Configure custom event notification
 
-When SGC creation fails (see section [Create safeguarded copy](#Creating-safeguarded-copy)) then an event can be raised with the Storage Scale system health monitoring. This event is visible in the GUI and can be forwarded to the datacenter monitoring infrastructure via SNMP, email or webhooks. 
+The creation and deletion of consistent immutable snapshot is usually automated via scheduler. When the creation or deletion of consistent immutable snapshots fails, then an event can be raised with the Storage Scale system health monitoring. This event is visible in the GUI and can be forwarded to the datacenter monitoring infrastructure via SNMP, email or webhooks. This way the administrator is immediatelly informed. 
 
-Storage Scale allows [creating and raising custom events](https://www.ibm.com/docs/en/storage-scale/5.1.7?topic=health-creating-raising-finding-custom-defined-events). This is based on event definitions in JSON format in file `custom.json`. Find below the events defined in `custom.json`:
+Storage Scale allows [creating and raising custom events](https://www.ibm.com/docs/en/storage-scale/5.2.3?topic=STXKQY_5.2.3/com.ibm.spectrum.scale.v5r10.doc/bl1adv_createuserdefinedevents.htm). This is based on a custom event definitions in JSON format in file `custom.json`. Find below an example of events defined in `custom.json`:
 
 ```
 {
@@ -254,8 +424,12 @@ Storage Scale allows [creating and raising custom events](https://www.ibm.com/do
 }
 ```
 
+The custom event definition must be installed on all Storage Scale nodes running Storage Protect instance. Or in other words, on all nodes where the `isnap-scripts` are installed. Peform the following steps: 
+- Copy the file `custom.json` to `/var/mmfs/mmsysmon/` and create a symlink to this file under `/usr/lpp/mmfs/lib/mmsysmon/`.
+- Next restart the Storage Scale monitoring services `systemctl restart mmsysmon.service`
+- Restart the GUI service on the Storage Scale GUI node: `systemctl restart gpfsgui.service` 
 
-Once the custom events are installed, test if the events are working:
+Once the custom events are installed on all Storage Protect nodes, test if the events are working:
 
 ```
 mmhealth event show snap_fail
@@ -291,19 +465,18 @@ $ source .profile
 ```
 
 
-
 ### Create schedules
 
-The creation and deletion of consistent SGC can be scheduled with different methods, such as system scheduler like `cron`, Storage Protect client schedules or external schedulers. The creation of SGC must be executed by the instance user (for example `tsminst1`), hence the schedule must be created in the context of the instance user. 
+The creation and deletion of consistent immutable snapshots can be scheduled with different methods, such as system scheduler like `cron`, Storage Protect client schedules or external schedulers. The creation of consistent immutable snapshots must be executed by the instance user (for example `tsminst1`), hence the schedule must be created in the context of the instance user. 
 
-**Note:** Do not schedule the SGC creation at the same time when a Storage Protect Db backup is executed or during heavy backup or housekeeping workloads!!
+**Note:** Do not schedule the consistent immutable snapshots creation at the same time when a Storage Protect Db backup is executed or during heavy backup or housekeeping workloads!!
 
 
 #### Scheduling with cron
 
 Schedules with `cron` must be defined on all servers where Storage Protect instances are running. Each Storage Protect can have its own schedule. This also requires that the `isnap` scripts are installed on all servers hosting Storage Protect instances. 
 
-The example below creates an SGC every day at midnight using `isnap-create.sh` (see [Create safeguarded copy](#Create-safeguarded-copy)). Adjust the setting of `home-directory-of-instance-user` for parameters `HOME` and `BASH_ENV`:
+The example below creates an consistent immutable snapshots every day at midnight using `isnap-create.sh` (see [Create safeguarded copy](#Create-safeguarded-copy)). Adjust the setting of `home-directory-of-instance-user` for parameters `HOME` and `BASH_ENV`:
 
 
 ```
@@ -320,7 +493,7 @@ MAILTO=root
 00 00 *  *  * /usr/local/bin/isnap-create.sh -r >> /tmp/snaplogs/tsminst1-snapcreate.log 2>&1
 ```
 
-An alternative way to schedule the creation of SGC is to source the `profile` of the instance user prior to executing `isnap-create.sh`:
+An alternative way to schedule the creation of consistent immutable snapshots is to source the `profile` of the instance user prior to executing `isnap-create.sh`:
 
 ```
 # create snapshot at midnight every day
@@ -328,7 +501,7 @@ An alternative way to schedule the creation of SGC is to source the `profile` of
 ```
 
 
-SGC that are expired based on the snapshot retention time can be deleted. The snapshot retention time is configured in the configuration file as parameter `snapRetention` (see [Adjust configuration files](#Adjust-configuration-files)). To accommodate the automated deletion of SGC that are older than the retention time, the script `isnap-del.sh` is used (see [Delete safeguarded copy](#Delete-safeguarded-copy)). The example below deletes SGC that are older than 10 days. 
+Consistent immutable snapshots that are expired based on the snapshot retention time can be deleted. The snapshot retention time is configured in the configuration file as parameter `snapRetention` (see [Adjust configuration files](#Adjust-configuration-files)). To accommodate the automated deletion of SGC that are older than the retention time, the script `isnap-del.sh` is used (see [Delete safeguarded copy](#Delete-safeguarded-copy)). The example below deletes SGC that are older than 10 days. 
 
 ```
 # delete snapshots older than 10 days at 00:00
@@ -404,6 +577,16 @@ vi /opt/tivoli/tsm/client/ba/bin/rc.dsmcad.isnap-scheduler
 
 ln -s /opt/tivoli/tsm/client/ba/bin/rc.dsmcad.isnap-scheduler /etc/rc.d/init.d/dsmcad.isnap-scheduler
 ```
+
+
+Initialize the Storage Protect client node `isnap-scheduler` by manually running the Storage Protect client once in the foreground:
+
+```
+# /opt/tivoli/tsm/client/ba/bin/dsmc -optfile=/opt/tivoli/tsm/client/ba/bin/dsm_isnap-scheduler.opt
+```
+
+This will prompt to enter user ID and password. Press enter when asked for the user ID and enter the password that was set when the node was registered in the server. This will save the password file under the user's home directory or configured password location.
+
 
 Start and enable the client acceptor daemon service:
 
