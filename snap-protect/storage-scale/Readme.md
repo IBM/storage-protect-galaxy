@@ -7,7 +7,9 @@
 
 This project provides a solution based on scripts (Unix bash) that facilitate the creation and restoration of consistent safeguarded copies (SGC) for IBM Storage Protect server instance storing their data in IBM Storage Scale file systems. In a world where cyber-attacks are widely spreading and becoming faster and faster there is a need for cyber-resilience, also for backup data. The focus of  cyber-resilience is to quickly recover non-infected data after a cyber-attack was detected. 
 
-While the legacy Storage Protect server backup and restore function allows the restoration to a consistent state, it is not fast. For example, the restoration of a Storage Protect server with container pools from tape takes approx. 34 hours for a 200 TB managed data (see IBM Documentation). Our prototype addresses this and allows to **restore a single Storage Protect instance more than 8 times** faster by leveraging consistent immutable snapshots. At the same time, **the creation of consistent immutable snapshots is more than 50 times faster** than the legaciy Storage Protect backup function.
+While the legacy Storage Protect server backup and restore function allows the restoration to a consistent state, it is not fast. For example, the restoration of a Storage Protect server with container pools from tape takes approx. 34 hours for a 200 TB managed data (see IBM Documentation). This solution addresses this and allows to **restore a single Storage Protect instance more than 8 times** faster by leveraging consistent immutable snapshots. At the same time, **the creation of consistent immutable snapshots is more than 50 times faster** than the legaciy Storage Protect backup function.
+
+The use of consistent immutable snapshot to improve cyber resilience of the Storage Protect environment comes for a price: snapshots consume additional storage capacity. For this reason, the storage capacity for immutable snapshots must be planned accordingly (see section [Storage capacity planning](#storage-capacity-planning)). 
 
 In Storage Scale safeguarded copies are called immutable snapshots. Therefore the terms consistent immutable snapshots and safeguarded copies (SGC) are used interchangibly. 
 
@@ -25,7 +27,6 @@ There are two topologies for Storage Protect on Storage Scale. In the first topo
 Figure 1: Storage Scale topology in storage cluster
 
 
-
 As shown in figure 1, multiple Storage Protect instances run in a single Storage Scale storage cluster. Storage Scale provides highly available and scalable file systems that are used by all Storage Protect instances. Each Storage Protect instance includes a database for metadata and storage pools for backup data. 
 Multiple file systems are configured in Storage Scale for different types of Storage Protect data and metadata. For example, there is a file system for the Storage Protect database, one for the database logs, one for the storage pools and one for the instance itself. Within the file system each Storage Protect instance has its own fileset. This allows to create and restore consistent immutable snapshots per Storage Protect instance. 
 
@@ -37,7 +38,6 @@ In the second topology - shown in figure 2 - the Storage Protect instances run i
 <img src="img/remote-cluster-architecture.jpg" width=400 height=380>
 
 Figure 2: Storage Scale topology with remote and storage cluster
-
 
 
 As shown in figure 2 multiple Storage Scale instances run in a remote cluster. The remote cluster is a storage-less Storage Scale cluster that remotely mounts the file systems provided by the storage cluster. Each Storage Protect instance uses its own fileset configured in the Storage Scale file systems provided by the storage cluster. This allows to create and restore consistent immutable snapshots per Storage Protect instance.
@@ -69,6 +69,7 @@ Find below some requirements and limitations for the usage of these scripts with
 - JSON parser program `jq` is required to be installed on the Storage Protect servers
 - Bash shell is required
 - Tool `curl` is required
+- More storage capacity is required in the Storage Scale cluster because snapshots consume storage capacity (see section [Storage capacity planning](#storage-capacity-planning))
 
 
 Some requirements are further explained in the [Planning](#Planning) section. 
@@ -96,6 +97,63 @@ This project is under [Apache License 2.0](../../LICENSE).
 ## Planning
 
 This section describes planning aspects before implementing the solution.
+
+
+### Storage capacity planning
+
+Storage Scale snapshots are space efficient upon create and start consuming storage capacity upon changes of files in the file system. Depending on the Storage Protect internal workloads (for example, database, logs, storage pool) the storage capacity consumption can grow significantly. For this reason it is important to plan the storage capacity of the Storage Scale cluster for snapshots accordingly.
+
+The storage capacity consumption of snapshots is influenced by
+- number of snapshots created per day
+- snapshot retention time - how long snapshots are retained
+- Storage Protect database backup schedule
+
+
+The table below provides an estimate of the storage capacity consumption for snapshots in accordance with the Storage Protect internal workloads for one Storage Protect instance:
+
+| SP workload | Estimated snapshot capacity relative to life data | Note |
+|-------------|---------------------------------------------------|------|
+| Database | 50 - 100% per snapshot | Depends on frontend and backend activities |
+| Active log | 80 - 100% per snapshot | Full active logs are moved to archive logs |
+| Archive log  | 50 - 100% per day | Assuming daily Db backup. Archive logs are deleted after Db backup  |
+| Storage pools | 20% per day | Assuming 20% daily change rate |
+| Db backup | 20% per day | Assuming daily Db backup with 5 days retention |
+| Instance home | 50% per snapshot | Db2 diag logs can cause larger consumption |
+
+
+Life data is the capacity allocated (or planned) in the file system without snapshots. For example, if a snapshot allocates 50% of a 1 TB file system, then the snapshot allocates 0,5 TB. When 5 snapshots are retained, then 2,5 TB (5 x 0,5TB) of additional storage capacity must be planned. 
+
+
+
+The next table gives two example about storage capacity consumption for snapshots for a medium-size Storage Protect instance. In the first example two snapshots are created per day and kept over 5 days. In the second example one snapshot is created per day and kept over 10 days. This calculation assumes daily Db backup. 
+
+| Workload | Storage capacity for life data | Estimated per snapshot capacity | Extra capacity with 2 snapshots per day and 5 days retention |	Extra capacity with 1 snapshots per day and 10 days retention |
+|----------|------------------|---------------------------------|--------------------------------------------------------------|----------------------------------|
+| Database	| 5 TB | 50 – 100 % per snapshot | 25 - 50 TB | 25 - 50 TB |
+| Active logs | 147 GB | 80 – 100 % per snapshot | 1176 - 1470 GB	| 1176 - 1470 GB |
+| Archive logs | 2 TB | 50 – 100 % per day | 5 – 10 TB | 10 - 20 TB |
+| Storage pools | 350 TB |20 % per day | 350 TB | 700 TB |
+| Db backup |30 TB | 20 % per day | 30 TB | 60 TB |
+| Instance home | 20 GB | 50 % per snapshot | 100 GB | 100 GB |
+| **Total capacity** | **287,2 TB** | -- | **411,3 - 441,6 TB** | **796,3 - 931,5 TB** |
+
+
+As shown in the table above, the total number of snapshots is identical in both examples but the storage capacity consumption in the second example is almost twice as much because the snapshots are retained twice as long compared to the first example. 
+
+
+
+
+The last table gives an example from a customer who has tested this in a production environment. In this example, the logs include active and archive logs. Database backup was done to tape and is not accounted here. There was one snapshot created per day, kept over 8 days.
+
+| Workload | Snapshot capacity relative to life data | Snapshot capacity factor | Used capacity for life data | Additional snapshot capacity |
+|----------|-----------------------------------------|--------------------------|-----------------------------|------------------------------|
+| Database | 60% per snapshot | 4,8 | 1 TB | 4,8 TB |
+| Logs | 83% per snapshot | 6,6 | 0,6 TB | 4 TB |
+| Storage pools | 5% per snapshot | 0,4 | 338 TB | 130 TB |
+| Instance home |	2% per snapshot | 0,16 | 0,015 TB | 0,002 TB |
+
+
+As shown in the examples above, storage capacity planning is vital to ensure that file systems and file set do not run out of space due to snapshots.
 
 
 ### Operating system specific tools
