@@ -933,4 +933,34 @@ The `isnap-wrapper.sh` creates log files for each instance and operation in the 
 
 
 
+### Troubleshooting
+
+**Issue 1**: isnap-scheduler node cannot communicate to the IBM Storage Protect server
+
+**Description**:
+
+After you configure the schedule for isnap-wrapper.sh script as per the #scheduling-with-storage-protect-client-schedules section, you may see the following error messages in `/opt/Tivoli/tsm/client/ba/bin/dsmsched-isnap-scheduler.log` file:
+
+Error messages:
+```
+05/31/2025 10:10:55 Scheduler has been started by Dsmcad.
+05/31/2025 10:10:55 IBM Storage Protect Backup-Archive Client Version 8, Release 1, Level 23.0
+05/31/2025 10:10:55 Querying server for next scheduled event.
+05/31/2025 10:10:55 Node Name: ISNAP-SCHEDULER
+05/31/2025 10:10:55 ANS2050E IBM Storage Protect needs to prompt for the password but cannot prompt because the process is running in the background.
+05/31/2025 10:10:55 ANS2050E IBM Storage Protect needs to prompt for the password but cannot prompt because the process is running in the background.
+05/31/2025 10:10:55 ANS1029E Communication with the IBM Storage Protect server is lost.
+05/31/2025 10:10:55 Scheduler has been stopped.
+```
+To fix the above issue:
+We need to manually run the client once in the foreground and store the password securely using the password access method defined in your dsm.sys file
+-  Run the client once interactively to store the password:
+`/opt/tivoli/tsm/client/ba/bin/dsmc -optfile=/opt/tivoli/tsm/client/ba/bin/dsm_isnap-scheduler.opt`
+- This will prompt:
+```
+Please enter your user id:  (usually press Enter)
+Please enter your password:
+```
+After this, the scheduler will start working fine, and the issue mentioned above will be resolved.
+
 END OF DOCUMENT
