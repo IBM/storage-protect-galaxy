@@ -58,3 +58,14 @@ The SGC restoration workflow is facilitated by the `*snap-restore.sh` scripts fo
 
 **The SGC restoration script must be executed as instance user on the server where the instance was running. The Storage Protect instance must be stopped prior to executing the restoration script. When running restoration script on one server while the instance is running on another server, the script does not detect this and performs the restore operation while the instance may be running on another server. This will cause the Storage Protect instance to become unavailable.**
 
+## Disclaimer
+
+Community-Contributed Solution – Best-Effort Support Only
+
+This solution is provided as a value-added tool to assist our customers in addressing specific use cases. It is made available on an open-source and as-is basis and is not included under the standard product license or support agreement.
+
+While we strive to ensure its usefulness and may provide best-effort support, we do not guarantee fixes, updates, or official service-level commitments. Customers are encouraged to review the source code and adapt it to meet their requirements.
+
+We welcome contributions, improvements, and feedback from the community to help evolve the solution collaboratively.
+
+For critical issues or production use, customers should evaluate the tool accordingly and consider engaging with professional services or IBM Experts Lab teams for customization and support.
