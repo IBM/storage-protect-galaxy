@@ -60,7 +60,7 @@ The SGC restoration workflow is facilitated by the `*snap-restore.sh` scripts fo
 
 ## Disclaimer
 
-Disclaimer: Community-Contributed Solution – Best-Effort Support Only
+Community-Contributed Solution – Best-Effort Support Only
 
 This solution is provided as a value-added tool to assist our customers in addressing specific use cases. It is made available on an open-source and as-is basis and is not included under the standard product license or support agreement.
 
