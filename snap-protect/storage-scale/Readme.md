@@ -62,8 +62,9 @@ Find below some requirements and limitations for the usage of these scripts with
 - When Storage Protect instances run in a remote cluster, then the REST API must be used.
 - When using the Storage Scale REST API, then it is not possible to automatically restore consistent immutable snapshots for a given instance.
 - The current implementation uses the Storage Scale REST API version 2. This is the legacy implementation in Storage Scale version 5. 
-- Each instance must either have dedicated filesystem or dedicated independent fileset for all instance specific backup data and metadata
-- Nested independent fileset - where the parent of an independent fileset is an independent fileset - are not supported. This is because the snapshot of the parent independent fileset does not snap the date of the nested independent fileset.  
+- Each instance must either have dedicated filesystem or dedicated independent fileset for all instance specific backup data and metadata (see [File system configuration](#File-system-configuration)])
+- Nested independent fileset - where the parent of an independent fileset is an independent fileset - are not supported. This is because the snapshot of the parent independent fileset does not snap the date of the nested independent fileset. 
+- When using the Storage Scale CLI, then the instance user requires elevated permissions to execute Storage Scale snapshot commands (see [Sudo configuration](#sudo-configuration))
 - Storage Protect disk, file and container pools are supported
 - Volume reuse delay for Storage Protect storage pools must be set to the retention period of the snapshots plus 1. This especially applies to storage pools that are not snapped, for example copy pools on tape
 - JSON parser program `jq` is required to be installed on the Storage Protect servers
@@ -340,22 +341,21 @@ The configuration of each Storage Protect instance is described in the configura
 | Parameter | Description | Required | Example |
 |-----------|-------------|---------|---------|
 | instName | Instance name, corresponds to the instance user | yes | tsminst1 |
-| instUser | Instance user, used for Db operation | no | tsminst1 |
 | snapPrefix | Name prefix of the snapshot, used to create and restore snapshot	| yes | tsminst1-snap |
 | dirsToSnap | file system name and fileset name, used to create and restore snapshot. If fileset name is not given, global snapshot are used. | yes |	fsname+fsetname  |
-| dbName | Name of the Db2, usually this is TSMDB1 | yes | TSMDB1 | 
 | snapRetention | Retention time in days for the snapshot, default is 0 days. Snapshots cannot be deleted during retention time	| no | 5 |
+| dbName | Name of the Db2, default is TSMDB1 | no | TSMDB1 | 
 | serverInstDir | Instance directory of the server (where dsmserv.opt resides). Must only be specified if different to instance user home. Default is instance user home directory.	| no | /tsminst/inst01/home |
 | sudoCommand | Full qualified path of command used by the instance user run other commands with root privileges. Default is `/usr/bin/sudo`. | no | /usr/bin/dzdo |
-| apiServerIP | IP address or host name of the REST API server. If this parameter is set, then the REST API is used instead of the CLI. | no | x.x.x.x |
-| apiServerPort | IP port of the REST API server. If not set it defaults to 443 | yes | 443 |
-| apiCredentials | REST API user and password encoded in base64 as User:Password  | yes | YWRtaW46VGVzdDEyMzRhIQ== |
+| apiServerIP | IP address or host name of the REST API server. If this parameter is set, then the REST API is used instead of the CLI. | when API is used | x.x.x.x |
+| apiServerPort | IP port of the REST API server. Required if `apiServerIP` is set. Default is 443 | when API is used | 443 |
+| apiCredentials | REST API user and password encoded in base64 as User:Password. Required if `apiServerIP` is set.  | when API is used | YWRtaW46VGVzdDEyMzRhIQ== |
 
 
 When the parameters `apiServerIP`, `apiServerPort` and `apiCredentials` are defined in the configuration file, then the Storage Scale REST API is used instead of the command line. 
 
 
-The configuration parameter for each instance is described as a JSON-formatted objects in the configuration file `snapconfig.json`. Here is an example for the configuration file for two instances (`tsminst1` and `tsminst2`). Note the concatination of filesystem and fileset names using the `+` character'
+The configuration parameter for each Storage Protect instance is described as a JSON-formatted objects in the configuration file `snapconfig.json`. Here is an example for the configuration file for two instances (`tsminst1` and `tsminst2`). The parameter `dirsToSnap` includes the file system and fileset name in the form: `fsName+fsetName`:
 
 ```
 [
@@ -500,7 +500,7 @@ The scripts `isnap-create.sh` and `isnap-del.sh` raise custom events using the S
 
 ### Test the scripts
 
-To test scripts change to the instance user (for example `tsminst1`) and test the scripts:
+To test the scripts change to the instance user (for example `tsminst1`) and test the scripts:
 
 ```
 # su - tsminst1
@@ -699,7 +699,7 @@ This script creates SGC for all relevant filesets defined as parameter `dirsToSn
 
 If the Storage Protect server instance is not running, or the script is executed on a node where the Storage Protect instance does not run, then no safeguarded copy is created. 
 
-The scripts writes runtime information to standard out. 
+The script writes runtime information to standard out. 
 
 
 ### Restore safeguarded copy
@@ -749,14 +749,15 @@ The script does not perform the restore under the following conditions
 **Note:** The script must be exectured as instance user on the server where the instance was running. The script requires that the instance is stopped. When running the script on one server while the instance is running on another server, the script does not detect this and performs the restore operation while the instance may be running on another server. This will cause the instance to become unavailable and potentially corrupted.
 
 
-**Note:** When running isnap-restore.sh in automated mode (no GUI is used) and the instance home directory is not accessible, then it requires to run isnap-restore.sh two times. The first time isnap-restore.sh restores the instance home directory but fails to start the db2 because it could not source the environment initially. Prior running isnap-restore.sh a second time, login as instance user again to source the environment. After the second run, the db2 will be started, set to write resume and the instance is started in maintenance mode. 
-Note, after the first run, the instance could be started manually, without running isnap-restore.sh again. Follow these steps:
-•	Logout as instance user
-•	Login as instance user
-•	Run: db2start
-•	Run: db2 restart db $dbName write resume
-•	Change to the server instance directory (may be the same as instance user home directory)
-•	Run: dsmserv maintenance
+**Note:** When running `isnap-restore.sh` in automated mode (no REST API is used) and the instance home directory is not accessible, then it requires to run `isnap-restore.sh` two times. The first time `isnap-restore.sh` restores the instance home directory but fails to start the db2 because it could not source the environment initially. Prior running `isnap-restore.sh` a second time, login as instance user again to source the environment. After the second run, the db2 will be started, set to write resume and the instance is started in maintenance mode. 
+Alternatively, the instance can be started manually, after the first run. Make sure that the first run restored the snapshots and perform the following steps:
+- Logout as instance user
+-	Login as instance user
+- Run: `db2start`
+- Run: `db2 restart db $dbName write resume`
+- If the server instance directory is different to instance user home, then change to the server instance directory
+- Run: `dsmserv maintenance`
+
 After the instance started in maintenance mode and was verified, then halt the instance and start it normally. 
 
 
