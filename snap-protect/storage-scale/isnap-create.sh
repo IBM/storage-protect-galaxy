@@ -30,6 +30,7 @@
 #
 # History
 # 04/30/25 added sudoCmd to snapconfig.json - version 1.9.1
+# 06/27/25 added default for TSMDB1 and apiPort
 
 #---------------------------------------
 # Global parameters
@@ -259,14 +260,14 @@ if [[ ! -a $configFile ]]; then
   # $sudoCmd $gpfsPath/mmsysmonc event custom snap_fail "$instUser,Snapshot configuration file $confifFile not found."
   exit 1
 fi
-dbName=""
+dbName="TSMDB1"
 dirsToSnap=""
 snapPrefix=""
 snapRet=0
 serverInstDir="$HOME"
 sudoCmd="/usr/bin/sudo"
 apiServer=""
-apiPort=""
+apiPort="443"
 apiAuth=""
 parse_config
 #echo -e "DEBUG: Snapshot configuration from $configFile:\n  dbName=$dbName\n  dirsToSnap=$dirsToSnap\n  snapPrefix=$snapPrefix\n  snapRet=$snapRet\n  serverInstDir=$serverInstDir\n  sudoCommand=$sudoCmd\n  apiServer=$apiServer\n  apiPort=$apiPort\n  apiAuth=$apiAuth\n"
