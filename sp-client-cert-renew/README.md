@@ -150,5 +150,4 @@ To activate the certificate, restart the IBM Storage Protect server.
 
 > **Note:** Restarting will abort any [ongoing backup, restore, or replication sessions](https://www.ibm.com/docs/en/storage-protect/8.1.27?topic=sessions-monitoring).
 
-All hyperlinks from the original have been preserved using GitHub-flavored Markdown. If you require any further formatting adjustments, let me know!
-
+**Reference:** [Automating the distribution of IBM Storage Protect server certificate to clients](https://www.ibm.com/docs/en/storage-protect/8.1.27?topic=errors-automating-distribution-storage-protect-server-certificate-clients)
