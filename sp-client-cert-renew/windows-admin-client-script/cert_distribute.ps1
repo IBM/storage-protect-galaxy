@@ -1,6 +1,6 @@
 ################################################################################
 #                                                                              #
-#       Copyright (C) 2023, International Business Machines Corp. (IBM)        #
+#       Copyright (C) 2025, International Business Machines Corp. (IBM)        #
 #                          All rights reserved.                                #
 #                                                                              #
 #       Automated Distribution of SP Server Certificate to Clients             #
