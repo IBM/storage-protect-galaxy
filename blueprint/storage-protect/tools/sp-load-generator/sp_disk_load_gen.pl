@@ -30,7 +30,7 @@ BEGIN
 
 use threads;
 
-$versionString = "Program version 5.1b";
+$versionString = "Program version 5.1c";
 $platform = getPlatform();
 $SS = getpathdelimiter($platform);
 $ioFlagR = "dio=1";
@@ -1204,7 +1204,7 @@ elsif ($platform eq "AIX")
     }	
   }#end for loop
 }
-else   # Linux86 and Windows
+else   # Linux and Windows
 {
   foreach $iostatline (@iostatcontents)
   {
@@ -1234,7 +1234,7 @@ else   # Linux86 and Windows
       $stanzathrpRtotal = 0;
       $stanzathrpWtotal = 0;
     }
-    elsif ($iostatline =~ m/(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)/)
+    elsif ($iostatline =~ m/(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)/)
     {
       if ($platform eq "WIN32")
       {
@@ -1243,6 +1243,14 @@ else   # Linux86 and Windows
         $wiops = $3;
         $rthrp = $5/1024;
         $wthrp = $6/1024;
+      }
+      elsif ($iostatVers ge "12")
+      {
+        $devc = $1;
+        $riops = $2;
+        $wiops = $8;
+        $rthrp = $3;
+        $wthrp = $9;
       }
       elsif ($iostatVers ge "11")
       {
