@@ -30,6 +30,8 @@
 #
 # History
 # 04/30/25 added sudoCmd to snapconfig.json - version 1.9.1
+# 08/15/25 added logic for autoRestore config parameter (enforced with CLI, set to false with REST API)
+# 08/15/25 set default for configuration parameter dbName (TSMDB1)
 
 
 #---------------------------------------
@@ -108,6 +110,9 @@ function parse_config()
 			      if [[ "$name" = "apiCredentials" ]]; then
               apiAuth=$val
             fi
+			      if [[ "$name" = "autoRestore" ]]; then
+              autoRestore=$val
+            fi            
           fi
         fi
       fi
@@ -141,7 +146,7 @@ function check_apisnapshot()
 	  sName=$(curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/filesystems/$fsName/filesets/$fsetName/snapshots?filter=snapshotName%3D$snapName" 2>/dev/null | grep "snapshotName" | cut -d':' -f 2 | sed 's/,*$//g' | sed 's/"//g' | sed 's/^ *//g') 
 	  frc=$?
 	fi
-	echo "DEBUG: snapshot on file system $fsName and fileset $fsetName: $sName"
+	echo "  DEBUG: snapshot on file system $fsName and fileset $fsetName: $sName"
   else
     # echo "DEBUG: curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/filesystems/$fsName/snapshots?filter=snapshotName%3D$snapName""
 	
@@ -152,7 +157,7 @@ function check_apisnapshot()
 	  sName=$(curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/filesystems/$fsName/snapshots?filter=snapshotName%3D$snapName" 2>/dev/null | grep "snapshotName" | cut -d':' -f 2 | sed 's/,*$//g' | sed 's/"//g' | sed 's/^ *//g')
 	  frc=$?
 	fi
-	echo "DEBUG: snapshot on file system $fsName: $sName"
+	echo "  DEBUG: snapshot on file system $fsName: $sName"
   fi
   
   if [[ $snapName = $sName ]]; then
@@ -169,7 +174,7 @@ function check_apisnapshot()
 
 ### present banner
 echo -e "\n============================================================================================="
-echo -e "INFO: $(date) program $0 version $ver started for instance $instUser on platform $(uname -s)\n"
+echo -e "INFO: $(date) program $0 version $ver started for instance $instUser on platform $(uname -s)"
 
 
 ### Provide syntax with help parameter, otherwise $1 is the name of the snapshot
@@ -189,7 +194,7 @@ if [[ ! -a $configFile ]]; then
   echo "ERROR: config file $configFile not found. Please provide this file first."
   exit 1
 fi
-dbName=""
+dbName="TSMDB1"
 dirsToSnap=""
 snapPrefix=""
 sudoCmd="/usr/bin/sudo"
@@ -197,8 +202,9 @@ apiServer=""
 apiPort=""
 apiAuth=""
 serverInstDir="$HOME"
+autoRestore=false
 parse_config
-# echo -e "DEBUG: Snapshot configuration from $configFile:\n  dbName=$dbName\n  dirsToSnap=$dirsToSnap\n  snapPrefix=$snapPrefix\n  snapRet=$snapRet\n  serverInstDir=$serverInstDir\n  sudoCommand=$sudoCmd\n  apiServer=$apiServer\n  apiPort=$apiPort\n  apiAuth=$apiAuth\n"
+# echo -e "DEBUG: Snapshot configuration from $configFile:\n  dbName=$dbName\n  dirsToSnap=$dirsToSnap\n  snapPrefix=$snapPrefix\n  snapRet=$snapRet\n  serverInstDir=$serverInstDir\n  sudoCommand=$sudoCmd\n  apiServer=$apiServer\n  apiPort=$apiPort\n  apiAuth=$apiAuth\n $autoRestore"
 
 
 ### check the required parameters
@@ -227,16 +233,24 @@ if [[ ! -z $apiServer ]]; then
   fi
 fi
 
+# if API server was specified and autoRestore is true present a Warning
+if [[ ! -z $apiServer &&  $autoRestore == true ]]; then
+  echo "WARNING: automatic restore is not possible when using the REST API. Setting autoRestore to false."
+  autoRestore=false
+fi
+if [[ -z $autoRestore ]]; then
+  autoRestore=false
+fi
 
 ### check that that instance is stopped, if not then exit
-echo "INFO: checking if the server instance is stopped."
+echo -e "\nINFO: checking if the server instance is stopped."
 if [[ "$dbName" == "TSMDB1" ]]; then
   ### check for dsmserv (TSM)
   # procExists=$(pgrep -l -u $instUser dsmserv)
   procExists=""
   procExists=$(ps -u $instUser | grep dsmserv | grep -v grep)
   if [[ ! -z $procExists ]]; then
-    echo "ERROR: Instance $instUser is still running. It must be stopped for restore."
+    echo "  ERROR: Instance $instUser is still running. It must be stopped for restore."
     echo "  DEBUG: active process: $procExists"
     echo "  Ensure you are running this program on the right instance server."
     exit 1
@@ -247,32 +261,32 @@ elif [[ "$dbName" == "ERMM" ]]; then
   procExists=""
   procExists=$(ps -u $instUser | grep MediaManager | grep -v grep)
   if [[ ! -z $procExists ]]; then
-    echo "ERROR: Instance $instUser is still running. It must be stopped for restore."
+    echo "  ERROR: Instance $instUser is still running. It must be stopped for restore."
     echo "  DEBUG: active process: $procExists"
     echo "  Ensure you are running this program on the right instance server."
     exit 1
   fi
 else
   ### no TSM or TSLM
-  echo "ERROR: Instance $instUser is not a Storage Protect or TSLM instance."
+  echo "  ERROR: Instance $instUser is not a Storage Protect or TSLM instance."
   exit 1
 fi
 
 
-### check that snapshot name is given and assign it snapName
+### check that snapshot name is given and exists and assign it snapName
 snapName=$1
-echo "INFO: checking if snapshot to be restored ($snapName) exists on all relevant file systems and filesets."
+echo -e "\nINFO: checking if snapshot to be restored ($snapName) exists on all relevant file systems and filesets."
 if [[ -z $apiServer ]]; then
-  echo "INFO: Using commmand line as user $instUser"
+  echo "  INFO: Using commmand line as user $instUser"
 else
-  echo "INFO: Using REST API server $apiServer"
+  echo "  INFO: Using REST API server $apiServer"
 fi
 if [[ -z $snapName ]]; then
-  echo "ERROR: snapshot name not specified."
-  echo "Usage:"
-  echo "./isnap-restore.sh snapshot-name"
-  echo " snapshot-name: Name of the snapshot to be restored on all relevant file sets."
-  echo " -h | --help:   Show this help message (optional)."
+  echo "  ERROR: snapshot name not specified."
+  echo "  Usage:"
+  echo "  isnap-restore.sh snapshot-name"
+  echo "    snapshot-name: Name of the snapshot to be restored on all relevant file sets."
+  echo "    -h | --help:   Show this help message (optional)."
   echo
   exit 4
 else
@@ -312,16 +326,28 @@ else
 	  fi
   done
   if (( rc > 0 )); then
-    echo "ERROR: snapshot name $snapName does not exist on all relevant file systems."
+    echo "  ERROR: snapshot name $snapName does not exist on all relevant file systems."
 	exit 5
   fi
 fi
 
-echo "INFO: snapshot $snapName exists on all relevant filesystem and filesets, continuing."
+echo "  INFO: snapshot $snapName exists on all relevant filesystem and filesets, continuing."
 
 ### Print the snapshot restore instruction
 # iterate through the dirsToSnap and restore the snapshot
-echo "INFO: $(date) Restoring snapshots for all relevant file systems and filesets."
+if [[ $autoRestore == false ]]; then
+  echo -e "\n==============================================================================="
+  echo "INFO: Manual restore requested (autoRestore=$autoRestore)"
+  echo "-------------------------------------------------"
+  echo "      When using the REST API then the restore can only be done manually!"
+  echo "      Follow the instructions on the console. Press [Enter] to continue."
+  echo -e "===============================================================================\n"
+  echo -e "Press [Enter] to continue or CTRL-C to quit: \c"
+  read
+else
+  echo -e "\nINFO: $(date) Automatically Restoring snapshots for all relevant file systems and filesets."
+fi
+
 item=""
 fsName=""
 fsetName=""
@@ -339,30 +365,30 @@ do
     fsetName=$(echo $item | cut -d'+' -f 2 -s)
 
     if [[ -z $fsetName ]]; then
-	    if [[ -z $apiServer ]]; then
+      # differentiate manual or automatic restore
+	    if [[ $autoRestore == true ]]; then
         # echo "$sudoCmd $gpfsPath/mmrestorefs $fsName $snapName"
+        echo -e "\n---------------------------------------------------------------------------------"
+        echo -e "INFO: Restoring snapshot $snapName for file system $fsName" 
         $sudoCmd $gpfsPath/mmrestorefs $fsName $snapName
 	      (( rc = rc + $? ))
 	   else
-	     echo
-		   echo "==========================================================================="
-	     echo "WARNING: snapshot restore is not implemented using the REST API. Perform the snapshot restore manually."
-		   echo "ACTION:  run the following command as Scale admin user on the storage cluster:"
-		   echo "         # $sudoCmd $gpfsPath/mmrestorefs $fsName $snapName"
+		   echo -e "\nACTION:  run the following command as Scale admin user on the storage cluster:"
+		   echo -e "         # $sudoCmd $gpfsPath/mmrestorefs $fsName $snapName"
        # rc=1391 means that the API is used
 		   rc=1391
 	    fi
     else
-	    if [[ -z $apiServer ]]; then
-        # echo "$sudoCmd $gpfsPath/mmrestorefs $fsName $snapName -j $fsetName"
+      # differentiate manual or automatic restore
+	    if [[ $autoRestore == true ]]; then
+	      # echo "$sudoCmd $gpfsPath/mmrestorefs $fsName $snapName -j $fsetName"
+        echo -e "\n---------------------------------------------------------------------------------"
+        echo -e "INFO: Restoring snapshot $snapName for fileset $fsetName on file system $fsName"
         $sudoCmd $gpfsPath/mmrestorefs $fsName $snapName -j $fsetName
 	      (( rc = rc + $? ))
 	    else
-	      echo
-		    echo "==========================================================================="		 
-	      echo "WARNING: snapshot restore is not implemented using the REST API. Perform the snapshot restore manually:"
-		    echo "ACTION:  run the following command as Scale admin user on the storage cluster:"
-		    echo "         # $sudoCmd $gpfsPath/mmrestorefs $fsName $snapName -j $fsetName"
+		    echo -e "\nACTION:  run the following command as Scale admin user on the storage cluster:"
+		    echo -e "         # $sudoCmd $gpfsPath/mmrestorefs $fsName $snapName -j $fsetName"
         # rc=1391 means that the API is used
 		    rc=1391
 	    fi
@@ -428,7 +454,7 @@ echo
 echo "NOTE:   If the snapshot restore failed, then enter no or CTRl-C and resolve the problem."
 echo "        You can restart this script any time after the problem was resolved."
 echo "---------------------------------------------------------------------------"
-echo -e "Your Input [CTRL-C | yes]: \c"
+echo -e "Your Input [yes | CTRL-C]: \c"
 read a
 if [[ "$a" == "yes" ]]; then
   echo
@@ -466,7 +492,7 @@ if [[ "$a" == "yes" ]]; then
   do 
      if [[ ! -z $line ]]; then
        if [[ -z $apiServer ]]; then
-         mmlsfileset $line
+         $sudoCmd $gpfsPath/mmlsfileset $line
 	     else
 	       echo "Filesets in file system $line:"
 		     echo -e "Name\t\tStatus\t\tPath"
@@ -511,7 +537,6 @@ if [[ "$a" == "yes" ]]; then
     echo "INFO: Make sure that the output above is appropriate for the instance to start."
     echo "ACTION: Start and resume the Storage Protect database."
     echo "        As instance user, run the following command:"
-    echo "---------------------------------------------------------------------"
     echo "# su - $instUser"
     echo "# db2start"
     echo "# db2 restart db $dbName write resume"
