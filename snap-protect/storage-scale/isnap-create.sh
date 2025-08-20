@@ -31,6 +31,7 @@
 # History
 # 04/30/25 added sudoCmd to snapconfig.json - version 1.9.1
 # 06/27/25 added default for TSMDB1 and apiPort
+# 08/13/25 add more debugging for job-ID query and structured output in create_apisnapshot()
 
 #---------------------------------------
 # Global parameters
@@ -172,7 +173,7 @@ calc_expDate()
 # -----------------------------------------------------------------
 function create_apisnapshot()
 {
-  echo "DEBUG: Entering create_apisnapshot() for file system $fsName, fileset $fsetName, expiration $expClause."
+  echo -e "\nINFO: Creating snapshot $snapPrefix-$snapPostfix for  fileset $fsetName in file system $fsName, expiration $expClause."
   # $fsName $snapPrefix-$snapPostfix -j $fsetName $expClause
   
   jobId=""
@@ -206,22 +207,24 @@ function create_apisnapshot()
     jState="RUNNING"
     while [[ $jState = "RUNNING" && ! $loops = $maxLoops ]];
     do
-      echo "DEBUG: checking job $jobId for completion (Loop: $loops)."
+      echo "  INFO: checking job $jobId for completion (Loop: $loops)."
       sleep $sleeptime
 
-	  jState=$(curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/jobs?fields=%3Aall%3A&filter=jobId%3D$jobId" 2>>/dev/null | grep "status" | grep -v "{" | cut -d':' -f 2 | sed 's/,*$//g' | sed 's/"//g' | sed 's/^ *//g')
+	    jState=$(curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/jobs?fields=%3Aall%3A&filter=jobId%3D$jobId" 2>>/dev/null | grep "status" | grep -v "{" | cut -d':' -f 2 | sed 's/,*$//g' | sed 's/"//g' | sed 's/^ *//g')
 	 
-	  echo "DEBUG: job $jobId status: $jState"
-	  # if jState is empty, then perform the jobID query without parsing
-	  if [[ -z $jState ]]; then
-	    echo "DEBUG: Job status is empty, performing jobID query again."
-		curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/jobs?fields=%3Aall%3A&filter=jobId%3D$jobId"
-	  fi
+	    echo "  DEBUG: job $jobId status: $jState"
+	    # if jState is empty, then perform the jobID query without parsing
+	    if [[ -z $jState ]]; then
+	      echo "  INFO: Job status is empty, performing jobID query in unfiltered format:"
+        echo "  DEBUG: command: curl -k -X GET --header 'Accept: application/json' --header \"Authorization: Basic $apiAuth\" \"https://$apiServer/scalemgmt/v2/jobs?fields=%3Aall%3A&filter=jobId%3D$jobId\""
+        sleep $sleeptime
+		    curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/jobs?fields=%3Aall%3A&filter=jobId%3D$jobId"
+	    fi
 	 
-	  (( loops = loops + 1 ))
-  done
+	    (( loops = loops + 1 ))
+    done
   else
-    echo "DEBUG: no REST API job was created, snapshot create failed."
+    echo "  DEBUG: no REST API job was created, snapshot create failed."
     jState="FAILED"
   fi
   
@@ -394,9 +397,9 @@ fi
 # print message
 echo -e "\n-----------------------------------------------------------------------------"
 if [[ -z $apiServer ]]; then
-  echo -e "INFO: $(date) creating snapshots with retention time $snapRet day using CLI for: $dirsToSnap\n"
+  echo -e "INFO: $(date) creating snapshots with retention time $snapRet day using CLI for: $dirsToSnap"
 else 
-  echo -e "INFO: $(date) creating snapshots with retention time $snapRet day using API ($apiServer) for: $dirsToSnap\n"
+  echo -e "INFO: $(date) creating snapshots with retention time $snapRet day using API ($apiServer) for: $dirsToSnap"
 fi
 
 # determine date string as snapshot name postfix
@@ -419,7 +422,7 @@ do
     fsetName=$(echo $item | cut -d'+' -f 2 -s)
     if [[ -z $fsetName ]]; then
       # global snapshot
-      echo "INFO: Creating global snapshot for file system $fsName" 
+      echo -e "INFO: Creating global snapshot for file system $fsName" 
       if [[ -z $apiServer ]]; then
         # echo "$gpfsPath/mmcrsnapshot $fsName $snapPrefix-$snapPostfix $expClause"
         $sudoCmd $gpfsPath/mmcrsnapshot $fsName $snapPrefix-$snapPostfix $expClause
@@ -431,7 +434,7 @@ do
 	    fi
     else
 	    # fileset snapshot
-        echo "INFO: Creating fileset snapshot for file system $fsName and fileset $fsetName"
+      echo -e "\nINFO: Creating fileset snapshot for fileset $fsetName in  file system $fsName"
 	    if [[ -z $apiServer ]]; then
          # echo "DEBUG: $sudoCmd $gpfsPath/mmcrsnapshot $fsName $snapPrefix-$snapPostfix -j $fsetName $expClause"
          $sudoCmd $gpfsPath/mmcrsnapshot $fsName $snapPrefix-$snapPostfix -j $fsetName $expClause
