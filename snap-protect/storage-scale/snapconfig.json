@@ -9,7 +9,8 @@
     "apiServerIP": "GUI host name or IP",
     "apiServerPort": "GUI host port, default 443",
     "apiCredentials": "GUI user credentials base64 encoded",
-    "dirsToSnap": ["tsmdb+srv01", "tsmlog+srv01", "tsmalog+srv01", "tsmstg+srv01", "tsminst+srv01", "tsmbackup+srv01"]
+    "dirsToSnap": ["tsmdb+srv01", "tsmlog+srv01", "tsmalog+srv01", "tsmstg+srv01", "tsminst+srv01", "tsmbackup+srv01"],
+    "autoRestore": true | false
   },
   {
     "instName": "tsminst2",
@@ -21,6 +22,7 @@
     "apiServerIP": "GUI host name or IP",
     "apiServerPort": "GUI host port, default 443",
     "apiCredentials": "GUI user credentials base64 encoded",
-    "dirsToSnap": ["tsmdb+srv02", "tsmlog+srv02", "tsmalog+srv02", "tsmstg+srv02", "tsminst+srv02", "tsmbackup+srv02"]
+    "dirsToSnap": ["tsmdb+srv02", "tsmlog+srv02", "tsmalog+srv02", "tsmstg+srv02", "tsminst+srv02", "tsmbackup+srv02"],
+    "autoRestore": true | false    
   }
 ]
