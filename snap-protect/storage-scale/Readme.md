@@ -327,7 +327,7 @@ In this example the `isnap-scripts` were copied to directory `/usr/local/bin` an
 -rwxr-xr-x. 1 root     root      isnap-wrapper.sh
 ```
 
-**Note:** all scripts expect the configuration file in directory `/usr/local/bin`. If the configuration file is stored in a different directory, then all scripts must be updated to reflect the correct path of the configuration file. This is done with variable `configFile` defined at the beginning of each script.**
+**Note:** all scripts expect the configuration file in directory `/usr/local/bin`. If the configuration file is stored in a different directory, then all scripts must be updated to reflect the correct path of the configuration file. This is done with variable `configFile` defined at the beginning of each script.
 
 **Do not copy the files to the Storage Protect instance user home directory, because this directory will be overwritten upon restore.**
 
