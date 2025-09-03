@@ -39,6 +39,7 @@
 # History
 # 04/30/25 added sudoCmd to snapconfig.json - version 1.7.1
 # 08/13/25 add more debugging for job-ID query and structured output in del_apisnapshot()
+# 09/03/25 masked $apiAuth in debug message
 
 #---------------------------------------
 # global parameters
@@ -231,7 +232,7 @@ function del_apisnapshot()
 	    # if jState is empty, then perform the jobID query without parsing
 	    if [[ -z $jState ]]; then
 	      echo "  INFO: Job status is empty, performing jobID query in unfiltered format:"
-        echo "  DEBUG: curl -k -X GET --header 'Accept: application/json' --header \"Authorization: Basic $apiAuth\" \"https://$apiServer/scalemgmt/v2/jobs?fields=%3Aall%3A&filter=jobId%3D$jobId\""
+        echo "  DEBUG: curl -k -X GET --header 'Accept: application/json' --header \"Authorization: Basic XXX\" \"https://$apiServer/scalemgmt/v2/jobs?fields=%3Aall%3A&filter=jobId%3D$jobId\""
         sleep $sleeptime
 
 		    curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/jobs?fields=%3Aall%3A&filter=jobId%3D$jobId"
