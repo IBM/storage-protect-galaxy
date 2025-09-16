@@ -70,6 +70,7 @@ Find below some requirements and limitations for the usage of these scripts with
 - JSON parser program `jq` is required to be installed on the Storage Protect servers
 - Bash shell is required
 - Tool `curl` is required
+- Tool `bc` is required
 - More storage capacity is required in the Storage Scale cluster because snapshots consume storage capacity (see section [Storage capacity planning](#storage-capacity-planning))
 
 
@@ -165,6 +166,7 @@ The `isnap-scripts` require the following tools to be installed in the operating
 - jq:       JSON parser, should be installed in `/usr/bin`
 - curl:     interact with REST API, should be installed in `/usr/bin`
 - awk:      parse text, should be installed in `/usr/bin`
+- bc:		floating point calculator, used in `isnap-fscap.sh`, should be installed in `/usr/bin`
 
 Makes sure that these tools are installed prior to installing and configuring the `isnap-scripts`. 
 
@@ -791,7 +793,7 @@ After the instance started in maintenance mode and was verified, then halt the i
 
 ### List safeguarded copy
 
-Safeguarded copies are listed by Storage Protect instance using the script [isnap-list.sh](fsnap-list.sh). The script can be executed by any user who has permissions to execute it. When not executed by the instance user, then the command line parameter `-i instance-name` must be provided. 
+Safeguarded copies are listed by Storage Protect instance using the script [isnap-list.sh](isnap-list.sh). The script can be executed by any user who has permissions to execute it. When not executed by the instance user, then the command line parameter `-i instance-name` must be provided. 
 
 The script uses the command `mmlssnapshot`. If the configuration parameter `apiServerIP` is specified, then the Storage Scale REST API is used. 
 
@@ -808,9 +810,8 @@ isnap-list.sh [-i instance-user-name -s snapshot-name -v -h | --help]
 	-h | --help:			Show this help message (optional).
 ```
 
-The script iterates through all relevant file systems and filesets and list the snapshots on standard out. Here is an example:
 
-The script iterates through the list of file system and filesets and lists the snapshots. Here is an example:
+The script lists the snapshots for each file system and fileset configured for the instance. The parameter `-v` shows the allocated capacity for each snapshot. This parameter `-v` only works when the CLI is used. It does not work with the REST API, because the REST API endpoint does not provide capacity information. Here is an example of the output:
 
 ```
 Snapshots in file system tsmdb: [data and metadata]
@@ -888,44 +889,34 @@ Syntax: isnap-fscap.sh [-i instance-user-name]
   -i instance-user-name: instanz name to the fileset capacities
 ```
 
-The script iterates through all relevant file systems and list the file system usage information. Here is an example:
+The latest version of `isnap-fscap.sh` calculates the capacity occupied in the filesystems or filesets without SGC and the capacity occupied by all SGC for the subject filesystem or fileset. It further calculates an extra capacity factor using the formula: 
+
+`(capacity in SGC / (capacity in fileset - occupied capacity in SGC)
+
+The intention of the factor is to reflect the amount of extra capacity required for the filesystems or filesets. Here is an example of the output:
 
 ```
-Capacity usage for filesystem tsmdb, fileset srv02
-7.4G    /gpfs/tsmdb/srv02/.snapshots
-22G     /gpfs/tsmdb/srv02/
----------------------------------------------------
-Capacity usage for filesystem tsmlog, fileset srv02
-32G     /gpfs/tsmlog/srv02/.snapshots
-160G    /gpfs/tsmlog/srv02/
----------------------------------------------------
-Capacity usage for filesystem tsmalog, fileset srv02
-15G     /gpfs/tsmalog/srv02/.snapshots
-17G     /gpfs/tsmalog/srv02/
----------------------------------------------------
-Capacity usage for filesystem tsmstg, fileset srv02
-162G    /gpfs/tsmstg/srv02/.snapshots
-2.2T    /gpfs/tsmstg/srv02/
----------------------------------------------------
-Capacity usage for filesystem tsminst, fileset srv02
-201M    /gpfs/tsminst/srv02/.snapshots
-18G     /gpfs/tsminst/srv02/
----------------------------------------------------
-Capacity usage for filesystem tsmbackup, fileset srv02
-36G     /gpfs/tsmbackup/srv02/.snapshots
-72G     /gpfs/tsmbackup/srv02/
----------------------------------------------------
-Getting global file system statistic
-Filesystem             Size  Used Avail Use% Mounted on
-tsmdb                  600G   32G  569G   6% /gpfs/tsmdb
-tsminst                 40G   20G   21G  49% /gpfs/tsminst
-tsmlog                 500G  194G  307G  39% /gpfs/tsmlog
-tsmstg                  10T  2.2T  7.9T  22% /gpfs/tsmstg
-tsmalog                400G   22G  379G   6% /gpfs/tsmalog
-tsmbackup              2.0T  135G  1.9T   7% /gpfs/tsmbackup
-```
+INFO: Wed Sep 10 16:59:37 CEST 2025 program /usr/local/bin/isnap-fscap.sh version 1.4 started by root
+INFO: Wed Sep 10 16:59:38 CEST 2025 Getting capacity statistic for all filesystems of instance tsminst3 via command line.
 
-The first portion of the output shows the total allocation in the fileset and the capacity allocated by snapshots. The second portions shows the filel system usage statistic. 
+Timestamp                     FS-Name     FS-capacity [GB] Snap-capacity [GB]          Factor
+2025-09-10@16:59:42             tsmdb                 2.74               5.52            2.01
+
+Timestamp                     FS-Name     FS-capacity [GB] Snap-capacity [GB]          Factor
+2025-09-10@16:59:44          tsmctlog                15.83              33.71            2.12
+
+Timestamp                     FS-Name     FS-capacity [GB] Snap-capacity [GB]          Factor
+2025-09-10@16:59:45           tsmalog                 6.08              15.35            2.52
+
+Timestamp                     FS-Name     FS-capacity [GB] Snap-capacity [GB]          Factor
+2025-09-10@16:59:47            tsmstg               444.00             243.75            0.54
+
+Timestamp                     FS-Name     FS-capacity [GB] Snap-capacity [GB]          Factor
+2025-09-10@16:59:50           tsminst                 0.30               0.42            1.40
+
+Timestamp                     FS-Name     FS-capacity [GB] Snap-capacity [GB]          Factor
+2025-09-10@16:59:51          smbackup                 8.33               0.75            0.09
+```
 
 Note, the scipt uses the configuration file (see [Adjust configuration files](#Adjust-configuration-files)) to determine file system and fileset combination of the instance. When running this script as non-instance user, then specify the instance user name with the parameter `-i instance-user`.
 
