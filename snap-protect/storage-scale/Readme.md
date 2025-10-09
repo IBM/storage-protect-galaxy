@@ -1,6 +1,6 @@
 # Consistent SGC for IBM Storage Protect on IBM Storage Scale
 
--------------------------
+----------------------------
 
 
 ## Introduction
