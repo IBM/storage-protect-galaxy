@@ -38,7 +38,8 @@
 #
 # History
 # 04/30/25 added sudoCmd to snapconfig.json - version 1.7.1
-
+# 08/13/25 add more debugging for job-ID query and structured output in del_apisnapshot()
+# 09/03/25 masked $apiAuth in debug message
 
 #---------------------------------------
 # global parameters
@@ -195,7 +196,7 @@ calc_expDate()
 # -----------------------------------------------------------------
 function del_apisnapshot()
 {
-  echo "DEBUG: Entering del_apisnapshot() to delete snap $1 from $fsName in fileset $fsetName"
+  echo "INFO: Deleting snapshot $1 from fileset $fsetName in file system $fsName "
   
   sn=$1
   jobId=""
@@ -208,7 +209,7 @@ function del_apisnapshot()
     jobId=$(curl -k -X DELETE --header 'Content-Type: application/json' --header 'Accept: application/json' --header "Authorization: Basic $apiAuth"  "https://$apiServer/scalemgmt/v2/filesystems/$fsName/filesets/$fsetName/snapshots/$sn" 2>>/dev/null | grep "jobId" | cut -d':' -f 2 | sed 's/,*$//g' | sed 's/^ *//g')
 
   else
-    echo "DEBUG: curl -k -X DELETE --header 'Content-Type: application/json' --header 'Accept: application/json' --header 'Authorization: Basic $apiAuth' 'https://$apiServer/scalemgmt/v2/filesystems/$fsName/snapshots/$sn' "
+    # echo "DEBUG: curl -k -X DELETE --header 'Content-Type: application/json' --header 'Accept: application/json' --header 'Authorization: Basic $apiAuth' 'https://$apiServer/scalemgmt/v2/filesystems/$fsName/snapshots/$sn' "
 
     jobId=$(curl -k -X DELETE --header 'Content-Type: application/json' --header 'Accept: application/json' --header "Authorization: Basic $apiAuth"  "https://$apiServer/scalemgmt/v2/filesystems/$fsName/snapshots/$sn" 2>>/dev/null  | grep "jobId" | cut -d':' -f 2 | sed 's/,*$//g' | sed 's/^ *//g')
   fi
@@ -222,7 +223,7 @@ function del_apisnapshot()
     jState="RUNNING"
     while [[ $jState = "RUNNING" && ! $loops = $maxLoops ]];
     do
-      echo "INFO: checking job $jobId for completion ($loops)."
+      echo "  INFO: checking job $jobId for completion ($loops)."
       sleep $sleeptime
 
 	    jState=$(curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/jobs?fields=%3Aall%3A&filter=jobId%3D$jobId" 2>>/dev/null | grep "status" | grep -v "{" | cut -d':' -f 2 | sed 's/,*$//g' | sed 's/"//g' | sed 's/^ *//g')
@@ -230,14 +231,17 @@ function del_apisnapshot()
 	    echo "  DEBUG: job $jobId status: $jState, loop: $loops"
 	    # if jState is empty, then perform the jobID query without parsing
 	    if [[ -z $jState ]]; then
-	      echo "  DEBUG: Job status is empty, performing jobID query again."
+	      echo "  INFO: Job status is empty, performing jobID query in unfiltered format:"
+        echo "  DEBUG: curl -k -X GET --header 'Accept: application/json' --header \"Authorization: Basic XXX\" \"https://$apiServer/scalemgmt/v2/jobs?fields=%3Aall%3A&filter=jobId%3D$jobId\""
+        sleep $sleeptime
+
 		    curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/jobs?fields=%3Aall%3A&filter=jobId%3D$jobId"
 	    fi
 
 	    (( loops = loops + 1 ))
     done
   else
-    echo "ERROR: no REST API job was created, snapshot delete failed."
+    echo "  ERROR: no REST API job was created, snapshot delete failed."
     jState="FAILED"
   fi
   
@@ -432,7 +436,7 @@ do
 	    fi
 	  fi
 
-    echo "INFO: processing file system $fsName fileset $fsetName"
+    echo -e "\nINFO: Deleting snapshot(s) on fileset $fsetName in  file system $fsName"
 	 
 	  # determine all snapshots in file system and fileset that are older than snapAge
 	  if [[ ! -z $snapAge ]]; then
@@ -484,8 +488,9 @@ do
   fi
 done
 
+# final message depending on return code
 if (( rc > 0 )); then
-  echo "ERROR: $op snapshot deletion failed, check the log."
+  echo -e "\nERROR: $op snapshot deletion failed, check the log.\n"
   if [[ $op = "perform" ]]; then 
     # if this path is not active, just pretend to sleep a second
 	  sleep 0
@@ -493,7 +498,7 @@ if (( rc > 0 )); then
   fi
   exit 5
 else
-  echo "INFO: $(date) $op snapshot deletion completed successfully."
+  echo -e "\nINFO: $(date) $op snapshot deletion completed successfully.\n"
 fi 
 
 exit 0
