@@ -1,6 +1,6 @@
 # Consistent SGC for IBM Storage Protect on IBM Storage Scale
 
--------------------------
+-------------------------------
 
 
 ## Introduction
@@ -30,7 +30,7 @@ Figure 1: Storage Scale topology in storage cluster
 As shown in figure 1, multiple Storage Protect instances run in a single Storage Scale storage cluster. Storage Scale provides highly available and scalable file systems that are used by all Storage Protect instances. Each Storage Protect instance includes a database for metadata and storage pools for backup data. 
 Multiple file systems are configured in Storage Scale for different types of Storage Protect data and metadata. For example, there is a file system for the Storage Protect database, one for the database logs, one for the storage pools and one for the instance itself. Within the file system each Storage Protect instance has its own fileset. This allows to create and restore consistent immutable snapshots per Storage Protect instance. 
 
-The `isnap-scripts` provided by the project run on the cluster nodes that host the Storage Protect instances in the storage cluster. In this topology the `isnap-scripts` can use the Storage Scale CLI or REST API to manage consistent immutable snapshots. When using the CLI, then immutable snapshots are restored in an automated manner. When the REST API is used, then the restore of immutable snapshots is executed in a manual way (see section [Restore safeguarded copy](#Restore-safeguarded-copy) for more details).
+The `isnap-scripts` provided by the project run on the cluster nodes that host the Storage Protect instances in the storage cluster. In this topology the `isnap-scripts` can use the Storage Scale CLI or REST API to manage consistent immutable snapshots. When using the CLI, then immutable snapshots can be restored manually or automated. Manual restore means that the restore script prints restore instruction on the console and the user must confirm these. Automated restore means that the snapshots are restored automatically without interactions on the console. When the REST API is used, then the restore of immutable snapshots is always done manually (see section [Restore safeguarded copy](#Restore-safeguarded-copy) for more details).
 
 
 In the second topology - shown in figure 2 - the Storage Protect instances run in a separate Storage Scale cluster (remote cluster). The storage for all data of the Storage Protect instances is provided by a storage cluster. 
@@ -42,7 +42,7 @@ Figure 2: Storage Scale topology with remote and storage cluster
 
 As shown in figure 2 multiple Storage Scale instances run in a remote cluster. The remote cluster is a storage-less Storage Scale cluster that remotely mounts the file systems provided by the storage cluster. Each Storage Protect instance uses its own fileset configured in the Storage Scale file systems provided by the storage cluster. This allows to create and restore consistent immutable snapshots per Storage Protect instance.
 
-The `isnap-scripts` provided by the project run on the cluster nodes of the remote cluster. In this topology the `isnap-scripts` use the Storage Scale REST API of the storage cluster to manage consistent immutable snapshots. With the Storage Scale REST API it is not possible to restore immutable snapshots in an automated manner. Therefore the restore is conducted in a manual way (see section [Restore safeguarded copy](#Restore-safeguarded-copy) for more details).
+The `isnap-scripts` provided by the project run on the cluster nodes of the remote cluster. In this topology the `isnap-scripts` use the Storage Scale REST API of the storage cluster to manage consistent immutable snapshots. With the Storage Scale REST API it is not possible to restore immutable snapshots in an automated manner (see section [Restore safeguarded copy](#Restore-safeguarded-copy) for more details).
 
 The advantage of the remote cluster architecture shown in figure 2 is a separation of administrative domains. The servers in the Storage Protect cluster are administered by the Storage Protect administrators, while the Storage Scale file systems and storage are administered by the Storage administrators. The Storage Protect administrators have no access to the file system disk in the Storage cluster, only to the file system itself. Furthermore, a cyber attack on the Storage Protect servers in the remote cluster cannot tamper with the file system resources provided by the storage cluster, because this infrastructure is decoupled from the remote cluster.
 
@@ -62,13 +62,15 @@ Find below some requirements and limitations for the usage of these scripts with
 - When Storage Protect instances run in a remote cluster, then the REST API must be used.
 - When using the Storage Scale REST API, then it is not possible to automatically restore consistent immutable snapshots for a given instance.
 - The current implementation uses the Storage Scale REST API version 2. This is the legacy implementation in Storage Scale version 5. 
-- Each instance must either have dedicated filesystem or dedicated independent fileset for all instance specific backup data and metadata
-- Nested independent fileset - where the parent of an independent fileset is an independent fileset - are not supported. This is because the snapshot of the parent independent fileset does not snap the date of the nested independent fileset.  
+- Each instance must either have dedicated filesystem or dedicated independent fileset for all instance specific backup data and metadata (see [File system configuration](#File-system-configuration)])
+- Nested independent fileset - where the parent of an independent fileset is an independent fileset - are not supported. This is because the snapshot of the parent independent fileset does not snap the date of the nested independent fileset. 
+- When using the Storage Scale CLI, then the instance user requires elevated permissions to execute Storage Scale snapshot commands (see [Sudo configuration](#sudo-configuration))
 - Storage Protect disk, file and container pools are supported
 - Volume reuse delay for Storage Protect storage pools must be set to the retention period of the snapshots plus 1. This especially applies to storage pools that are not snapped, for example copy pools on tape
 - JSON parser program `jq` is required to be installed on the Storage Protect servers
 - Bash shell is required
 - Tool `curl` is required
+- Tool `bc` is required
 - More storage capacity is required in the Storage Scale cluster because snapshots consume storage capacity (see section [Storage capacity planning](#storage-capacity-planning))
 
 
@@ -164,6 +166,7 @@ The `isnap-scripts` require the following tools to be installed in the operating
 - jq:       JSON parser, should be installed in `/usr/bin`
 - curl:     interact with REST API, should be installed in `/usr/bin`
 - awk:      parse text, should be installed in `/usr/bin`
+- bc:		floating point calculator, used in `isnap-fscap.sh`, should be installed in `/usr/bin`
 
 Makes sure that these tools are installed prior to installing and configuring the `isnap-scripts`. 
 
@@ -219,15 +222,17 @@ When using the REST API, then the Storage Protect instance must be able to conne
 
 ### Storage Scale REST API
 
-The `isnap-scripts` can be configured to use the Storage Scale REST API to manage immutable snapshots. When using the REST API it does not matter if the Storage Protect instance run in the storage cluster or in a remote cluster. Important is, that the REST API of the storage cluster is used.
+The `isnap-scripts` can be configured to use the Storage Scale REST API to manage immutable snapshots. When using the REST API it does not matter if the Storage Protect instance run in the storage cluster or in a remote cluster. 
 
-When using the REST API, then a REST API user with the role `snapAdmin` must be created. Collect the following information for the REST API of the storage cluster:
+When using the REST API, then a REST API user with the role `snapAdmin` must be created. Collect the following information for the REST API of the storage cluster. This information is required, when configuring the `isnap-scripts` (see section [Adjust configuration files](#Adjust-configuration-files))
+
 - IP address or IP alias of the REST API server
 - IP port of the REST API server
 - REST API user name in the `snapAdmin` role
 - REST API user password
 
-This information is required, when configuring the `isnap-scripts` (see section [Adjust configuration files](#Adjust-configuration-files))
+
+**Note:** When using the REST API, then the restore is always performed in manual mode. 
 
 
 ### Sudo configuration
@@ -324,7 +329,7 @@ In this example the `isnap-scripts` were copied to directory `/usr/local/bin` an
 -rwxr-xr-x. 1 root     root      isnap-wrapper.sh
 ```
 
-**Note: all scripts expect the configuration file in directory `/usr/local/bin`. If the configuration file is stored in a different directory, then all scripts must be updated to reflect the correct path of the configuration file. This is done with variable `configFile` defined at the beginning of each script.**
+**Note:** all scripts expect the configuration file in directory `/usr/local/bin`. If the configuration file is stored in a different directory, then all scripts must be updated to reflect the correct path of the configuration file. This is done with variable `configFile` defined at the beginning of each script.
 
 **Do not copy the files to the Storage Protect instance user home directory, because this directory will be overwritten upon restore.**
 
@@ -340,22 +345,22 @@ The configuration of each Storage Protect instance is described in the configura
 | Parameter | Description | Required | Example |
 |-----------|-------------|---------|---------|
 | instName | Instance name, corresponds to the instance user | yes | tsminst1 |
-| instUser | Instance user, used for Db operation | no | tsminst1 |
 | snapPrefix | Name prefix of the snapshot, used to create and restore snapshot	| yes | tsminst1-snap |
 | dirsToSnap | file system name and fileset name, used to create and restore snapshot. If fileset name is not given, global snapshot are used. | yes |	fsname+fsetname  |
-| dbName | Name of the Db2, usually this is TSMDB1 | yes | TSMDB1 | 
 | snapRetention | Retention time in days for the snapshot, default is 0 days. Snapshots cannot be deleted during retention time	| no | 5 |
+| dbName | Name of the Db2, default is TSMDB1 | no | TSMDB1 | 
 | serverInstDir | Instance directory of the server (where dsmserv.opt resides). Must only be specified if different to instance user home. Default is instance user home directory.	| no | /tsminst/inst01/home |
 | sudoCommand | Full qualified path of command used by the instance user run other commands with root privileges. Default is `/usr/bin/sudo`. | no | /usr/bin/dzdo |
-| apiServerIP | IP address or host name of the REST API server. If this parameter is set, then the REST API is used instead of the CLI. | no | x.x.x.x |
-| apiServerPort | IP port of the REST API server. If not set it defaults to 443 | yes | 443 |
-| apiCredentials | REST API user and password encoded in base64 as User:Password  | yes | YWRtaW46VGVzdDEyMzRhIQ== |
+| autoRestore | Controls if restore is done automatically or manually when using the CLI. When REST API is used, then restore is always done manually, regardless of the setting of `autoRestore`. Default is `false` (manual restore) | no | true or false (lower case) |
+| apiServerIP | IP address or host name of the REST API server. If this parameter is set, then the REST API is used instead of the CLI. | when API is used | x.x.x.x |
+| apiServerPort | IP port of the REST API server. Required if `apiServerIP` is set. Default is 443 | when API is used | 443 |
+| apiCredentials | REST API user and password encoded in base64 as User:Password. Required if `apiServerIP` is set.  | when API is used | YWRtaW46VGVzdDEyMzRhIQ== |
 
 
-When the parameters `apiServerIP`, `apiServerPort` and `apiCredentials` are defined in the configuration file, then the Storage Scale REST API is used instead of the command line. 
+When the parameters `apiServerIP`, `apiServerPort` and `apiCredentials` are defined in the configuration file, then the Storage Scale REST API is used instead of the command line. When the REST API is used, then the restore of immutable snapshots is always done manually (see section [Restore safeguarded copy](#Restore-safeguarded-copy) for more details).
 
 
-The configuration parameter for each instance is described as a JSON-formatted objects in the configuration file `snapconfig.json`. Here is an example for the configuration file for two instances (`tsminst1` and `tsminst2`). Note the concatination of filesystem and fileset names using the `+` character'
+The configuration parameter for each Storage Protect instance is described as a JSON-formatted objects in the configuration file `snapconfig.json`. Here is an example for the configuration file for two instances (`tsminst1` and `tsminst2`). The instance `tsminst1` is configured to use the REST API, while instance `tsminst2` is configured to use the CLI in automatic restore mode. The parameter `dirsToSnap` includes the file system and fileset name for each instance individually in the form: `fsName+fsetName`:
 
 ```
 [
@@ -364,8 +369,8 @@ The configuration parameter for each instance is described as a JSON-formatted o
 	"dbName": "TSMDB1",
 	"snapPrefix": "tsminst1-snap",
 	"snapRetention": "4",
-  "serverInstDir": "/tsminst/inst01/home",
-  "sudoCommand": "/usr/bin/sudo",
+    "serverInstDir": "/tsminst/inst01/home",
+    "sudoCommand": "/usr/bin/sudo",
 	"apiServerIP": "REST API server IP",
 	"apiServerPort": "REST API server IP, default is 443",
 	"apiCredentials": "base64 encoded API user User:Password",
@@ -376,15 +381,16 @@ The configuration parameter for each instance is described as a JSON-formatted o
 	"dbName": "TSMDB1",
 	"snapPrefix": "tsminst2-snap",
 	"snapRetention": "4",
-  "serverInstDir": "/tsminst/inst02/home",
-  "sudoCommand": "/usr/bin/sudo",
+    "serverInstDir": "/tsminst/inst02/home",
+    "sudoCommand": "/usr/bin/sudo",
+	"autoRestore": true
 	"dirsToSnap": ["tsmdb+inst02", "tsmlog+inst02", "tsmalog+inst02", "tsmstg+inst02", "tsminst+inst02", "tsmbackup+inst02"]
   }
 ]
 ``` 
 
-In the example above, the Storage Protect instance `tsminst1` uses the REST API and the Storage Protect instance `tsminst2` does not use the REST API. This is just meant as an example, because usually all Storage Protect instances in one Storage Scale cluster use either the CLI or REST API. 
-The exact location of the configuration file must be updated in the scripts itself. The default location is `/usr/local/bin`.   
+The exact location of the configuration file must be updated in the scripts itself with parameter `configFile`. The default location is `/usr/local/bin`.   
+
 
 
 ### Obtain REST API credentials 
@@ -500,7 +506,7 @@ The scripts `isnap-create.sh` and `isnap-del.sh` raise custom events using the S
 
 ### Test the scripts
 
-To test scripts change to the instance user (for example `tsminst1`) and test the scripts:
+To test the scripts change to the instance user (for example `tsminst1`) and test the scripts:
 
 ```
 # su - tsminst1
@@ -699,7 +705,7 @@ This script creates SGC for all relevant filesets defined as parameter `dirsToSn
 
 If the Storage Protect server instance is not running, or the script is executed on a node where the Storage Protect instance does not run, then no safeguarded copy is created. 
 
-The scripts writes runtime information to standard out. 
+The script writes runtime information to standard out. 
 
 
 ### Restore safeguarded copy
@@ -713,16 +719,7 @@ The restoration of safeguarded copies runs in three phases:
 - **Phase 3:** Start the Storage Protect instance in foreground and in maintenance mode.
 
 
-If the server instance directory is different than the instance user home directory, then the variable `serverInstDir` must be set to the server instance directory path. Otherwise, starting the Storage Protect instance in maintenance mode does not work. The variable `serverInstDir` can be directly adjusted in the `isnap-restore.sh` script. 
-
-If the configuration parameter `apiServerIP` is specified, then the snapshots are not restored automatically because there is no REST API endpoint to restore snapshots. Instead the script checks some pre-requisites and prints instructions to perform the snapshot restore and starting the instance.
-
-The Storage Scale REST API user must have the role `snapshot administrator`. 
-
-The `isnap-restore.sh` script requires the configuration file `snapconfig.json` to be stored in directory `/usr/local/bin`. 
-
-The Storage Protect instance must not be running. 
-
+**Attention:** The script must be exectured as instance user on the server where the instance was running. The script requires that the instance is stopped. When running the script on one server while the instance is running on another server, the script does not detect this and performs the restore operation while the instance may be running on another server. This will cause the instance to become unavailable and potentially corrupted.
 
 **Syntax:**
 
@@ -740,30 +737,63 @@ The script does not perform the restore under the following conditions
 - Snapshot to be restored does not exist on all filesets
 
 
-**Note:** If there are nested independent filesets within the independent fileset to be snapped, then these nested independent are not included in the snapshot. Therefore, it is not supported to use nested independent fileset. 
+Depending on the parameter configure in `snapconfig.json` the snapshot restore in performed in automated or in manual mode. In general, if the REST API is configured in the configuration file, then the restore in performed in manual mode, regardless of the setting of parameter `autoRestore` (see [Restore in automated mode](#Restore-in-automated-mode)). If the command line (CLI) is used, then the setting of parameter `autoRestore` is considered. If the parameter `autoRestore` is set to `true` then the restore in done in automated mode (see [Restore in manual mode](#Restore-in-manual-mode)). If the parameter is set to `false` then the restore is done in manual mode. For more information about configuration parameters see [Adjust configuration files](#Adjust-configuration-files).
 
-**Note:** If there are nested dependent filesets within the independent fileset to be snapped, then these nested dependent dependent are not restored. The files of the dependent fileset are included in the snapshot and can be restored manually by copying the files from the snapshot into the dependent fileset directory. Therefore, it is not recommended to use nested dependent filesets.  
+
+#### Restore in automated mode
+
+Automated restore can only be done when the REST API is not configured in the configuration file and the parameter `autoRestore` is set to `true`. In automated mode all three phases are executed automatically. Command output is written to the console. 
+
+If the restore in automated mode fails, then check the command outputs on the console, correct the problem and run the restore again. 
+
+
+#### Restore on manual mode
+
+If the REST API configured in the configuration file or if the REST API is not configured in the configuration and the parameter `autoRestore` is set to `false`, then the restore in executed in manual mode. In manual mode the user obtains instruction for the restore on the console. During manual restore the following steps are performed:
+
+- validate configuration parameter in the configuration file
+- ensure that the instance is not running on the server. If the instance is running, then the restore is aborted.
+- ensure that the snapshot to be restore exists on all file systems and filesets
+- instruct the user to restore the snapshots by providing the necessary commands. The user must executed these commands with a privileged user and confirm the successful execution in the console.
+- show information about mounted filesystems and fileset and instruct the user to check if the required filesystems are mounted and filesets are linked. The user must confirm the checks on the console.
+- show information about the instance configuration
+- instruct the user to start the database manager, resume the database and start the instance in maintenance mode
+- once the instance was successfully started in maintenance mode, the user can perform necessary checks such as audit storage pools and devices. Once these checks are successfull, the user can `halt` the instance in maintenance mode and start the instance in normal mode. 
+
+
+If the restore in manual mode fails, then check the command outputs on the console, correct the problem and run the restore again. 
+
+
+#### General restore considerations
+
+If the server instance directory is different than the instance user home directory, then the variable `serverInstDir` must be set to the server instance directory path in the configuration file (see [Adjust configuration files](#Adjust-configuration-files)). Otherwise, starting the Storage Protect instance in maintenance mode does not work. 
+
+When using the Storage Scale REST API, then the API user must have the role `snapshot administrator`. 
+
+The `isnap-restore.sh` script requires the configuration file `snapconfig.json` to be stored in directory `/usr/local/bin`. 
+
+The Storage Protect instance must not be running when running the scripts.
+
+
+**Note:** If there are nested independent filesets within the independent fileset to be snapped, then these nested independent are not included in the snapshot. Therefore, it is not supported to use nested independent fileset. 
 
 **Note:** If quota is enabled on file systems and filesets, then the snapshot restore may fail. Disable quota prior to restore and enable quota after the snapshot restore. Alternatively, unmount the file system and perform the snapshot restore. 
 
-**Note:** The script must be exectured as instance user on the server where the instance was running. The script requires that the instance is stopped. When running the script on one server while the instance is running on another server, the script does not detect this and performs the restore operation while the instance may be running on another server. This will cause the instance to become unavailable and potentially corrupted.
+**Note:** When running `isnap-restore.sh` in automated mode (no REST API is used or `autoRestore=false`) and the instance home directory is not accessible, then it requires to run `isnap-restore.sh` two times. The first time `isnap-restore.sh` restores the instance home directory but fails to start the db2 because it could not source the environment initially. Prior running `isnap-restore.sh` a second time, login as instance user again to source the environment. After the second run, the db2 will be started, set to write resume and the instance is started in maintenance mode. 
+Alternatively, the instance can be started manually, after the first run. Make sure that the first run restored the snapshots and perform the following steps:
+- Logout as instance user
+-	Login as instance user
+- Run: `db2start`
+- Run: `db2 restart db $dbName write resume`
+- If the server instance directory is different to instance user home, then change to the server instance directory
+- Run: `dsmserv maintenance`
 
-
-**Note:** When running isnap-restore.sh in automated mode (no GUI is used) and the instance home directory is not accessible, then it requires to run isnap-restore.sh two times. The first time isnap-restore.sh restores the instance home directory but fails to start the db2 because it could not source the environment initially. Prior running isnap-restore.sh a second time, login as instance user again to source the environment. After the second run, the db2 will be started, set to write resume and the instance is started in maintenance mode. 
-Note, after the first run, the instance could be started manually, without running isnap-restore.sh again. Follow these steps:
-•	Logout as instance user
-•	Login as instance user
-•	Run: db2start
-•	Run: db2 restart db $dbName write resume
-•	Change to the server instance directory (may be the same as instance user home directory)
-•	Run: dsmserv maintenance
 After the instance started in maintenance mode and was verified, then halt the instance and start it normally. 
-
 
 
 ### List safeguarded copy
 
-Safeguarded copies are listed by Storage Protect instance using the script [isnap-list.sh](fsnap-list.sh). The script can be executed by any user who has permissions to execute it. When not executed by the instance user, then the command line parameter `-i instance-name` must be provided. 
+Safeguarded copies are listed by Storage Protect instance using the script [isnap-list.sh](isnap-list.sh). The script can be executed by any user who has permissions to execute it. When not executed by the instance user, then the command line parameter `-i instance-name` must be provided. 
 
 The script uses the command `mmlssnapshot`. If the configuration parameter `apiServerIP` is specified, then the Storage Scale REST API is used. 
 
@@ -780,9 +810,8 @@ isnap-list.sh [-i instance-user-name -s snapshot-name -v -h | --help]
 	-h | --help:			Show this help message (optional).
 ```
 
-The script iterates through all relevant file systems and filesets and list the snapshots on standard out. Here is an example:
 
-The script iterates through the list of file system and filesets and lists the snapshots. Here is an example:
+The script lists the snapshots for each file system and fileset configured for the instance. The parameter `-v` shows the allocated capacity for each snapshot. This parameter `-v` only works when the CLI is used. It does not work with the REST API, because the REST API endpoint does not provide capacity information. Here is an example of the output:
 
 ```
 Snapshots in file system tsmdb: [data and metadata]
@@ -860,44 +889,34 @@ Syntax: isnap-fscap.sh [-i instance-user-name]
   -i instance-user-name: instanz name to the fileset capacities
 ```
 
-The script iterates through all relevant file systems and list the file system usage information. Here is an example:
+The latest version of `isnap-fscap.sh` calculates the capacity occupied in the filesystems or filesets without SGC and the capacity occupied by all SGC for the subject filesystem or fileset. It further calculates an extra capacity factor using the formula: 
+
+`(capacity in SGC / (capacity in fileset - occupied capacity in SGC)
+
+The intention of the factor is to reflect the amount of extra capacity required for the filesystems or filesets. Here is an example of the output:
 
 ```
-Capacity usage for filesystem tsmdb, fileset srv02
-7.4G    /gpfs/tsmdb/srv02/.snapshots
-22G     /gpfs/tsmdb/srv02/
----------------------------------------------------
-Capacity usage for filesystem tsmlog, fileset srv02
-32G     /gpfs/tsmlog/srv02/.snapshots
-160G    /gpfs/tsmlog/srv02/
----------------------------------------------------
-Capacity usage for filesystem tsmalog, fileset srv02
-15G     /gpfs/tsmalog/srv02/.snapshots
-17G     /gpfs/tsmalog/srv02/
----------------------------------------------------
-Capacity usage for filesystem tsmstg, fileset srv02
-162G    /gpfs/tsmstg/srv02/.snapshots
-2.2T    /gpfs/tsmstg/srv02/
----------------------------------------------------
-Capacity usage for filesystem tsminst, fileset srv02
-201M    /gpfs/tsminst/srv02/.snapshots
-18G     /gpfs/tsminst/srv02/
----------------------------------------------------
-Capacity usage for filesystem tsmbackup, fileset srv02
-36G     /gpfs/tsmbackup/srv02/.snapshots
-72G     /gpfs/tsmbackup/srv02/
----------------------------------------------------
-Getting global file system statistic
-Filesystem             Size  Used Avail Use% Mounted on
-tsmdb                  600G   32G  569G   6% /gpfs/tsmdb
-tsminst                 40G   20G   21G  49% /gpfs/tsminst
-tsmlog                 500G  194G  307G  39% /gpfs/tsmlog
-tsmstg                  10T  2.2T  7.9T  22% /gpfs/tsmstg
-tsmalog                400G   22G  379G   6% /gpfs/tsmalog
-tsmbackup              2.0T  135G  1.9T   7% /gpfs/tsmbackup
-```
+INFO: Wed Sep 10 16:59:37 CEST 2025 program /usr/local/bin/isnap-fscap.sh version 1.4 started by root
+INFO: Wed Sep 10 16:59:38 CEST 2025 Getting capacity statistic for all filesystems of instance tsminst3 via command line.
 
-The first portion of the output shows the total allocation in the fileset and the capacity allocated by snapshots. The second portions shows the filel system usage statistic. 
+Timestamp                     FS-Name     FS-capacity [GB] Snap-capacity [GB]          Factor
+2025-09-10@16:59:42             tsmdb                 2.74               5.52            2.01
+
+Timestamp                     FS-Name     FS-capacity [GB] Snap-capacity [GB]          Factor
+2025-09-10@16:59:44          tsmctlog                15.83              33.71            2.12
+
+Timestamp                     FS-Name     FS-capacity [GB] Snap-capacity [GB]          Factor
+2025-09-10@16:59:45           tsmalog                 6.08              15.35            2.52
+
+Timestamp                     FS-Name     FS-capacity [GB] Snap-capacity [GB]          Factor
+2025-09-10@16:59:47            tsmstg               444.00             243.75            0.54
+
+Timestamp                     FS-Name     FS-capacity [GB] Snap-capacity [GB]          Factor
+2025-09-10@16:59:50           tsminst                 0.30               0.42            1.40
+
+Timestamp                     FS-Name     FS-capacity [GB] Snap-capacity [GB]          Factor
+2025-09-10@16:59:51          smbackup                 8.33               0.75            0.09
+```
 
 Note, the scipt uses the configuration file (see [Adjust configuration files](#Adjust-configuration-files)) to determine file system and fileset combination of the instance. When running this script as non-instance user, then specify the instance user name with the parameter `-i instance-user`.
 
