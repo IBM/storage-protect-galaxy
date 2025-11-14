@@ -33,12 +33,13 @@
 # 06/27/25 added default for TSMDB1 and apiPort
 # 08/13/25 add more debugging for job-ID query and structured output in create_apisnapshot()
 # 09/03/25 masked $apiAuth in debug message
+# 11/13/25 improve jobId query; allow script to be located in any directory, add usage function - version 2.0
 
 #---------------------------------------
 # Global parameters
 #---------------------------------------
 # name of the config file
-configFile=/usr/local/bin/snapconfig.json
+configFile=snapconfig.json
 
 # path of GPFS commands
 gpfsPath="/usr/lpp/mmfs/bin"
@@ -62,7 +63,26 @@ instUser=$(id -un)
 tmpFile="$HOME/$instUser-crsnap.json"
 
 # version of the program
-ver=1.9.1
+ver=2.0
+
+
+
+#------------------------------------------------------------------
+# Print usage
+#------------------------------------------------------------------
+function usage()
+{
+  if [[ ! -z $1 ]]; then
+    echo "ERROR: $1"
+  fi
+  echo "Usage: "
+  echo "isnap-create.sh -r | --run | -h | --help"
+  echo " -r | --run : Perform the snapshot if the prerequisites are satisfied"
+  echo " -h | --help: Show this help message (optional)."
+  echo " *: show usage."
+  echo
+  return 0
+}
 
 # -----------------------------------------------------------------
 # function parse_config to parse the config file
@@ -190,17 +210,17 @@ function create_apisnapshot()
   if [[ ! -z $fsetName ]]; then
     # echo "DEBUG: curl -k -X POST --header 'Content-Type: application/json' --header 'Accept: application/json' --header 'Authorization: Basic $apiAuth' -d@$tmpFile 'https://$apiServer/scalemgmt/v2/filesystems/$fsName/filesets/$fsetName/snapshots' "
 
-    jobId=$(curl -k -X POST --header 'Content-Type: application/json' --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" -d@$tmpFile "https://$apiServer/scalemgmt/v2/filesystems/$fsName/filesets/$fsetName/snapshots" 2>>/dev/null| grep "jobId" | cut -d':' -f 2 | sed 's/,*$//g' | sed 's/^ *//g')
+    jobId=$(curl -k -X POST --header 'Content-Type: application/json' --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" -d@$tmpFile "https://$apiServer/scalemgmt/v2/filesystems/$fsName/filesets/$fsetName/snapshots" 2>>/dev/null | jq ".jobs[] | .jobId" 2>>/dev/null)
 
   else
     # echo "DEBUG: curl -k -X POST --header 'Content-Type: application/json' --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" -d@$tmpFile 'https://$apiServer/scalemgmt/v2/filesystems/$fsName/snapshots'"
 	
-	jobId=$(curl -k -X POST --header 'Content-Type: application/json' --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" -d@$tmpFile "https://$apiServer/scalemgmt/v2/filesystems/$fsName/snapshots" 2>>/dev/null | grep "jobId" | cut -d':' -f 2 | sed 's/,*$//g' | sed 's/^ *//g')
+	jobId=$(curl -k -X POST --header 'Content-Type: application/json' --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" -d@$tmpFile "https://$apiServer/scalemgmt/v2/filesystems/$fsName/snapshots" 2>>/dev/null | jq ".jobs[] | .jobId" 2>>/dev/null)
 		
   fi
   
   # if jobId is empty, the curl call above failed
-  if [[ ! -z $jobId ]]; then
+  if [[ ! -z $jobId && ! $jobId == "null" ]]; then
     # Check the jobId to finish
     maxLoops=10
     loops=0
@@ -211,15 +231,15 @@ function create_apisnapshot()
       echo "  INFO: checking job $jobId for completion (Loop: $loops)."
       sleep $sleeptime
 
-	    jState=$(curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/jobs?fields=%3Aall%3A&filter=jobId%3D$jobId" 2>>/dev/null | grep "status" | grep -v "{" | cut -d':' -f 2 | sed 's/,*$//g' | sed 's/"//g' | sed 's/^ *//g')
+	    jState=$(curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/jobs/$jobId" 2>>/dev/null | jq ".jobs[] | .status" 2>>/dev/null | sed 's/"//g')
 	 
 	    echo "  DEBUG: job $jobId status: $jState"
 	    # if jState is empty, then perform the jobID query without parsing
 	    if [[ -z $jState ]]; then
 	      echo "  INFO: Job status is empty, performing jobID query in unfiltered format:"
-        echo "  DEBUG: command: curl -k -X GET --header 'Accept: application/json' --header \"Authorization: Basic XXX\" \"https://$apiServer/scalemgmt/v2/jobs?fields=%3Aall%3A&filter=jobId%3D$jobId\""
+        echo "  DEBUG: command: curl -k -X GET --header 'Accept: application/json' --header \"Authorization: Basic XXX\" \"https://$apiServer/scalemgmt/v2/jobs/$jobId\""
         sleep $sleeptime
-		    curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/jobs?fields=%3Aall%3A&filter=jobId%3D$jobId"
+		    curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/jobs/$jobId"
 	    fi
 	 
 	    (( loops = loops + 1 ))
@@ -244,21 +264,22 @@ function create_apisnapshot()
 echo -e "\n============================================================================================="
 echo "INFO: $(date) program $0 version $ver started for instance $instUser on platform $os"
 
-
 ### check if the run parameter is specified
 if [[ $1 = "-h" || $1 = "--help" ]] || [[ ! $1 = "-r" && ! $1 = "--run" ]]; then
-  echo "Usage: "
-  echo "isnap-create.sh -r | --run | -h | --help"
-  echo " -r | --run : Perform the snapshot if the prerequisites are satisfied"
-  echo " -h | --help: Show this help message (optional)."
-  echo " *: show usage."
-  echo
+  usage 
   exit 0
 fi
 
+### determine directory where the script is started from
+basePath=$(dirname $0)
+if [[ $basePath = "." ]]; then
+  basePath=$PWD
+fi
+# echo "DEBUG: base path for $0: $basePath"
 
+configFile="$basePath/$configFile"
+echo "DEBUG: Using config file: $configFile"
 ### get the parameters for this instance user from the config_file
-# Initialize the instance specific parameters and parse the config
 if [[ ! -a $configFile ]]; then
   echo "ERROR: config file $configFile not found. Please provide this file first."
   # $sudoCmd $gpfsPath/mmsysmonc event custom snap_fail "$instUser,Snapshot configuration file $confifFile not found."
@@ -280,7 +301,7 @@ parse_config
 ### check parameters
 # if dirsToSnap is empty, then exist
 if [[ -z $dirsToSnap ]]; then
-  echo "ERROR: parameter dirsToSnap is emtpy."
+  echo "ERROR: parameter dirsToSnap is emtpy. This script must be executed as instance user, current user: $instUser"
   # $sudoCmd $gpfsPath/mmsysmonc event custom snap_fail "$instUser,Instance configuration file does not contain valid file system and fileset information."
   exit 2
 fi
