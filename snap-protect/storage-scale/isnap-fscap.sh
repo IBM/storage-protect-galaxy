@@ -28,13 +28,13 @@
 # History
 # 04/30/25 added sudoCmd to snapconfig.json - version 1.3.1
 # 09/10/25 summarize the capacity and calculate factor, remove syntax function - Version 1.4
-
+# 11/13/25 allow script to be located in any directory
 
 #---------------------------------------
 # global parameters
 #---------------------------------------
 # name of the config file
-configFile=/usr/local/bin/snapconfig.json
+configFile=snapconfig.json
 
 # path of GPFS commands
 gpfsPath="/usr/lpp/mmfs/bin"
@@ -219,7 +219,15 @@ do
   shift 1
 done
 
+### determine directory where the script is started from
+basePath=$(dirname $0)
+if [[ $basePath = "." ]]; then
+  basePath=$PWD
+fi
+# echo "DEBUG: base path for $0: $basePath"
 
+configFile="$basePath/$configFile"
+echo -e "DEBUG: Using config file: $configFile\n"
 ### Initialize the instance specific parameters and parse the config
 if [[ ! -a $configFile ]]; then
   echo "ERROR: config file $configFile not found. Please provide this file first."
@@ -309,7 +317,7 @@ do
 	  if [[ -z $apiServer ]]; then
 	    fsPath=$($sudoCmd $gpfsPath/mmlsfileset $fsName | grep $fsetName  | awk '{print $3}')
 	  else
-	    fsPath=$(curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/filesystems/$fsName/filesets/$fsetName?fields=config.path" 2>>/dev/null | grep "\"path\" :" | cut -d':' -f2 -s | sed 's/"//g' | sed 's/\[//g' | sed 's/\]//g' | sed 's/,*$//g' | sed 's/^ *//g')
+	    fsPath=$(curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/filesystems/$fsName/filesets/$fsetName" 2>>/dev/null | jq ".filesets[] | .config.path" 2>>/dev/null | sed 's/\"//g')
 	  fi
     
     # if there is a fileset path then get capacities
