@@ -29,12 +29,13 @@
 #
 # History
 # 04/30/25 added sudoCmd to snapconfig.json - version 1.2.1
+# 11/13/25 allow script to be located in any directory; replace syntax by usage function - version 1.3
 
 #---------------------------------------
 # global parameters
 #---------------------------------------
 # name of the config file
-configFile=/usr/local/bin/snapconfig.json
+configFile=snapconfig.json
 #configFile=snapconfig.json
 
 # path of GPFS commands
@@ -44,7 +45,7 @@ gpfsPath="/usr/lpp/mmfs/bin"
 instUser=$(id -un)
 
 # version of the program
-ver="1.2.1"
+ver="1.3"
 
 
 #------------------------------------------------------------------
@@ -52,29 +53,18 @@ ver="1.2.1"
 #------------------------------------------------------------------
 function usage()
 {
-     echo "Usage:"
-     echo "isnap-list.sh [-i instance-user-name -s snapshot-name -v -h | --help]"
-     echo " -i instance-user-name:  Name of the instance (user) for which the snapshots are listed (optional, default is user running this command)."
-     echo " -s snapshot-name:       Snapshot name to be listed (checked) for all relevant file systems and filesets (optional, lists all snapshot by default)."
-     echo " -v:                     Show allocated blocks (optional, does not work with REST API)"
-     echo " -h | --help:            Show this help message (optional)."
-     echo
-     return 0
-}
-
-# -----------------------------------------------------------------
-# function syntax 
-#
-# -----------------------------------------------------------------
-function syntax()
-{
-  if [[ ! -z $1 ]]; then
+    if [[ ! -z $1 ]]; then
      echo "ERROR: $1"
-     usage
-  else
-     usage
-  fi
-  return 0
+    fi
+
+    echo "Usage:"
+    echo "isnap-list.sh [-i instance-user-name -s snapshot-name -v -h | --help]"
+    echo " -i instance-user-name:  Name of the instance (user) for which the snapshots are listed (optional, default is user running this command)."
+    echo " -s snapshot-name:       Snapshot name to be listed (checked) for all relevant file systems and filesets (optional, lists all snapshot by default)."
+    echo " -v:                     Show allocated blocks (optional, does not work with REST API)"
+    echo " -h | --help:            Show this help message (optional)."
+    echo
+    return 0
 }
 
 
@@ -185,7 +175,7 @@ function list_apisnapshot()
 
 # present banner
 echo -e "\n============================================================================================="
-echo -e "INFO: $(date) program $0 version $ver started by $instUser\n"
+echo -e "INFO: $(date) program $0 version $ver started by $instUser"
 
 # parse arguments from the command line
 verbose=0
@@ -196,7 +186,7 @@ do
   "-i") # shift because we need the next arg in $1
         shift 1
         if [[ -z $1 ]]; then 
-		  syntax "Instance user name is not specified."
+		  usage "Instance user name is not specified."
 		  exit 1
 		else
 		  instUser=$1
@@ -204,20 +194,30 @@ do
   "-v") verbose=1;;
   "-s") shift 1
         if [[ -z $1 ]]; then 
-		  syntax "Snapshot name is not specified."
+		  usage "Snapshot name is not specified."
 		  exit 1
 		else
 		  snapName=$1
 		fi;;
   "-h" | "--help")
-        syntax
+        usage
         exit 1;;
-  *)    syntax "wrong argument $1"
+  *)    usage "wrong argument $1"
         exit 1;;
   esac
   shift 1
 done
 
+### determine directory where the script is started from
+basePath=$(dirname $0)
+if [[ $basePath = "." ]]; then
+  basePath=$PWD
+fi
+#echo "DEBUG: base path for $0: $basePath"
+
+configFile="$basePath/$configFile"
+echo -e "DEBUG: Using config file: $configFile\n"
+# echo "DEBUG: configfile: $configFile"
 # Initialize the instance specific parameters and parse the config
 if [[ ! -a $configFile ]]; then
   echo "ERROR: config file $configFile not found. Please provide this file first."
