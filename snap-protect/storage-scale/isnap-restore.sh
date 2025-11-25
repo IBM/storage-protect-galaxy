@@ -10,7 +10,7 @@
 #
 # Input: 
 # snapshotname: name of the snapshot to be restore 
-# -h | --help: displays syntax
+# -h | --help: displays usage
 #
 # Dependencies:
 # this scripts must run on the host where the instance is running, it must be run by the instance user and uses sudo or the REST API
@@ -32,13 +32,13 @@
 # 04/30/25 added sudoCmd to snapconfig.json - version 1.9.1
 # 08/15/25 added logic for autoRestore config parameter (enforced with CLI, set to false with REST API)
 # 08/15/25 set default for configuration parameter dbName (TSMDB1)
-
+# 11/13/25 allow script to be located in any directory
 
 #---------------------------------------
 # global parameters
 #---------------------------------------
 # name of the config file
-configFile=/usr/local/bin/snapconfig.json
+configFile=snapconfig.json
 
 # path of GPFS commands
 gpfsPath="/usr/lpp/mmfs/bin"
@@ -55,6 +55,23 @@ instUser=$(id -un)
 # program version
 ver=1.9.1
 
+
+#------------------------------------------------------------------
+# Print usage
+#------------------------------------------------------------------
+function usage()
+{
+  if [[ ! -z $1 ]]; then
+    echo "ERROR: $1"
+  fi
+  echo "Usage:"
+  echo "isnap-restore.sh snapshot-name"
+  echo " snapshot-name: Name of the snapshot to be restored on all relevant file sets."
+  echo " -h | --help:   Show this help message (optional)."
+  echo
+  exit 0
+  return 0
+}
 
 # -----------------------------------------------------------------
 # function parse_config to parse the config file
@@ -177,17 +194,22 @@ echo -e "\n=====================================================================
 echo -e "INFO: $(date) program $0 version $ver started for instance $instUser on platform $(uname -s)"
 
 
-### Provide syntax with help parameter, otherwise $1 is the name of the snapshot
+### Provide usage with help parameter, otherwise $1 is the name of the snapshot
 if [[ $1 = "-h" || $1 = "--help" || $1 = "-?" || -z $1 ]]; then
-  echo "Usage:"
-  echo "isnap-restore.sh snapshot-name"
-  echo " snapshot-name: Name of the snapshot to be restored on all relevant file sets."
-  echo " -h | --help:   Show this help message (optional)."
-  echo
+  usage 
   exit 0
 fi
 
 
+### determine directory where the script is started from
+basePath=$(dirname $0)
+if [[ $basePath = "." ]]; then
+  basePath=$PWD
+fi
+# echo "DEBUG: base path for $0: $basePath"
+
+configFile="$basePath/$configFile"
+echo "DEBUG: Using config file: $configFile"
 ### get the parameters for this instance user from the config_file
 # Initialize the instance specific parameters and parse the config
 if [[ ! -a $configFile ]]; then
@@ -210,7 +232,7 @@ parse_config
 ### check the required parameters
 # if dirsToSnap is empty, then exist
 if [[ -z $dirsToSnap ]]; then
-  echo "ERROR: parameter dirsToSnap is emtpy."
+  echo "ERROR: parameter dirsToSnap is emtpy. This script must be executed as instance user, current user: $instUser"
   exit 2
 fi
 
