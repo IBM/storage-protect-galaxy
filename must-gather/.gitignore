@@ -1,0 +1,42 @@
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# Thumbnails
+*.Thumbs.db
+*.Spotlight-V100
+*.Trashes
+
+# Perl specific
+*.pm~
+*.pl~
+*.bak
+*.swp
+*.swo
+*.tmp
+*.log
+
+# Output files from dsm queries
+*.txt
+*.out
+*.tmp
+
+# If you want to allow specific .txt files (like README.txt), use negation:
+# !README.txt
+
+# Build / runtime artifacts
+blib/
+_build/
+cover_db/
+Makefile
+Makefile.old
+pm_to_blib
+*.bs
+
+# Node / VSCode extras (if using editor tooling)
+node_modules/
+.vscode/
+.idea/
