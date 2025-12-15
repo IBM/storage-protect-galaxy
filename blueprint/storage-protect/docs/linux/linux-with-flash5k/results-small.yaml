@@ -1,0 +1,46 @@
+blueprintSchema: sp-blueprint/v1
+kind: Result
+metadata:
+  size: small
+  environment: 'FlashSystem 5010'
+specs:
+  data-intake-process:
+    max-client-sessions: '250'
+    daily-data-load: '10 TB'
+    ingestion-rate:
+      server-side-deduplication: '2.9 TB-per-hour'
+      client-side-deduplication: '4 TB-per-hour'
+  protected-data:
+    total-managed-data: '60 TB - 240 TB'
+  data-restore-process:
+    - throughput: '481 GB-per-hour'
+      process-count: 1
+    - throughput: '716.2 GB-per-hour'
+      process-count: 2
+    - throughput: '1180.7 GB-per-hour'
+      process-count: 4
+    - throughput: '1578.1 GB-per-hour'
+      process-count: 6
+    - throughput: '2250.2 GB-per-hour'
+      process-count: 8
+status:
+  - workload: storage-pool
+    command: 'perl sp_disk_load_gen.pl workload=stgpool fslist=/tsminst1/TSMfile00,/tsminst1/TSMfile01,/tsminst1/TSMfile02,/tsminst1/TSMfile03,/tsminst1/TSMfile04,/tsminst1/TSMfile05,/tsminst1/TSMfile06,/tsminst1/TSMfile07'
+    output:
+      average-r-throughput : '195446.67 KB/sec'
+      average-w-throughput : '196250.62 KB/sec'
+      avg-combined-throughput : '382.52 MB/sec'
+      max-combined-throughput : '585.72 MB/sec'
+      average-iops: '3060.89'
+      peak-iops: '4686.57 at 04/16/2019 02:45:40'
+      total-elapsed-time : '399 seconds'
+  - workload: database
+    command: 'perl sp_disk_load_gen.pl workload=db fslist=/tsminst1/TSMdbspace00,/tsminst1/TSMdbspace01,/tsminst1/TSMdbspace02,/tsminst1/TSMdbspace03'
+    output:
+      average-r-throughput : '22811.60 KB/sec'
+      average-w-throughput : '22732.55 KB/sec'
+      avg-combined-throughput : '44.48 MB/sec'
+      max-combined-throughput : '71.73 MB/sec'
+      average-iops: '5693.30'
+      peak-iops: '9182.15 at 04/16/2019 12:40:33'
+      total-elapsed-time : '699 seconds'
