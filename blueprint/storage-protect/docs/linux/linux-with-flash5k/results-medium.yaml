@@ -1,0 +1,50 @@
+blueprintSchema: sp-blueprint/v1
+kind: Result
+metadata:
+  size: medium
+  environment: 'FlashSystem 5030'
+specs:
+  data-intake-process:
+    max-client-sessions: '500'
+    daily-data-load: '10 - 30 TB'
+    ingestion-rate:
+      server-side-deduplication: '5.5 TB-per-hour'
+      client-side-deduplication: '8 TB-per-hour'
+  protected-data:
+    total-managed-data: '360 TB - 1440 TB'
+  data-restore-process:
+    - throughput: '456.3 GB-per-hour'
+      process-count: 1
+    - throughput: '982.54 GB-per-hour'
+      process-count: 2
+    - throughput: '1367.08 GB-per-hour'
+      process-count: 4
+    - throughput: '2167.88 GB-per-hour'
+      process-count: 6
+    - throughput: '2744.43 GB-per-hour'
+      process-count: 8
+    - throughput: '3335.02 GB-per-hour'
+      process-count: 10
+    - throughput: '3677.57 GB-per-hour'
+      process-count: 12
+status:
+  - workload: storage-pool
+    command: 'perl sp_disk_load_gen.pl workload=stgpool fslist=/tsminst1/TSMfile00,/tsminst1/TSMfile01,/tsminst1/TSMfile02,/tsminst1/TSMfile03,/tsminst1/TSMfile04,/tsminst1/TSMfile05,/tsminst1/TSMfile06,/tsminst1/TSMfile07,/tsminst1/TSMfile08,/tsminst1/TSMfile09'
+    output:
+      average-r-throughput : '995464.88 KB/sec'
+      average-w-throughput : '996739.71 KB/sec'
+      avg-combined-throughput : '1945.51 MB/sec'
+      max-combined-throughput : '2778.50 MB/sec'
+      average-iops: '10915.62'
+      peak-iops: '15774.13 at 06/05/2018 10:42:56'
+      total-elapsed-time : '196 seconds'
+  - workload: database
+    command: 'perl sp_disk_load_gen.pl workload=db fslist=/tsminst1/TSMdbspace00,/tsminst1/TSMdbspace01,/tsminst1/TSMdbspace02,/tsminst1/TSMdbspace03,/tsminst1/TSMdbspace04,/tsminst1/TSMdbspace05,/tsminst1/TSMdbspace06,/tsminst1/TSMdbspace07'
+    output:
+      average-r-throughput : '49052.01 KB/sec'
+      average-w-throughput : '48982.18 KB/sec'
+      avg-combined-throughput : '95.74 MB/sec'
+      max-combined-throughput : '155.94 MB/sec'
+      average-iops: '12238.62'
+      peak-iops: '19956.72 at 06/05/2018 03:52:08'
+      total-elapsed-time : '651 seconds'
