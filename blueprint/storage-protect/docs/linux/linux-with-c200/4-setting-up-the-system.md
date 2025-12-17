@@ -9,3 +9,4 @@ The deployment process is broken into eight steps.  Each step is described in it
 6. **Test system performance:** Use the workload simulation tool to verify that the server and storage meet throughput expectations for the medium configuration.
 7. **Install the IBM Storage Protect backup‑archive client:** Install the client software on nodes that will protect data.
 8. **Install the IBM Storage Protect server:** Install the server packages, create the database and log volumes, and run the blueprint configuration script.
+
