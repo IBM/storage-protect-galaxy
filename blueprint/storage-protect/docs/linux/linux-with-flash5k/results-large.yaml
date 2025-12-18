@@ -1,0 +1,52 @@
+blueprintSchema: sp-blueprint/v1
+kind: Result
+metadata:
+  size: large
+  environment: 'FlashSystem 5030'
+specs:
+  data-intake-process:
+    max-client-sessions: '1000'
+    daily-data-load: '30 - 100 TB'
+    ingestion-rate:
+      server-side-deduplication: '18.1 TB-per-hour'
+      client-side-deduplication: '18.4 TB-per-hour'
+  protected-data:
+    total-managed-data: '1000 TB - 4000 TB'
+  data-restore-process:
+    - throughput: '813.4 GB-per-hour'
+      process-count: 1
+    - throughput: '1321.0 GB-per-hour'
+      process-count: 2
+    - throughput: '2546.9 GB-per-hour'
+      process-count: 4
+    - throughput: '4227.5 GB-per-hour'
+      process-count: 6
+    - throughput: '5525.7 GB-per-hour'
+      process-count: 8
+    - throughput: '7816.6 GB-per-hour'
+      process-count: 10
+    - throughput: '9725.8 GB-per-hour'
+      process-count: 20
+    - throughput: '10839.6 GB-per-hour'
+      process-count: 40
+status:
+  - workload: storage-pool
+    command: 'perl sp_disk_load_gen.pl workload=stgpool fslist=/tsminst1/TSMfile00,/tsminst1/TSMfile01,/tsminst1/TSMfile02,/tsminst1/TSMfile03,/tsminst1/TSMfile04,/tsminst1/TSMfile05,/tsminst1/TSMfile06,/tsminst1/TSMfile07,/tsminst1/TSMfile08,/tsminst1/TSMfile09,/tsminst1/TSMfile10,/tsminst1/TSMfile11,/tsminst1/TSMfile12,/tsminst1/TSMfile13,/tsminst1/TSMfile14,/tsminst1/TSMfile15,/tsminst1/TSMfile16,/tsminst1/TSMfile17,/tsminst1/TSMfile18,/tsminst1/TSMfile19,/tsminst1/TSMfile20,/tsminst1/TSMfile21,/tsminst1/TSMfile22,/tsminst1/TSMfile23,/tsminst1/TSMfile24,/tsminst1/TSMfile25,/tsminst1/TSMfile26,/tsminst1/TSMfile27,/tsminst1/TSMfile28,/tsminst1/TSMfile29,/tsminst1/TSMfile30,/tsminst1/TSMfile31'
+    output:
+      average-r-throughput : '2135345.73 KB/sec'
+      average-w-throughput : '2132259.14 KB/sec'
+      avg-combined-throughput : '4167.58 MB/sec'
+      max-combined-throughput : '5468.96 MB/sec'
+      average-iops: '16673.23'
+      peak-iops: '21875.84 at 09/07/2022 03:21:10'
+      total-elapsed-time : '147 seconds'
+  - workload: database
+    command: 'perl /code/tsmconfig/sp_disk_load_gen.pl workload=db fslist=/tsminst1/TSMdbspace00,/tsminst1/TSMdbspace01,/tsminst1/TSMdbspace02,/tsminst1/TSMdbspace03,/tsminst1/TSMdbspace04,/tsminst1/TSMdbspace05,/tsminst1/TSMdbspace06,/tsminst1/TSMdbspace07,/tsminst1/TSMdbspace08,/tsminst1/TSMdbspace09,/tsminst1/TSMdbspace10,/tsminst1/TSMdbspace11'
+    output:
+      average-r-throughput : '279037.50 KB/sec'
+      average-w-throughput : '291834.51 KB/sec'
+      avg-combined-throughput : '557.49 MB/sec'
+      max-combined-throughput : '844.46 MB/sec'
+      average-iops: '69834.90'
+      peak-iops: '108091.16 at 09/07/2022 02:56:29'
+      total-elapsed-time : '116 seconds'
