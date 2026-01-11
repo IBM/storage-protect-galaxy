@@ -12,18 +12,18 @@ use utils;
 # -----------------------------
 # Parameters / CLI optfile
 # -----------------------------
-my ($output_dir, $adminid, $password, $verbose, $optfile);
+my ($output_dir, $verbose, $optfile);
 GetOptions(
     "output-dir|o=s" => \$output_dir,
-    "adminid|id=s"   => \$adminid,
-    "password|pwd=s" => \$password,
     "verbose|v"      => \$verbose,
     "optfile=s"       => \$optfile,
 ) or die "Invalid arguments. Run with --help for usage.\n";
 
 die "Error: --output-dir is required\n" unless $output_dir;
-die "Error: --adminid is required\n"   unless $adminid;
-die "Error: --password is required\n"  unless $password;
+
+# SECURITY: Get credentials from ENVIRONMENT only
+my $adminid  = $ENV{MUSTGATHER_ADMINID}  || '';
+my $password = $ENV{MUSTGATHER_PASSWORD} || '';
 
 # -----------------------------
 # Prepare output directory
@@ -219,7 +219,7 @@ foreach my $pool (@stgpools) {
 if ($verbose) {
     print "\n=== Storage Pool Summary ===\n";
     foreach my $file (sort keys %summary) {
-        printf "  %-15s : %s\n", $file, $summary{$file};
+        printf "  %-40s : %s\n", $file, $summary{$file};
     }
     print "\nOutput directory: $output_dir\n";
     print "Error log: $error_log\n";

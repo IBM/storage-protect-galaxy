@@ -21,7 +21,7 @@ They are designed to help IBM Support quickly diagnose issues by gathering all r
 ## How to Run
 ### Basic Command
 ```bash
-perl mustgather.pl --product sp-server --output-dir <target_path> --adminid <id> --password <pwd> [options]
+perl mustgather.pl --product sp-server --output-dir <target_path> --adminid <id>  [options]
 ```
 
 ## Mandatory Parameters
@@ -29,7 +29,6 @@ perl mustgather.pl --product sp-server --output-dir <target_path> --adminid <id>
 - `--product, -p` : Product name (`sp-client-ba`)  
 - `--output-dir, -o` : Target folder for collected data
 - `--adminid, -id` : Storage protect server admin ID
-- `--password, -pwd` :Storage protect server password 
 
 ## Optional Parameters
 
@@ -43,7 +42,7 @@ perl mustgather.pl --product sp-server --output-dir <target_path> --adminid <id>
 
 ## Example
 ```bash
-perl mustgather.pl --product sp-server --output-dir /tmp/mustgather_output --adminid admin --password P@ssw0rd --modules tape --verbose 
+perl mustgather.pl --product sp-server --output-dir /tmp/mustgather_output --adminid admin --modules tape --verbose 
 
 ```
 
