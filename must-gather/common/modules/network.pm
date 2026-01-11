@@ -18,24 +18,8 @@ my $sudo_password;
 ###############################################################################
 sub _get_sudo_password {
     return $sudo_password if defined $sudo_password;
-
-    print "Enter sudo password (press Enter to skip): ";
-
-    # Disable echo using stty (POSIX, no external Perl module)
-    if ($^O !~ /MSWin32/i) {
-        system("stty -echo");
-    }
-
-    chomp(my $pw = <STDIN>);
-
-    if ($^O !~ /MSWin32/i) {
-        system("stty echo");
-    }
-    print "\n";
-
-    # IMPORTANT: store even empty input
-    $sudo_password = $pw;   # empty string means "skip sudo"
-
+    print "Enter sudo password (if required): ";
+    chomp($sudo_password = <STDIN>);  # password will be visible
     return $sudo_password;
 }
 

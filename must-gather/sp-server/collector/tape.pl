@@ -11,18 +11,18 @@ use Getopt::Long;
 # -----------------------------
 # Parse command-line arguments
 # -----------------------------
-my ($output_dir, $verbose, $optfile);
+my ($output_dir, $verbose, $adminid, $password, $optfile);
 GetOptions(
     "output-dir|o=s" => \$output_dir,
     "verbose|v"      => \$verbose,
+    "adminid|id=s"   => \$adminid,
+    "password|pwd=s" => \$password,
     "optfile=s"       => \$optfile,
 ) or die "Invalid arguments. Run with --help for usage.\n";
 
 die "Error: --output-dir is required\n" unless $output_dir;
-
-# SECURITY: Get credentials from ENVIRONMENT only
-my $adminid  = $ENV{MUSTGATHER_ADMINID}  || '';
-my $password = $ENV{MUSTGATHER_PASSWORD} || '';
+die "Error: --adminid is required\n"   unless $adminid;
+die "Error: --password is required\n"  unless $password;
 
 # -----------------------------
 # Prepare output directory

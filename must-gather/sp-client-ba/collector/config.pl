@@ -137,28 +137,6 @@ foreach my $file (@log_files) {
         $collected_files{$filename} = "NOT FOUND";
     }
 }
-# -----------------------------
-# Collect dsmmsinfo.txt (Windows only)
-# -----------------------------
-if ($os =~ /MSWin32/i) {
-    my $msinfo = "dsmmsinfo.txt";
-    if (-e $msinfo) {
-        my $dest = "$output_dir/$msinfo";
-        if (open(my $in, '<', $msinfo) && open(my $out, '>', $dest)) {
-            while (<$in>) { print $out $_; }
-            close $in;
-            close $out;
-            $collected_files{$msinfo} = "Success";
-        } else {
-            print $errfh "Error copying $msinfo: $!\n";
-            $collected_files{$msinfo} = "Failed";
-        }
-    } else {
-        print $errfh "Warning: dsmmsinfo.txt not found\n";
-        $collected_files{$msinfo} = "NOT FOUND";
-    }
-}
-
 
 close($errfh);
 

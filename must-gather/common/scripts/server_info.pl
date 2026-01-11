@@ -13,15 +13,14 @@ use utils;
 my ($output_dir, $adminid, $password, $verbose, $optfile);
 GetOptions(
     "output-dir|o=s" => \$output_dir,
+    "adminid|id=s"   => \$adminid,
+    "password|pwd=s" => \$password,
     "verbose|v"      => \$verbose,
     "optfile=s"      => \$optfile,
 ) or die "Invalid arguments. Run with --help for usage.\n";
 die "Error: --output-dir is required\n" unless $output_dir;
-
-# SECURITY: Get credentials from ENVIRONMENT only
-$adminid = $ENV{MUSTGATHER_ADMINID} || '';
-$password = $ENV{MUSTGATHER_PASSWORD} || '';
-
+die "Error: --adminid is required\n"   unless $adminid;
+die "Error: --password is required\n"  unless $password;
 # -----------------------------
 # Prepare output directory
 # -----------------------------
@@ -104,11 +103,13 @@ sub run_cmd {
 # Define dsm administrative queries
 # -----------------------------
 my %server_queries = (
+    "actlog.txt"    => "query actlog begindate=today-7",
     "system.txt"    => "query system",
+    "pools.txt"     => "q stgpool f=d",
     "nodes.txt"     => "q node f=d",
     "occupancy.txt" => "q occ",
     "schedules.txt" => "q schedule f=d",
-    "events.txt"    => "q event * * begindate=-7 enddate=-0",
+    "events.txt"    => "q event * * begindate=today-7",
 );
 # -----------------------------
 # Run queries and collect output
@@ -120,12 +121,6 @@ foreach my $file (sort keys %server_queries) {
     run_cmd($cmd, $outfile);
 }
 
-my $actoutfile = "$output_dir/actlog.txt";
-my $actlog_query="query actlog begindate=today-7";
-
-my $actlog_cmd = qq{$quoted_dsm -comma -id=$adminid -password=$password -optfile=$quoted_opt "$actlog_query"};
-
-run_cmd($actlog_cmd, $actoutfile);
 # -----------------------------
 # Summary
 # -----------------------------
