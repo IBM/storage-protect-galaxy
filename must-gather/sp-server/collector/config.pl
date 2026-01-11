@@ -11,6 +11,7 @@ use Getopt::Long;
 # Parse command-line arguments
 # -----------------------------
 my ($output_dir, $verbose, $optfile);
+my ($output_dir, $verbose, $optfile);
 GetOptions(
     "output-dir|o=s" => \$output_dir,
     "verbose|v"      => \$verbose,
@@ -21,7 +22,7 @@ die "Error: --output-dir is required\n" unless $output_dir;
 
 # SECURITY: Get credentials from ENVIRONMENT only
 my $adminid  = $ENV{MUSTGATHER_ADMINID}  || '';
-my $password = $ENV{MUSTGATHER_PASSWORD} || '';
+my $password = $ENV{MUSTGATHER_PASSWORD} || ''; 
 # -----------------------------
 # Prepare output directory
 # -----------------------------

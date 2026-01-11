@@ -22,6 +22,7 @@ They are designed to help IBM Support quickly diagnose issues by gathering all r
 ### Basic Command
 ```bash
 perl mustgather.pl --product sp-server --output-dir <target_path> --adminid <id> [options]
+perl mustgather.pl --product sp-server --output-dir <target_path> --adminid <id>  [options]
 ```
 
 ## Mandatory Parameters
@@ -42,6 +43,7 @@ perl mustgather.pl --product sp-server --output-dir <target_path> --adminid <id>
 
 ## Example
 ```bash
+perl mustgather.pl --product sp-server --output-dir /tmp/mustgather_output --adminid admin  --modules tape --verbose 
 perl mustgather.pl --product sp-server --output-dir /tmp/mustgather_output --adminid admin  --modules tape --verbose 
 
 ```

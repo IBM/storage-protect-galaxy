@@ -49,10 +49,12 @@ The must-gather scripts are developed to collect diagnostic data across multiple
 
 ```bash
 perl mustgather.pl --product <product_name> --output-dir <target_path> --adminid <id>  [options]
+perl mustgather.pl --product <product_name> --output-dir <target_path> --adminid <id>  [options]
 ```
 ### Example
 
 ```bash
+perl mustgather.pl --product sp-client-ba --output-dir /tmp/mustgather_output --adminid admin --verbose
 perl mustgather.pl --product sp-client-ba --output-dir /tmp/mustgather_output --adminid admin --verbose
 ```
 
@@ -61,6 +63,7 @@ perl mustgather.pl --product sp-client-ba --output-dir /tmp/mustgather_output --
 - `--product, -p` : Product name (`sp-client-ba`)  
 - `--output-dir, -o` : Target folder for collected data
 - `--adminid, -id` : Storage protect server admin ID
+
 
 ### Optional Parameters
 
