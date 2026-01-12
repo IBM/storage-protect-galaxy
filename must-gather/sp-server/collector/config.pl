@@ -146,7 +146,6 @@ if ($instance_info) {
         "$inst_dir/dsmserv.opt",
         "$inst_dir/dsmserv.err",
         "$inst_dir/dsmffdc.log",
-        "$inst_dir/tsmdlst"
     );
 
     foreach my $filepath (@server_files) {
@@ -176,6 +175,41 @@ if ($instance_info) {
 } else {
     print $errfh "Warning: Could not detect server instance information\n";
 }
+
+# -----------------------------
+# Run tsmdlst and collect output
+# -----------------------------
+my $tsmdlst_out = "$output_dir/tsmdlst.out";
+my $tsmdlst_cmd;
+
+if ($^O =~ /MSWin32/i) {
+    # Windows location
+    my $tsmdlst_path = 'C:\\Program Files\\Tivoli\\TSM\\server\\tsmdlst.exe';
+    if (-e $tsmdlst_path) {
+        $tsmdlst_cmd = qq{"$tsmdlst_path"};
+    }
+} else {
+    # Unix/Linux location
+    my $tsmdlst_path = '/opt/tivoli/tsm/devices/bin/tsmdlst';
+    if (-x $tsmdlst_path) {
+        $tsmdlst_cmd = qq{cd /opt/tivoli/tsm/devices/bin && ./tsmdlst};
+    }
+}
+
+if ($tsmdlst_cmd) {
+    my $rc = run_cmd($tsmdlst_cmd, $tsmdlst_out);
+    if ($rc == 0 && -s $tsmdlst_out) {
+        $collected_files{'tsmdlst.out'} = "SUCCESS";
+    } else {
+        print $errfh "Error: tsmdlst command failed\n";
+        $collected_files{'tsmdlst.out'} = "FAILED";
+    }
+} else {
+    print $errfh "Warning: tsmdlst not found or not executable\n";
+    $collected_files{'tsmdlst.out'} = "NOT FOUND";
+}
+
+
 # -----------------------------
 # Summary of collected files
 # -----------------------------

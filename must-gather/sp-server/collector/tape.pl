@@ -113,6 +113,7 @@ sub run_cmd {
 # Define dsm administrative client queries
 # -----------------------------
 my %server_queries = (
+    "qserver.txt"    =>"q server f=d",   
     "libraries.txt"  => "q library format=detailed",
     "drives.txt"     => "q drive f=d",
     "paths.txt"      => "q path f=d",

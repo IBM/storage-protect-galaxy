@@ -45,7 +45,7 @@ my $os = env::_os();
 # Module List (ensure config runs first, no duplicates)
 # ----------------------------------
 my @default_modules = qw(config network system);  # Always run config
-my @requested_modules = $modules ? split /,/, $modules : qw(system network server tape replication stgpool);
+my @requested_modules = $modules ? split /,/, $modules : qw(system network server tape replication stgpool TSM-dbbackup tiering install-upgrade librarysharing oc);
 
 # Combine and remove duplicates
 my %seen;
@@ -210,6 +210,21 @@ foreach my $module (@selected_modules) {
     elsif ($module eq "stgpool") {
         $script = File::Spec->catfile($FindBin::Bin, "collector", "stgpool.pl");
     }
+    elsif ($module eq "TSM-dbbackup") {
+        $script = File::Spec->catfile($FindBin::Bin, "collector", "TSM-dbbackup.pl");
+    }
+    elsif ($module eq "tiering") {
+        $script = File::Spec->catfile($FindBin::Bin, "collector", "tiering.pl");
+    }
+    elsif ($module eq "install-upgrade"){
+        $script = File::Spec->catfile($FindBin::Bin, "collector", "install_upgrade.pl");
+    }
+    elsif ($module eq "librarysharing"){
+        $script = File::Spec->catfile($FindBin::Bin, "collector", "librarysharing.pl");
+    }
+    elsif ($module eq "oc"){
+        $script = File::Spec->catfile($FindBin::Bin, "collector", "oc.pl");
+    }
     else {
         warn "Warning: Unknown module '$module'. Skipping...\n";
         $module_status{$module} = "SKIPPED";
@@ -217,7 +232,7 @@ foreach my $module (@selected_modules) {
     }
 
     # Validate credentials for modules that require them
-    if (($module eq "config" || $module eq "server" || $module eq "tape" || $module eq "replication" || $module eq "stgpool") 
+    if (($module eq "config" || $module eq "server" || $module eq "tape" || $module eq "replication" || $module eq "stgpool" || $module eq "tiering" || $module eq "librarysharing" || $module eq "oc") 
         && (!defined $adminid || !defined $password)) {
         warn "Error: --adminid and --password required for $module module\n";
         $module_status{$module} = "SKIPPED";
@@ -231,9 +246,9 @@ foreach my $module (@selected_modules) {
     push @args, ("-s", $server_ip) if $module eq "network" && $server_ip;
     push @args, ("-p", $port) if $module eq "network" && $port;
     push @args, ("-id", $adminid, "-pwd", $password)
-        if ($module eq "config" || $module eq "server" || $module eq "tape" || $module eq "replication" || $module eq "stgpool") && $adminid && $password;
+        if ($module eq "config" || $module eq "server" || $module eq "tape" || $module eq "replication" || $module eq "stgpool" || $module eq "tiering" || $module eq "librarysharing" || $module eq "oc") && $adminid && $password;
     push @args, "-v" if $verbose;
-    push @args, ("--optfile",$optfile) if ($module eq "config" || $module eq "server" || $module eq "tape" || $module eq "replication" ||$module eq "stgpool") && $optfile;
+    push @args, ("--optfile",$optfile) if ($module eq "config" || $module eq "server" || $module eq "tape" || $module eq "replication" ||$module eq "stgpool" ||$module eq "TSM-dbbackup" || $module eq "tiering" || $module eq "librarysharing" || $module eq "oc") && $optfile;
     # Execute the script
     $exit_code = system(@args);
     $exit_code >>= 8;  # Normalize child exit code
@@ -253,36 +268,57 @@ my $product_name    = "Unknown";
 my $product_version = "Unknown";
 my $os_platform     = "Unknown";
 my $server_name     = "Unknown";
-my $qstatus_found   = 0;
 
 my $qsystem_path = "$output_dir/config/system.txt";
+
+my $in_qstatus_table = 0;
+my $seen_separator   = 0;
+
 if (-e $qsystem_path) {
     open my $fh, '<', $qsystem_path or die "Cannot open $qsystem_path: $!";
-    while (<$fh>) {
-        chomp;
+    while (my $line = <$fh>) {
+        chomp $line;
 
-        # Detect product + version line
-        if (/IBM\s+Storage\s+Protect\s+Server\s+for\s+(.+?)\s+-\s+Version\s+(\d+),\s*Release\s+(\d+),\s*Level\s+([\d.]+)/i) {
+        # --------------------------------------------------
+        # Product + version
+        # --------------------------------------------------
+        if ($line =~ /IBM\s+Storage\s+Protect\s+Server\s+for\s+(.+?)\s+-\s+Version\s+(\d+),\s*Release\s+(\d+),\s*Level\s+([\d.]+)/i) {
             $product_name    = "IBM Storage Protect Server";
             $os_platform     = $1;
             $product_version = "$2.$3.$4";
-            $qstatus_found   = 1;  # we expect the table next
             next;
         }
 
-        # Skip banner or empty lines
-        next if /^\s*$/ || /^\*+/;
-
-        # 1️ Labeled field
-        if (/Server\s+Name\s*:\s*(\S+)/i) {
+        # --------------------------------------------------
+        # 1️ Preferred: Key-Value format
+        # --------------------------------------------------
+        if ($line =~ /^Server\s+Name\s*:\s*(\S+)/i) {
             $server_name = $1;
             last;
         }
 
-        # 2️ Q STATUS table row (first column)
-        if ($qstatus_found) {
-            # Take first non-space word as server name
-            if (/^\s*(\S+)/) {
+        # --------------------------------------------------
+        # Detect Q STATUS section
+        # --------------------------------------------------
+        if ($line =~ /^\*+\s*--->\s*Q\s+STATUS/i) {
+            $in_qstatus_table = 1;
+            next;
+        }
+
+        # --------------------------------------------------
+        # Separator line before data
+        # --------------------------------------------------
+        if ($in_qstatus_table && $line =~ /^-+\s+/) {
+            $seen_separator = 1;
+            next;
+        }
+
+        # --------------------------------------------------
+        # 2️ Fallback: First column of table data
+        # --------------------------------------------------
+        if ($in_qstatus_table && $seen_separator) {
+            next if $line =~ /^\s*$/;  # skip blank lines
+            if ($line =~ /^\s*(\S+)/) {
                 $server_name = $1;
                 last;
             }
@@ -290,7 +326,6 @@ if (-e $qsystem_path) {
     }
     close $fh;
 }
-
 
 
 

@@ -204,17 +204,7 @@ foreach my $file (keys %static_queries) {
     $summary{$file} = (-s $outfile) ? "SUCCESS" : "FAILED";
 }
 
-foreach my $pool (@stgpools) {
-    my $name = $pool->{name};
-    $summary{"transferstats_$name.txt"} = (-s "$output_dir/transferstats_$name.txt") ? "SUCCESS" : "FAILED";
-    my $type = uc($pool->{type});
-    if ($type eq 'CLOUD' || $type eq 'DIRECTORY') {
-        foreach my $suffix (qw(showsdpool extentupdate damaged_extent damaged_container damaged_node)) {
-            my $file = "${suffix}_${name}.txt";
-            $summary{$file} = (-s "$output_dir/$file") ? "SUCCESS" : "FAILED";
-        }
-    }
-}
+
 
 if ($verbose) {
     print "\n=== Storage Pool Summary ===\n";
