@@ -93,6 +93,41 @@ eval {
 if ($@) { print $errfh "Error collecting DSM processes: $@\n"; }
 
 # -----------------------------
+# Collect Ulimit
+# -----------------------------
+if ($^O !~ /MSWin32/i){
+    $results{"ulimit.txt"} = system::get_ulimit_all($output_dir);
+    utils::write_to_file("$output_dir/ulimit.txt", $results{"ulimit.txt"});
+}
+
+# -----------------------------
+# Linux: /etc/os-release
+# -----------------------------
+$results{"os_release.txt"} = system::get_os_release();
+utils::write_to_file(
+    "$output_dir/os_release.txt",
+    $results{"os_release.txt"}
+) if $results{"os_release.txt"};
+
+# -----------------------------
+# Linux: /var/log/messages
+# -----------------------------
+$results{"messages.log"} = system::get_linux_messages();
+utils::write_to_file(
+    "$output_dir/messages.log",
+    $results{"messages.log"}
+) if $results{"messages.log"};
+
+# -----------------------------
+# AIX: errpt -a
+# -----------------------------
+$results{"errpt.txt"} = system::get_errpt();
+utils::write_to_file(
+    "$output_dir/errpt.txt",
+    $results{"errpt.txt"}
+) if $results{"errpt.txt"};
+
+# -----------------------------
 # Windows-specific: VSS and Event Logs
 # -----------------------------
 if ($^O =~ /MSWin32/i) {
