@@ -24,19 +24,19 @@ For each affected cloud pool, the report displays:
 
 ## 4. SQL Query
 
-SELECT server,
+```sql SELECT
+    server,
+    name,
+    locked_cntrs_pending_30,
+    locked_cntrs_pending_bytes_30
+FROM
+    tsmgui_allstg_grid
+WHERE
+    locked_cntrs_pending_30 > 0
+ORDER BY
+    locked_cntrs_pending_bytes_30 DESC;
 
-name,
-
-locked_cntrs_pending_30,
-
-locked_cntrs_pending_bytes_30
-
-FROM tsmgui_allstg_grid
-
-WHERE locked_cntrs_pending_30 \> 0
-
-ORDER BY locked_cntrs_pending_bytes_30 DESC;
+```
 
 ## 5. Purpose for Customers
 

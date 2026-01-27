@@ -27,51 +27,41 @@ displays:
 
 ## 4. SQL Query
 
-SELECT node,
-
-a.server,
-
-dedup_pct,
-
-type
-
+```sql SELECT
+    node,
+    a.server,
+    dedup_pct,
+    type
 FROM (
-
-SELECT SUBSTR(s.entity, 1, 10) AS node,
-
-(CAST(
-
-FLOAT(SUM(s.dedup_savings)) /
-
-FLOAT(SUM(s.bytes_protected)) \* 100
-
-AS DECIMAL(5,2))) AS dedup_pct,
-
-\'%s\' AS server
-
-FROM summary_extended s
-
-WHERE dedup_savings \<\> 0
-
-AND (activity = \'BACKUP\' OR activity = \'ARCHIVE\')
-
-AND end_time \>= (current_timestamp - 24 hours)
-
-GROUP BY s.entity
-
-ORDER BY dedup_pct ASC
-
-FETCH FIRST 10 ROWS ONLY
-
+    SELECT
+        SUBSTR(s.entity, 1, 10) AS node,
+        CAST(
+            FLOAT(SUM(s.dedup_savings)) /
+            FLOAT(SUM(s.bytes_protected)) * 100
+            AS DECIMAL(5, 2)
+        ) AS dedup_pct,
+        '%s' AS server
+    FROM
+        summary_extended s
+    WHERE
+        dedup_savings <> 0
+        AND (activity = 'BACKUP' OR activity = 'ARCHIVE')
+        AND end_time >= (current_timestamp - 24 hours)
+    GROUP BY
+        s.entity
+    ORDER BY
+        dedup_pct ASC
+    FETCH FIRST
+        10 ROWS ONLY
 ) a
+INNER JOIN
+    tsmgui_allcli_grid b
+        ON a.node = b.name
+        AND a.server = b.server
+ORDER BY
+    dedup_pct ASC;
 
-INNER JOIN tsmgui_allcli_grid b
-
-ON a.node = b.name
-
-AND a.server = b.server
-
-ORDER BY dedup_pct ASC;
+```
 
 ## 5. Purpose for Customers
 

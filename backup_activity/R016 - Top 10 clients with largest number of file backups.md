@@ -15,53 +15,42 @@ Client name, Files backed up, Client type, Server.
 
 ## 4. SQL Query
 
-SELECT node_name,
-
-a.server,
-
-files,
-
-type
-
+```sql SELECT
+    node_name,
+    a.server,
+    files,
+    type
 FROM (
-
-SELECT node_name,
-
-files,
-
-\'%s\' AS server
-
-FROM (
-
-SELECT name AS node_name,
-
-COALESCE(SUM(affected), 0) AS files
-
-FROM summary s
-
-INNER JOIN tsmgui_allcli_grid
-
-ON entity = name
-
-WHERE (activity = \'BACKUP\' OR activity = \'ARCHIVE\')
-
-AND s.end_time \>= (current_timestamp - 24 hours)
-
-GROUP BY name
-
-ORDER BY files DESC
-
-FETCH FIRST 10 ROWS ONLY
-
-)
-
+    SELECT
+        node_name,
+        files,
+        '%s' AS server
+    FROM (
+        SELECT
+            name AS node_name,
+            COALESCE(SUM(affected), 0) AS files
+        FROM
+            summary s
+        INNER JOIN
+            tsmgui_allcli_grid
+                ON entity = name
+        WHERE
+            (activity = 'BACKUP' OR activity = 'ARCHIVE')
+            AND s.end_time >= (current_timestamp - 24 hours)
+        GROUP BY
+            name
+        ORDER BY
+            files DESC
+        FETCH FIRST
+            10 ROWS ONLY
+    )
 ) a
+INNER JOIN
+    tsmgui_allcli_grid b
+        ON a.node_name = b.name
+        AND a.server = b.server;
 
-INNER JOIN tsmgui_allcli_grid b
-
-ON a.node_name = b.name
-
-AND a.server = b.server;
+```
 
 ## 5. Purpose for Customers
 

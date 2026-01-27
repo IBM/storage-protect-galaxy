@@ -14,11 +14,18 @@ Node name, Storage consumed, Activity metrics.
 
 ## 4. SQL Query
 
-select devclass, pooltype, est_capacity_mb, pct_utilized,
+```sql SELECT
+    devclass,
+    pooltype,
+    est_capacity_mb,
+    pct_utilized,
+    encrypted,
+    pct_encrypted,
+    reusedelay
+FROM
+    stgpools;
 
-encrypted, pct_encrypted, reusedelay
-
-from stgpools;
+```
 
 ## 5. Purpose for Customers
 

@@ -24,17 +24,19 @@ For each cloud pool type, the report displays:
 
 ## 4. SQL Query
 
-select pooltype, count(\*) as \"NUM_POOLS\",
+```sql SELECT
+    pooltype,
+    COUNT(*) AS "NUM_POOLS",
+    SUM(TOTAL_CLOUD_SPACE_MB) AS "TOTAL_MB",
+    SUM(USED_CLOUD_SPACE_MB) AS "USED_MB"
+FROM
+    stgpools
+WHERE
+    stg_type = 'CLOUD'
+GROUP BY
+    pooltype;
 
-sum(TOTAL_CLOUD_SPACE_MB) as \"TOTAL_MB\",
-
-sum(USED_CLOUD_SPACE_MB) as \"USED_MB\"
-
-from stgpools
-
-where stg_type=\'CLOUD\'
-
-group by pooltype;
+```
 
 ## 5. Purpose for Customers
 

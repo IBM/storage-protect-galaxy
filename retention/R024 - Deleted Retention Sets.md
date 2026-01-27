@@ -15,25 +15,22 @@ Server, Set ID, Description, Rule, Deletion time, Deleted by.
 
 ## 4. SQL Query
 
-SELECT \'%s\' AS SERVER,
+```sql SELECT
+    '%s' AS SERVER,
+    id AS ID,
+    COALESCE(descr, '') AS DESCR,
+    rulename AS RULENAME,
+    expdate AS EXPDATE,
+    updator AS UPDATOR
+FROM
+    retsets
+WHERE
+    state = 'DELETED'
+    AND expdate > current timestamp - 1 days
+ORDER BY
+    expdate DESC;
 
-id AS ID,
-
-COALESCE(descr, \'\') AS DESCR,
-
-rulename AS RULENAME,
-
-expdate AS EXPDATE,
-
-updator AS UPDATOR
-
-FROM retsets
-
-WHERE state = \'DELETED\'
-
-AND expdate \> current timestamp - 1 days
-
-ORDER BY expdate DESC;
+```
 
 ## 5. Purpose for Customers
 

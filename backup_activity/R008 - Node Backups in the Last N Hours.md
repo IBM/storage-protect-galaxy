@@ -15,17 +15,31 @@ Dedup savings (MB), Compression savings (MB), Deduplication %.
 
 ## 4. SQL Query
 
-SELECT ENTITY AS NODE_NAME, s.START_TIME,
-(CAST(FLOAT((s.bytes_protected))/1024/1024 AS DECIMAL(12,2))) AS
-PROTECTED_MB, (CAST(FLOAT((s.bytes_written))/1024/1024 AS
-DECIMAL(12,2))) AS WRITTEN_MB, (CAST(FLOAT((s.dedup_savings))/1024/1024
-AS DECIMAL(12,2))) AS DEDUPSAVINGS_MB,
-(CAST(FLOAT((s.comp_savings))/1024/1024 AS DECIMAL(12,2))) AS
-COMPSAVINGS_MB,
-(CAST(FLOAT((s.dedup_savings))/FLOAT((s.bytes_protected))\*100 AS
-DECIMAL(5,2))) AS DEDUP_PCT FROM summary s WHERE s.bytes_protected\<\>0
-AND (activity=\'BACKUP\' OR activity=\'ARCHIVE\') AND
-s.START_TIME\>=(current_date - 1 days) ORDER BY COMPSAVINGS_MB DESC;
+```sql SELECT
+    ENTITY AS NODE_NAME,
+    s.START_TIME,
+
+    CAST(FLOAT(s.bytes_protected) / 1024 / 1024 AS DECIMAL(12, 2)) AS PROTECTED_MB,
+    CAST(FLOAT(s.bytes_written)   / 1024 / 1024 AS DECIMAL(12, 2)) AS WRITTEN_MB,
+    CAST(FLOAT(s.dedup_savings)   / 1024 / 1024 AS DECIMAL(12, 2)) AS DEDUPSAVINGS_MB,
+    CAST(FLOAT(s.comp_savings)    / 1024 / 1024 AS DECIMAL(12, 2)) AS COMPSAVINGS_MB,
+
+    CAST(
+        FLOAT(s.dedup_savings) / FLOAT(s.bytes_protected) * 100
+        AS DECIMAL(5, 2)
+    ) AS DEDUP_PCT
+
+FROM
+    summary s
+
+WHERE
+    s.bytes_protected <> 0
+    AND (activity = 'BACKUP' OR activity = 'ARCHIVE')
+    AND s.START_TIME >= (current_date - 1 days)
+
+ORDER BY
+    COMPSAVINGS_MB DESC;
+```
 
 ## 5. Purpose for Customers
 

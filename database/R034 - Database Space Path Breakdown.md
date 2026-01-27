@@ -16,9 +16,15 @@ Path number, Total filesystem size (MB), Used space (MB), Free space
 
 ## 4. SQL Query
 
-SELECT PATH_NUMBER, TOTAL_FS_SIZE_MB, USED_FS_SIZE_MB, FREE_SPACE_MB
+```sql SELECT
+    PATH_NUMBER,
+    TOTAL_FS_SIZE_MB,
+    USED_FS_SIZE_MB,
+    FREE_SPACE_MB
+FROM
+    DBSPACE;
 
-FROM DBSPACE;
+```
 
 ## 5. Purpose for Customers
 

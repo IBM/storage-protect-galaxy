@@ -26,52 +26,41 @@ displays:
 
 ## 4. SQL Query
 
-SELECT node,
-
-a.server,
-
-comp_pct,
-
-type
-
+```sql SELECT
+    node,
+    a.server,
+    comp_pct,
+    type
 FROM (
-
-SELECT SUBSTR(s.entity, 1, 10) AS node,
-
-(CAST(
-
-FLOAT(SUM(s.comp_savings)) /
-
-FLOAT(SUM(s.bytes_protected) - SUM(s.dedup_savings)) \* 100
-
-AS DECIMAL(5,2))) AS comp_pct,
-
-\'%s\' AS server
-
-FROM summary_extended s
-
-WHERE (activity = \'BACKUP\' OR activity = \'ARCHIVE\')
-
-AND (s.bytes_protected - s.dedup_savings) \> 1000000 \-- ignore tiny
-backups
-
-AND end_time \>= (current_timestamp - 24 hours)
-
-GROUP BY s.entity
-
-ORDER BY comp_pct ASC
-
-FETCH FIRST 10 ROWS ONLY
-
+    SELECT
+        SUBSTR(s.entity, 1, 10) AS node,
+        CAST(
+            FLOAT(SUM(s.comp_savings)) /
+            FLOAT(SUM(s.bytes_protected) - SUM(s.dedup_savings)) * 100
+            AS DECIMAL(5, 2)
+        ) AS comp_pct,
+        '%s' AS server
+    FROM
+        summary_extended s
+    WHERE
+        (activity = 'BACKUP' OR activity = 'ARCHIVE')
+        AND (s.bytes_protected - s.dedup_savings) > 1000000  -- ignore tiny backups
+        AND end_time >= (current_timestamp - 24 hours)
+    GROUP BY
+        s.entity
+    ORDER BY
+        comp_pct ASC
+    FETCH FIRST
+        10 ROWS ONLY
 ) a
+INNER JOIN
+    tsmgui_allcli_grid b
+        ON a.node = b.name
+        AND a.server = b.server
+ORDER BY
+    comp_pct ASC;
 
-INNER JOIN tsmgui_allcli_grid b
-
-ON a.node = b.name
-
-AND a.server = b.server
-
-ORDER BY comp_pct ASC;
+```
 
 ## 5. Purpose for Customers
 

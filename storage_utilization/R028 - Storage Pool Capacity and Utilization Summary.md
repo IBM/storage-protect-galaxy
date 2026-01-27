@@ -15,27 +15,22 @@ Average utilization (%).
 
 ## 4. SQL Query
 
-select
+```sql SELECT
+    stg_type,
+    pooltype,
+    COUNT(*) AS "NUM_POOLS",
+    SUM(EST_CAPACITY_MB) AS "ESTCAPACITY",
+    CASE
+        WHEN SUM(est_capacity_mb) = 0 THEN 0
+        ELSE SUM(est_capacity_mb * pct_utilized) / SUM(est_capacity_mb)
+    END AS "AVGPCTUTIL"
+FROM
+    stgpools
+GROUP BY
+    stg_type,
+    pooltype;
 
-stg_type, x
-
-pooltype,
-
-count(\*) as \"NUM_POOLS\",
-
-sum(EST_CAPACITY_MB) as \"ESTCAPACITY\",
-
-(case
-
-when sum(est_capacity_mb)=0 then 0
-
-else sum(est_capacity_mb \* pct_utilized) / sum(est_capacity_mb)
-
-end) as \"AVGPCTUTIL\"
-
-from stgpools
-
-group by stg_type, pooltype;
+```
 
 ## 5. Purpose for Customers
 

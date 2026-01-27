@@ -15,7 +15,12 @@ Protect Master Key status (ON/OFF).
 
 ## 4. SQL Query
 
-SELECT PROTECT_MASTER_KEY FROM db;
+```sql SELECT
+    PROTECT_MASTER_KEY
+FROM
+    db;
+
+```
 
 ## 5. Purpose for Customers
 

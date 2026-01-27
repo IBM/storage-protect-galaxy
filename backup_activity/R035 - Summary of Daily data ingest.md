@@ -15,18 +15,20 @@ Date, Total ingest volume (GB).
 
 ## 4. SQL Query
 
-SELECT DATE(s.START_TIME) AS Date,
+```sql SELECT
+    DATE(s.START_TIME) AS Date,
+    CAST(FLOAT(SUM(s.bytes)) / 1024 / 1024 / 1024 AS DECIMAL(12, 2)) AS SESSION_BYTES_GB
+FROM
+    summary s
+WHERE
+    activity = 'BACKUP'
+    OR activity = 'ARCHIVE'
+GROUP BY
+    DATE(s.START_TIME)
+ORDER BY
+    Date DESC;
 
-(CAST(FLOAT(SUM(s.bytes))/1024/1024/1024 AS DECIMAL(12,2))) AS
-SESSION_BYTES_GB
-
-FROM summary s
-
-WHERE activity=\'BACKUP\' or activity=\'ARCHIVE\'
-
-GROUP BY DATE(S.START_TIME)
-
-ORDER BY DATE DESC;
+```
 
 ## 5. Purpose for Customers
 

@@ -16,13 +16,19 @@ pages, Free pages, Last backup date.
 
 ## 4. SQL Query
 
-## select TOT_FILE_SYSTEM_MB, USED_DB_SPACE_MB, FREE_SPACE_MB, 
+```sql SELECT
+    TOT_FILE_SYSTEM_MB,
+    USED_DB_SPACE_MB,
+    FREE_SPACE_MB,
+    TOTAL_PAGES,
+    USABLE_PAGES,
+    USED_PAGES,
+    FREE_PAGES,
+    LAST_BACKUP_DATE
+FROM
+    db;
 
-##  TOTAL_PAGES, USABLE_PAGES, USED_PAGES, FREE_PAGES, 
-
-##  LAST_BACKUP_DATE 
-
-## from db;
+```
 
 ## 5. Purpose for Customers
 

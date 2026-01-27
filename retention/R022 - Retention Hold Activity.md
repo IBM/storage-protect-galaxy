@@ -15,23 +15,22 @@ Server, Hold name, Event (ADD/RELEASE), Reason.
 
 ## 4. SQL Query
 
- SELECT \'%s\' AS SERVER,
+ ```sql SELECT
+    '%s' AS SERVER,
+    h.HOLDNAME AS HOLDNAME,
+    h.ACTION AS EVENT,
+    h.REASON AS REASON
+FROM
+    holdlog h
+INNER JOIN
+    retsets r
+        ON h.retsetid = r.id
+WHERE
+    h.datetime > current_timestamp - 1 days
+ORDER BY
+    r.pitdate DESC;
 
- h.HOLDNAME AS HOLDNAME,
-
- h.ACTION AS EVENT,
-
- h.REASON AS REASON
-
- FROM holdlog h
-
- INNER JOIN retsets r
-
- ON h.retsetid = r.id
-
- WHERE h.datetime \> current_timestamp - 1 days
-
- ORDER BY r.pitdate DESC;
+ ```
 
 ## 5. Purpose for Customers
 

@@ -15,17 +15,20 @@ Date, Activity type, Total GB transferred.
 
 ## 4. SQL Query
 
-select DATE(s.START_TIME) AS Date, activity,
+```sql SELECT
+    DATE(s.START_TIME) AS Date,
+    activity,
+    CAST(FLOAT(SUM(s.bytes)) / 1024 / 1024 / 1024 AS DECIMAL(12, 2)) AS GB
+FROM
+    summary s
+WHERE
+    bytes > 1073741824
+    AND s.start_time > DATE(current_timestamp - 30 days)
+GROUP BY
+    DATE(s.start_time),
+    activity;
 
-(CAST(FLOAT(SUM(s.bytes))/1024/1024/1024 AS DECIMAL(12,2))) AS GB
-
-from summary s
-
-where bytes \> 1073741824
-
-and s.start_time \> date(current timestamp - 30 days)
-
-group by date(s.start_time), activity;
+```
 
 ## 5. Purpose for Customers
 

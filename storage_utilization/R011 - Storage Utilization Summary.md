@@ -30,23 +30,19 @@ For each server and storage pool, the report displays:
 
 ## 4. SQL Query
 
-SELECT name,
+```sql SELECT
+    name,
+    server,
+    PCT_UTIL,
+    (1024 * TOTAL_SPACE) AS total,
+    (1024 * USED_SPACE) AS used,
+    (1024 * FREE_SPACE) AS free,
+    type,
+    stg_type
+FROM
+    TSMGUI_ALLSTG_GRID;
 
-server,
-
-PCT_UTIL,
-
-(1024 \* TOTAL_SPACE) AS total,
-
-(1024 \* USED_SPACE) AS used,
-
-(1024 \* FREE_SPACE) AS free,
-
-type,
-
-stg_type
-
-FROM TSMGUI_ALLSTG_GRID;
+```
 
 ## 5. Purpose for Customers
 

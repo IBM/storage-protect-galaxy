@@ -32,36 +32,39 @@ For each day, the report displays:
 
 ## 4. SQL Query
 
-SELECT DATE(s.START_TIME) AS Date,
+```sql SELECT
+    DATE(s.START_TIME) AS Date,
 
-(CAST(FLOAT(SUM(s.bytes_protected))/1024/1024/1024 AS DECIMAL(12,2))) AS
-PROTECTED_GB,
+    CAST(FLOAT(SUM(s.bytes_protected)) / 1024 / 1024 / 1024 AS DECIMAL(12, 2)) AS PROTECTED_GB,
+    CAST(FLOAT(SUM(s.bytes_written))   / 1024 / 1024 / 1024 AS DECIMAL(12, 2)) AS WRITTEN_GB,
+    CAST(FLOAT(SUM(s.dedup_savings))   / 1024 / 1024 / 1024 AS DECIMAL(12, 2)) AS DEDUPSAVINGS_GB,
+    CAST(FLOAT(SUM(s.comp_savings))    / 1024 / 1024 / 1024 AS DECIMAL(12, 2)) AS COMPSAVINGS_GB,
 
-(CAST(FLOAT(SUM(s.bytes_written))/1024/1024/1024 AS DECIMAL(12,2))) AS
-WRITTEN_GB,
+    CAST(
+        FLOAT(SUM(s.dedup_savings)) / FLOAT(SUM(s.bytes_protected)) * 100
+        AS DECIMAL(5, 2)
+    ) AS DEDUP_PCT,
 
-(CAST(FLOAT(SUM(s.dedup_savings))/1024/1024/1024 AS DECIMAL(12,2))) AS
-DEDUPSAVINGS_GB,
+    CAST(
+        FLOAT(SUM(s.comp_savings)) /
+        FLOAT(SUM(s.bytes_protected) - SUM(s.dedup_savings)) * 100
+        AS DECIMAL(5, 2)
+    ) AS COMP_PCT
 
-(CAST(FLOAT(SUM(s.comp_savings))/1024/1024/1024 AS DECIMAL(12,2))) AS
-COMPSAVINGS_GB,
+FROM
+    summary s
 
-(CAST(FLOAT(SUM(s.dedup_savings))/FLOAT(SUM(s.bytes_protected))\*100 AS
-DECIMAL(5,2))) AS DEDUP_PCT,
+WHERE
+    activity = 'BACKUP'
+    OR activity = 'ARCHIVE'
 
-(CAST(FLOAT(SUM(s.comp_savings)) /
+GROUP BY
+    DATE(s.START_TIME)
 
-FLOAT(SUM(s.bytes_protected)-SUM(s.dedup_savings)) \* 100
+ORDER BY
+    Date DESC;
 
-AS DECIMAL(5,2))) AS COMP_PCT
-
-FROM summary s
-
-WHERE activity=\'BACKUP\' or activity=\'ARCHIVE\'
-
-GROUP BY DATE(S.START_TIME)
-
-ORDER BY DATE DESC;
+```
 
 ## 5. Purpose for Customers
 
