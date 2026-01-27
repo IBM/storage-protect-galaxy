@@ -1,4 +1,4 @@
-# R021 -- Data Reduction Efficiency Report
+<img width="468" height="651" alt="image" src="https://github.com/user-attachments/assets/a8d07df1-11ee-4ab5-aaa0-bd664942053c" /># R021 -- Data Reduction Efficiency Report
 
 ## 1. Overview
 
@@ -34,61 +34,34 @@ For each server, the report displays:
 
 ## 4. SQL Query
 
-## SELECT server,
-
-##  dedup,
-
-##  comp,
-
-##  used,
-
-##  (used + dedup + comp) AS total,
-
-##  ROUND(
-
-##  CASE WHEN used = 0 THEN 0
-
-##  ELSE CAST(comp AS FLOAT) / (used + dedup + comp) \* 100.0
-
-##  END, 1
-
-##  ) AS comp_pct,
-
-##  ROUND(
-
-##  CASE WHEN numPools = 1 THEN dedupSaved
-
-##  ELSE CAST(dedup AS FLOAT) / (used + dedup + comp) \* 100.0
-
-##  END, 1
-
-##  ) AS dedup_pct
-
-## FROM (
-
-##  SELECT server,
-
-##  SUM(used_space) \* 1024 AS used,
-
-##  SUM(COALESCE(DEDUP_SAVED_MB, 0)) AS dedup,
-
-##  SUM(COALESCE(comp_saved_mb, 0)) AS comp,
-
-##  COUNT(name) AS numPools,
-
-##  SUM(DEDUP_SAVED_PCT) AS dedupSaved
-
-##  FROM tsmgui_allstg_grid
-
-##  WHERE (DEDUP_SAVED_PCT IS NOT NULL AND DEDUP_SAVED_PCT \<\> 0)
-
-##  OR (COMP_SAVED_PCT IS NOT NULL AND COMP_SAVED_PCT \<\> 0)
-
-##  GROUP BY server
-
-##  )
-
-## ORDER BY dedup_pct DESC; 
+SELECT server,
+       dedup,
+       comp,
+       used,
+       (used + dedup + comp) AS total,
+       ROUND(
+            CASE WHEN used = 0 THEN 0
+                 ELSE CAST(comp AS FLOAT) / (used + dedup + comp) * 100.0
+            END, 1
+       ) AS comp_pct,
+       ROUND(
+            CASE WHEN numPools = 1 THEN dedupSaved
+                 ELSE CAST(dedup AS FLOAT) / (used + dedup + comp) * 100.0
+            END, 1
+       ) AS dedup_pct
+FROM (
+        SELECT server,
+               SUM(used_space) * 1024 AS used,
+               SUM(COALESCE(DEDUP_SAVED_MB, 0)) AS dedup,
+               SUM(COALESCE(comp_saved_mb, 0)) AS comp,
+               COUNT(name) AS numPools,
+               SUM(DEDUP_SAVED_PCT) AS dedupSaved
+        FROM tsmgui_allstg_grid
+        WHERE (DEDUP_SAVED_PCT IS NOT NULL AND DEDUP_SAVED_PCT <> 0)
+           OR (COMP_SAVED_PCT IS NOT NULL AND COMP_SAVED_PCT <> 0)
+        GROUP BY server
+     )
+ORDER BY dedup_pct DESC; 
 
 ## 5. Purpose for Customers
 
