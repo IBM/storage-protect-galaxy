@@ -16,7 +16,8 @@ Successful backups.
 
 ## 4. SQL Query
 
-```sql SELECT
+```sql 
+SELECT
     '%s' AS server,
     ROUND(CAST(total_failed  AS FLOAT) / total * 100.0, 1) AS pct_failed,
     ROUND(CAST(total_success AS FLOAT) / total * 100.0, 1) AS pct_success,

@@ -15,7 +15,8 @@ spaces.
 
 ## 4. SQL Query
 
-```sql SELECT
+```sql 
+SELECT
     '%1$s' AS SERVER,
     NORMAL,
     WARNING,

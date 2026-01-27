@@ -16,7 +16,8 @@ Retention capacity.
 
 ## 4. SQL Query
 
- ```sql  SELECT
+ ```sql  
+ SELECT
     NAME,
     VRMF,
     STATUS,

@@ -15,7 +15,8 @@ Filesystem size (MB), Number of DBSPACE locations using each size.
 
 ## 4. SQL Query
 
-```sql SELECT
+```sql 
+SELECT
     TOTAL_FS_SIZE_MB,
     COUNT(*) AS NUM_LOCATIONS
 FROM

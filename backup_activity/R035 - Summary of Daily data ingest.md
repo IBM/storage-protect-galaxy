@@ -15,7 +15,8 @@ Date, Total ingest volume (GB).
 
 ## 4. SQL Query
 
-```sql SELECT
+```sql 
+SELECT
     DATE(s.START_TIME) AS Date,
     CAST(FLOAT(SUM(s.bytes)) / 1024 / 1024 / 1024 AS DECIMAL(12, 2)) AS SESSION_BYTES_GB
 FROM

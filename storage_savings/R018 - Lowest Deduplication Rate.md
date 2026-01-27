@@ -27,7 +27,8 @@ displays:
 
 ## 4. SQL Query
 
-```sql SELECT
+```sql 
+SELECT
     node,
     a.server,
     dedup_pct,

@@ -14,7 +14,8 @@ Node name, Storage consumed, Activity metrics.
 
 ## 4. SQL Query
 
-```sql SELECT
+```sql 
+SELECT
     devclass,
     pooltype,
     est_capacity_mb,

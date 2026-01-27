@@ -24,7 +24,8 @@ For each affected cloud pool, the report displays:
 
 ## 4. SQL Query
 
-```sql SELECT
+```sql 
+SELECT
     server,
     name,
     locked_cntrs_pending_30,

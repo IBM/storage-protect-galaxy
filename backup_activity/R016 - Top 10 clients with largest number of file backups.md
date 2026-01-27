@@ -15,7 +15,8 @@ Client name, Files backed up, Client type, Server.
 
 ## 4. SQL Query
 
-```sql SELECT
+```sql 
+SELECT
     node_name,
     a.server,
     files,

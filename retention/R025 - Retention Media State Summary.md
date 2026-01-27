@@ -28,7 +28,8 @@ For each retention storage pool, the report displays:
 
 ## 4. SQL Query
 
-```sql SELECT
+```sql 
+SELECT
     COUNT(CASE WHEN state = 'MOUNTABLE'        THEN 1 END) AS MOUNTABLE,
     COUNT(CASE WHEN state = 'NOTMOUNTABLE'     THEN 1 END) AS NOTMOUNTABLE,
     COUNT(CASE WHEN state = 'COURIER'          THEN 1 END) AS COURIER,

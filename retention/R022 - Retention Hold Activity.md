@@ -15,7 +15,8 @@ Server, Hold name, Event (ADD/RELEASE), Reason.
 
 ## 4. SQL Query
 
- ```sql SELECT
+ ```sql 
+ SELECT
     '%s' AS SERVER,
     h.HOLDNAME AS HOLDNAME,
     h.ACTION AS EVENT,

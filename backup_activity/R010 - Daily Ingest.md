@@ -16,7 +16,8 @@ Compression savings (GB), Dedup %, Comp %.
 
 ## 4. SQL Query
 
-```sql SELECT
+```sql 
+SELECT
     DATE(s.START_TIME) AS Date,
 
     CAST(FLOAT(SUM(s.bytes_protected)) / 1024 / 1024 / 1024 AS DECIMAL(12, 2)) AS PROTECTED_GB,

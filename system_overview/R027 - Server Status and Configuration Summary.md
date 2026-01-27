@@ -16,7 +16,8 @@ Authentication and security settings.
 
 ## 4. SQL Query
 
-```sql SELECT
+```sql 
+SELECT
     '--> Information from STATUS table' AS section_label,
     s.server_name,
     s.install_date,

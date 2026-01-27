@@ -15,7 +15,8 @@ Client name, Client type, Total backup size, Server.
 
 ## 4. SQL Query
 
-```sql SELECT
+```sql 
+SELECT
     node_name,
     type,
     size,

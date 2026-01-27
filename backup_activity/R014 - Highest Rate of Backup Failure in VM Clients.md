@@ -14,7 +14,8 @@ VM name, VM owner, Failure %, Server.
 
 ## 4. SQL Query
 
-```sql SELECT
+```sql 
+SELECT
     node_name,
     clients.type,
     rate,

@@ -15,7 +15,8 @@ Date, Activity type, Total GB transferred.
 
 ## 4. SQL Query
 
-```sql SELECT
+```sql 
+SELECT
     DATE(s.START_TIME) AS Date,
     activity,
     CAST(FLOAT(SUM(s.bytes)) / 1024 / 1024 / 1024 AS DECIMAL(12, 2)) AS GB

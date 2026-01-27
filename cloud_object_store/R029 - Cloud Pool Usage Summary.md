@@ -24,7 +24,8 @@ For each cloud pool type, the report displays:
 
 ## 4. SQL Query
 
-```sql SELECT
+```sql 
+SELECT
     pooltype,
     COUNT(*) AS "NUM_POOLS",
     SUM(TOTAL_CLOUD_SPACE_MB) AS "TOTAL_MB",

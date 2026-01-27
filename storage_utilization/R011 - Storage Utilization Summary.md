@@ -30,7 +30,8 @@ For each server and storage pool, the report displays:
 
 ## 4. SQL Query
 
-```sql SELECT
+```sql 
+SELECT
     name,
     server,
     PCT_UTIL,

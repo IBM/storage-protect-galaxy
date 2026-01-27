@@ -15,7 +15,8 @@ Client name, Client type, Failure %, Server.
 
 ## 4. SQL Query
 
-```sql SELECT
+```sql 
+SELECT
     node_name,
     clients.type,
     rate,

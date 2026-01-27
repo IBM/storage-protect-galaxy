@@ -16,7 +16,8 @@ Compression savings %.
 
 ## 4. SQL Query
 
-```sql SELECT
+```sql 
+SELECT
     name,
     SPACE_SAVED_PCT,
     SPACE_SAVED_MB,

@@ -16,7 +16,8 @@ Node name, Total protected data (MB), Written data (MB), Dedup savings
 
 ## 4. SQL Query
 
-```sql SELECT
+```sql 
+SELECT
     Entity AS NODE_NAME,
 
     CAST(FLOAT(SUM(s.bytes_protected)) / 1024 / 1024 AS DECIMAL(12, 2)) AS PROTECTED_MB,

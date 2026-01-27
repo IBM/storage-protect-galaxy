@@ -15,7 +15,8 @@ Protect Master Key status (ON/OFF).
 
 ## 4. SQL Query
 
-```sql SELECT
+```sql 
+SELECT
     PROTECT_MASTER_KEY
 FROM
     db;

@@ -16,7 +16,8 @@ remaining.
 
 ## 4. SQL Query
 
-```sql SELECT
+```sql 
+SELECT
     t.SETID AS SETID,
     r.RULENAME AS SETCREATEDBY,
     t.SERVER AS SERVER,

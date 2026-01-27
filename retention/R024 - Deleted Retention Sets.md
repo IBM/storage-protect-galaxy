@@ -15,7 +15,8 @@ Server, Set ID, Description, Rule, Deletion time, Deleted by.
 
 ## 4. SQL Query
 
-```sql SELECT
+```sql 
+SELECT
     '%s' AS SERVER,
     id AS ID,
     COALESCE(descr, '') AS DESCR,

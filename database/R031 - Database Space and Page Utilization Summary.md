@@ -16,7 +16,8 @@ pages, Free pages, Last backup date.
 
 ## 4. SQL Query
 
-```sql SELECT
+```sql 
+SELECT
     TOT_FILE_SYSTEM_MB,
     USED_DB_SPACE_MB,
     FREE_SPACE_MB,

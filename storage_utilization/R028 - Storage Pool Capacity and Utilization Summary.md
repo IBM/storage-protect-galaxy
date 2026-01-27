@@ -15,7 +15,8 @@ Average utilization (%).
 
 ## 4. SQL Query
 
-```sql SELECT
+```sql 
+SELECT
     stg_type,
     pooltype,
     COUNT(*) AS "NUM_POOLS",

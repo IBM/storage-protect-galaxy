@@ -34,37 +34,8 @@ For each server, the report displays:
 
 ## 4. SQL Query
 
-<<<<<<< HEAD
-SELECT server,
-       dedup,
-       comp,
-       used,
-       (used + dedup + comp) AS total,
-       ROUND(
-            CASE WHEN used = 0 THEN 0
-                 ELSE CAST(comp AS FLOAT) / (used + dedup + comp) * 100.0
-            END, 1
-       ) AS comp_pct,
-       ROUND(
-            CASE WHEN numPools = 1 THEN dedupSaved
-                 ELSE CAST(dedup AS FLOAT) / (used + dedup + comp) * 100.0
-            END, 1
-       ) AS dedup_pct
-FROM (
-        SELECT server,
-               SUM(used_space) * 1024 AS used,
-               SUM(COALESCE(DEDUP_SAVED_MB, 0)) AS dedup,
-               SUM(COALESCE(comp_saved_mb, 0)) AS comp,
-               COUNT(name) AS numPools,
-               SUM(DEDUP_SAVED_PCT) AS dedupSaved
-        FROM tsmgui_allstg_grid
-        WHERE (DEDUP_SAVED_PCT IS NOT NULL AND DEDUP_SAVED_PCT <> 0)
-           OR (COMP_SAVED_PCT IS NOT NULL AND COMP_SAVED_PCT <> 0)
-        GROUP BY server
-     )
-ORDER BY dedup_pct DESC; 
-=======
-```sql SELECT
+```sql 
+SELECT
     server,
     dedup,
     comp,
@@ -104,7 +75,6 @@ ORDER BY
     dedup_pct DESC;
 
 ```
->>>>>>> c80807d (Add formatted SQL queries for Storage Protect reports)
 
 ## 5. Purpose for Customers
 

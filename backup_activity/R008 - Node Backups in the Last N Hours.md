@@ -15,7 +15,8 @@ Dedup savings (MB), Compression savings (MB), Deduplication %.
 
 ## 4. SQL Query
 
-```sql SELECT
+```sql 
+SELECT
     ENTITY AS NODE_NAME,
     s.START_TIME,
 

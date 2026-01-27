@@ -28,7 +28,8 @@ For each of the top deduplicated nodes, the report displays:
 
 ## 4. SQL Query
 
-```sql SELECT
+```sql 
+SELECT
     SUBSTR(s.ENTITY, 1, 10) AS NODE,
 
     CAST(FLOAT(SUM(s.bytes_protected)) / 1024 / 1024 / 1024 AS DECIMAL(12, 2)) AS PROTECTED_GB,
