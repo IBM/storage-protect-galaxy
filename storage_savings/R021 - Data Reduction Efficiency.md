@@ -1,4 +1,4 @@
-<img width="468" height="651" alt="image" src="https://github.com/user-attachments/assets/a8d07df1-11ee-4ab5-aaa0-bd664942053c" /># R021 -- Data Reduction Efficiency Report
+# R021 -- Data Reduction Efficiency Report
 
 ## 1. Overview
 
