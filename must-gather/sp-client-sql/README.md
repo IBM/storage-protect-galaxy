@@ -1,8 +1,7 @@
-#  Must-Gather Scripts for IBM Spectrum Protect for Virtual Environments - Data Protection for Hyper-V
-
+#  Must-Gather Scripts for IBM Spectrum Protect for Databases - SQL 
 # sp-client-hyperv
 ## Overview
-These scripts collect system, network, configuration, logs, server, hyperv and performance data for IBM Spectrum Protect for Virtual Environments - Data Protection for Hyper-V.
+These scripts collect system, network, configuration, logs, server, sql  and performance data for IBM Spectrum Protect for Virtual Environments - Data Protection for Hyper-V.
 
 ## Tested Platforms
 - Windows
