@@ -118,7 +118,7 @@ if ($os =~ /MSWin32/i) {
     if (-e $opt_file && open(my $fh, '<', $opt_file)) {
         while (<$fh>) {
             next if /^\s*[;#]/;
-            if (/^\s*(TCPPORT)\s+(\d+)/i) {
+            if (/^\s*(TCPPORT|TCPP)\s+(\d+)/i) {
                 $port = $2;
                 last;
             }
@@ -145,7 +145,7 @@ if ($os =~ /MSWin32/i) {
             if (/^\s*(SERVERNAME|SE)\s+(\S+)/i) {
                 $in_stanza = ($2 eq $active_server);
             }
-            elsif ($in_stanza && /^\s*(TCPPORT)\s+(\d+)/i) {
+            elsif ($in_stanza && /^\s*(TCPPORT|TCPP)\s+(\d+)/i) {
                 $port = $2;
                 last;
             }
@@ -224,16 +224,6 @@ if (-e $console_file && open(my $fh, '<', $console_file)) {
 }
 unlink $console_file if -e $console_file;
 
-# ----------------------------------
-# EXPORT NODE NAME FOR PARENT SCRIPT
-# ----------------------------------
-my $nodeinfo_file = File::Spec->catfile($output_dir, "node.info");
-if ($node_name && $node_name ne "Unknown") {
-    open my $nf, ">", $nodeinfo_file
-        or warn "Cannot write node.info: $!\n";
-    print $nf "NODE=$node_name\n";
-    close $nf;
-}
 
 # ----------------------------------
 # Summary

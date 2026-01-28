@@ -30,7 +30,10 @@ GetOptions(
 my $caseno;
 my $password;
 # Mandatory arguments check
-if(!$help){
+if ($help) {
+    print_usage();
+    exit 0;
+}else{
     die "Error: --product is mandatory\n" unless $product;
     die "Error: --output-dir is mandatory\n" unless $output_dir;
 
@@ -80,7 +83,7 @@ if(!$help){
     die "Failed to read password\n" unless $read_ok;
 
 }
-}
+
 # Generate timestamp for unique output folder
 my $timestamp = utils::timestamp();
 
@@ -129,6 +132,7 @@ cleanup($output_dir);
 $output_dir = File::Spec->catdir($output_dir, "mustgather_${caseno}_${product}_$timestamp");
 make_path($output_dir) unless -d $output_dir;
 
+}
 # ----------------------------------
 # Print help if requested
 # ----------------------------------
@@ -146,6 +150,7 @@ print "Starting must-gather for product: $product\n" if $verbose;
         'sp-client-vmware' => "$FindBin::Bin/sp-client-vmware/mustgather.pl",
         'sp-server-sta' => "$FindBin::Bin/sp-server-sta/mustgather.pl",
         'sp-client-hyperv' => "$FindBin::Bin/sp-client-hyperv/mustgather.pl",
+        'sp-client-sql' => "$FindBin::Bin/sp-client-sql/mustgather.pl",
         # Add more products as developed
     );
 
@@ -174,10 +179,7 @@ if (exists $product_scripts{$product}) {
         delete $ENV{MUSTGATHER_ADMINID};
         delete $ENV{MUSTGATHER_PASSWORD};
 }
-else{
-    print_usage();
-    exit 0;
-}
+
 
 # SECURITY: Zero memory before compression
 $password = undef if defined $password;

@@ -109,6 +109,8 @@ my %server_queries = (
     "occupancy.txt" => "q occ",
     "schedules.txt" => "q schedule f=d",
     "events.txt"    => "q event * * begindate=-7 enddate=-0",
+    "backup_copygroups.txt" => "q copygroup * * * standard type=backup f=d",
+    "archive_copygroups.txt" => "q copygroup * * * standard type=archive f=d",
 );
 # -----------------------------
 # Run queries and collect output
