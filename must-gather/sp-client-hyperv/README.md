@@ -2,30 +2,25 @@
 
 # sp-client-hyperv
 ## Overview
-These scripts collect system, network, configuration, logs, server, core and performance data for IBM Storage Protect clients and servers. 
+These scripts collect system, network, configuration, logs, server, hyperv and performance data for IBM Spectrum Protect for Virtual Environments - Data Protection for Hyper-V.
 
 ## Tested Platforms
-- Linux (RHEL,Ubuntu)
 - Windows
-- AIX
-- Solaris
-- macOS
 
 ## Prerequisites
 - Perl 5.x installed
-- Sudo privileges for network/firewall commands (Linux/Aix/Solaris/MacOS)
 - IBM Storage Protect Product must be installed on the system.
 - Output directory must have write permissions
 
 ## How to Run
 ### Basic Command
 ```bash
-perl mustgather.pl --product sp-client-ba --output-dir <target_path> --adminid <id>  [options]
+perl mustgather.pl --product sp-client-hyperv --output-dir <target_path> --adminid <id>  [options]
 ```
 
 ## Mandatory Parameters
 
-- `--product, -p` : Product name (`sp-client-ba`)  
+- `--product, -p` : Product name (`sp-client-hyperv`)  
 - `--output-dir, -o` : Target folder for collected data
 - `--adminid, -id` : Storage protect server admin ID
 
@@ -41,7 +36,7 @@ perl mustgather.pl --product sp-client-ba --output-dir <target_path> --adminid <
 
 ## Example
 ```bash
-perl mustgather.pl --product sp-client-ba --output-dir /tmp/mustgather_output --adminid admin --verbose
+perl mustgather.pl --product sp-client-hyperv --output-dir /tmp/mustgather_output --adminid admin --verbose
 
 ```
 
@@ -53,10 +48,17 @@ perl mustgather.pl --product sp-client-ba --output-dir /tmp/mustgather_output --
 
 - `server`: Runs Storage Protect administrative queries for system, storage, logs, and server status.
 
-- `config` : Collects IBM Storage Protect configuration files (`dsm.opt`, `dsm.sys`, `dsminfo.txt`).  
+- `config` : Collects IBM Storage Protect configuration files (`dsm.opt`, `dsm.sys`, `dsminfo.txt`, `query vm`).  
 
 - `logs` : Gathers client logs such as `dsmj.log`, `dsminstr.log`, `dsmwebcl.log`, `dsmerror.log`, `dsmsched.log`. 
 
 - `performance` : Captures performance metrics Instrumentation logs(`dsminstr.log`).
 
-- `core` : Searches and collects the latest core dumps.
+- `hyperv` :
+Collects Hyper-V–specific diagnostics including:
+Hyper-V PowerShell outputs (VMs, services, integration services)
+VM inventory and VM file listings
+Hyper-V cluster logs (if applicable)
+VE framework, derby, and veProfile logs
+Recovery Agent and mount operation logs
+dsmc show vm output
