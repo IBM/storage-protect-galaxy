@@ -13,7 +13,7 @@ use env;
 # ----------------------------------
 # Parameters
 # ----------------------------------
-my ($product, $output_dir, $optfile, $modules, $no_compress, $verbose, $help);
+my ($product, $output_dir, $optfile, $modules, $no_compress, $verbose, $help, $adminid);
 
 GetOptions(
     "product|p=s"       => \$product,
@@ -23,18 +23,19 @@ GetOptions(
     "no-compress"       => \$no_compress,
     "verbose|v"         => \$verbose,
     "help|h"            => \$help,
+    "adminid|id=s"      => \$adminid,
+
 ) or die "Invalid arguments. Run with --help for usage.\n";
 
-die "Error: --product is mandatory\n" unless defined $product;
-die "Error: --output-dir is mandatory\n" unless defined $output_dir;
-
-
+if(!$help){
+    die "Error: --product is mandatory\n" unless defined $product;
+    die "Error: --output-dir is mandatory\n" unless defined $output_dir;
+}
 
 # ----------------------------------
 # Verify product installation
 # ----------------------------------
-my $base_path = env::get_sp_base_path();
-my $ba_base_path = env::get_ba_base_path();
+my $base_path = env::get_ba_base_path();
 unless ($base_path) {
     die "Product '$product' is not installed on this machine.\n";
 }
@@ -42,18 +43,13 @@ unless ($base_path) {
 my $os = env::_os();
 
 # ----------------------------------
-# Module List (ensure config runs first, no duplicates)
+# Module List
 # ----------------------------------
-my @default_modules = qw(config network system);  # Always run config
-my @requested_modules = $modules ? split /,/, $modules : qw(system network server tape replication stgpool);
+my @all_modules = qw(system network config logs performance server hyperv);
+my @selected_modules = $modules ? split /,/, $modules : @all_modules;
 
-# Combine and remove duplicates
-my %seen;
-my @selected_modules = grep { !$seen{$_}++ } (@default_modules, @requested_modules);
-
-print "\n############## Starting Collection of $product diagnostic information ##############\n\n"; 
+print "\n############## Starting Collection of $product diagnostic information ##############\n\n";
 print "Modules to be collected (" . scalar(@selected_modules) . "): @selected_modules\n\n" if $verbose;
-
 
 # ----------------------------------
 # Detect Server Address (for network module)
@@ -63,7 +59,7 @@ if ($optfile) {
     # User-specified option file
     $opt_file = $optfile;
 } else {
-    $opt_file = "$ba_base_path/dsm.opt";
+    $opt_file = "$base_path/dsm.opt";
 }
 my $server_ip;
 if (grep { $_ eq "network" } @selected_modules) {
@@ -86,7 +82,7 @@ if (grep { $_ eq "network" } @selected_modules) {
     } 
     else {
         $dsm_opt_path = $opt_file;
-        $dsm_sys_path = "$ba_base_path/dsm.sys";
+        $dsm_sys_path = "$base_path/dsm.sys";
         my $active_server;
 
         if (-e $dsm_opt_path && open(my $fh, '<', $dsm_opt_path)) {
@@ -124,7 +120,7 @@ if (grep { $_ eq "network" } @selected_modules) {
 # ----------------------------------
 
 my $port = 1500;  # Default
-    my ($dsm_opt, $dsm_sys) = ($opt_file, "$ba_base_path/dsm.sys");
+    my ($dsm_opt, $dsm_sys) = ($opt_file, "$base_path/dsm.sys");
 
     if ($os =~ /MSWin32/i) {
         # Windows: check dsm.opt
@@ -169,7 +165,7 @@ my $port = 1500;  # Default
 # ----------------------------------
 # Run Modules
 # ----------------------------------
-my %module_status;   # track module execution status
+my %module_status;   
 my $total = scalar @selected_modules;
 my $count = 0;
 
@@ -177,38 +173,24 @@ foreach my $module (@selected_modules) {
     $count++;
     print "Running module ($count/$total): $module\n" if $verbose;
 
-    my $exit_code = 1;
-    my $script;
-        # Check if SP server is running for modules that require it
-    if ($module =~ /^(config|tape|replication|stgpool|server)$/) {
-        unless (env::is_sp_server_running()) {
-            warn "Storage Protect Server is NOT running. Skipping $module module...\n";
-            $module_status{$module} = "SKIPPED";
-            next;
-        }
-    }
+    my $exit_code = 1; 
 
-    # Map each module to its respective script path
+    # Run respective scripts
+    my $script;
     if ($module eq "system") {
         $script = File::Spec->catfile($FindBin::Bin, "..", "common", "scripts", "system_info.pl");
-    } 
-    elsif ($module eq "network") {
+    } elsif ($module eq "network") {
         $script = File::Spec->catfile($FindBin::Bin, "..", "common", "scripts", "network_info.pl");
-    } 
-    elsif ($module eq "config") {
+    } elsif ($module eq "performance") {
+        $script = File::Spec->catfile($FindBin::Bin, "collector", "performance.pl");
+    } elsif ($module eq "config") {
         $script = File::Spec->catfile($FindBin::Bin, "collector", "config.pl");
-    } 
-    elsif ($module eq "server") {
+    } elsif ($module eq "logs") {
+        $script = File::Spec->catfile($FindBin::Bin, "collector", "log.pl");
+    } elsif ($module eq "hyperv") {
+        $script = File::Spec->catfile($FindBin::Bin, "collector", "hyperv.pl");
+    } elsif ($module eq "server") {
         $script = File::Spec->catfile($FindBin::Bin, "..", "common", "scripts", "server_info.pl");
-    } 
-    elsif ($module eq "tape") {
-        $script = File::Spec->catfile($FindBin::Bin, "collector", "tape.pl");
-    } 
-    elsif ($module eq "replication") {
-        $script = File::Spec->catfile($FindBin::Bin, "collector", "replication.pl");
-    }
-    elsif ($module eq "stgpool") {
-        $script = File::Spec->catfile($FindBin::Bin, "collector", "stgpool.pl");
     }
     else {
         warn "Warning: Unknown module '$module'. Skipping...\n";
@@ -216,84 +198,59 @@ foreach my $module (@selected_modules) {
         next;
     }
 
-
-
-    # Construct command dynamically
     my @args = ("perl", $script, "-o", $output_dir);
-
-    # Add optional arguments
     push @args, ("-s", $server_ip) if $module eq "network" && $server_ip;
     push @args, ("-p", $port) if $module eq "network" && $port;
     push @args, "-v" if $verbose;
-    push @args, ("--optfile",$optfile) if ($module eq "config" || $module eq "server" || $module eq "tape" || $module eq "replication" ||$module eq "stgpool") && $optfile;
-    # Execute the script
+    push @args, ("--optfile", $optfile) if $optfile && ($module eq "config" || $module eq "server");
     $exit_code = system(@args);
-    $exit_code >>= 8;  # Normalize child exit code
+    $exit_code >>= 8;
 
-    # Update module status
-    if    ($exit_code == 0) { $module_status{$module} = "SUCCESS"; }
-    elsif ($exit_code == 2) { $module_status{$module} = "PARTIAL"; }
-    else                    { $module_status{$module} = "FAILED";  }
+    if    ($exit_code == 0) { $module_status{$module} = "Success"; }
+    elsif ($exit_code == 2) { $module_status{$module} = "Partial"; }
+    else                    { $module_status{$module} = "Failed";  }
 }
 
-
-# ----------------------------------
-# Extract Product Info from Q SYSTEM
-# ----------------------------------
-
-my $product_name    = "Unknown";
+# -----------------------------
+# Extract Product Info
+# -----------------------------
 my $product_version = "Unknown";
-my $os_platform     = "Unknown";
+my $node_name       = "Unknown";
 my $server_name     = "Unknown";
-my $qstatus_found   = 0;
 
-my $qsystem_path = "$output_dir/config/system.txt";
-if (-e $qsystem_path) {
-    open my $fh, '<', $qsystem_path or die "Cannot open $qsystem_path: $!";
+my $dsminfo_path = "$output_dir/config/dsminfo.txt";
+if (-e $dsminfo_path) {
+    open my $fh, '<', $dsminfo_path;
     while (<$fh>) {
-        chomp;
-
-        # Detect product + version line
-        if (/IBM\s+Storage\s+Protect\s+Server\s+for\s+(.+?)\s+-\s+Version\s+(\d+),\s*Release\s+(\d+),\s*Level\s+([\d.]+)/i) {
-            $product_name    = "IBM Storage Protect Server";
-            $os_platform     = $1;
-            $product_version = "$2.$3.$4";
-            $qstatus_found   = 1;  # we expect the table next
-            next;
-        }
-
-        # Skip banner or empty lines
-        next if /^\s*$/ || /^\*+/;
-
-        # 1️ Labeled field
-        if (/Server\s+Name\s*:\s*(\S+)/i) {
-            $server_name = $1;
-            last;
-        }
-
-        # 2️ Q STATUS table row (first column)
-        if ($qstatus_found) {
-            # Take first non-space word as server name
-            if (/^\s*(\S+)/) {
-                $server_name = $1;
-                last;
-            }
+        if (/Client\s+Version\s+(.+)/i) {
+            $product_version = $1;
+            $product_version =~ s/\s+$//;
         }
     }
     close $fh;
 }
 
-
-
+my $console_file = "$output_dir/config/systeminfo_console.txt";
+if (-e $console_file && open(my $fh, '<', $console_file)) {
+    while (<$fh>) {
+        if (/Node Name:\s*(\S+)/i) {
+            $node_name = $1;
+        } elsif (/Session established with server\s+(\S+):/i) {
+            $server_name = $1;
+        }
+    }
+    close $fh;
+}
+unlink $console_file if -e $console_file;
 
 # ----------------------------------
 # Concise Summary
 # ----------------------------------
 print "\n=== Must-Gather Collection Summary ===\n";
-printf "%-20s : %s\n", "Product", $product_name;
+printf "%-20s : %s\n", "Product", $product;
 printf "%-20s : %s\n", "Version", "Version $product_version" // "N/A";
-printf "%-20s : %s\n", "Platform", $os_platform // "Unknown";
-printf "%-20s : %s\n", "Server Name", $server_name // "Unknown";
+printf "%-20s : %s\n", "Node Name", $node_name // "";
+printf "%-20s : %s\n", "Server Name", $server_name // "";
 
 print "\n    Modules         : Status\n";
 print "-----------------------------\n";
@@ -301,6 +258,17 @@ print "-----------------------------\n";
 my $index = 1;
 foreach my $module (sort { lc($a) cmp lc($b) } @selected_modules) {
     my $status = $module_status{$module} // "Not collected";
+
+    #Check for special core status marker
+    if ($module eq "core") {
+        my $marker = "$output_dir/core/core_status.txt";
+        if (-e $marker) {
+            open my $fh, '<', $marker;
+            chomp($status = <$fh>);
+            close $fh;
+        }
+    }
+
     printf " %d. %-15s : %s\n", $index++, $module, $status;
 }
 
