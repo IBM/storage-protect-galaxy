@@ -13,7 +13,7 @@ use env;
 # ----------------------------------
 # Parameters
 # ----------------------------------
-my ($product, $output_dir, $optfile, $modules, $no_compress, $verbose, $help, $adminid, $password);
+my ($product, $output_dir, $optfile, $modules, $no_compress, $verbose, $help);
 
 GetOptions(
     "product|p=s"       => \$product,
@@ -23,12 +23,12 @@ GetOptions(
     "no-compress"       => \$no_compress,
     "verbose|v"         => \$verbose,
     "help|h"            => \$help,
-    "adminid|id=s"      => \$adminid,
-    "password|pwd=s"    => \$password
 ) or die "Invalid arguments. Run with --help for usage.\n";
 
 die "Error: --product is mandatory\n" unless defined $product;
 die "Error: --output-dir is mandatory\n" unless defined $output_dir;
+
+
 
 # ----------------------------------
 # Verify product installation
@@ -216,13 +216,7 @@ foreach my $module (@selected_modules) {
         next;
     }
 
-    # Validate credentials for modules that require them
-    if (($module eq "config" || $module eq "server" || $module eq "tape" || $module eq "replication" || $module eq "stgpool") 
-        && (!defined $adminid || !defined $password)) {
-        warn "Error: --adminid and --password required for $module module\n";
-        $module_status{$module} = "SKIPPED";
-        next;
-    }
+
 
     # Construct command dynamically
     my @args = ("perl", $script, "-o", $output_dir);
@@ -230,8 +224,6 @@ foreach my $module (@selected_modules) {
     # Add optional arguments
     push @args, ("-s", $server_ip) if $module eq "network" && $server_ip;
     push @args, ("-p", $port) if $module eq "network" && $port;
-    push @args, ("-id", $adminid, "-pwd", $password)
-        if ($module eq "config" || $module eq "server" || $module eq "tape" || $module eq "replication" || $module eq "stgpool") && $adminid && $password;
     push @args, "-v" if $verbose;
     push @args, ("--optfile",$optfile) if ($module eq "config" || $module eq "server" || $module eq "tape" || $module eq "replication" ||$module eq "stgpool") && $optfile;
     # Execute the script
