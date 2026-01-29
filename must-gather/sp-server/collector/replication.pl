@@ -34,7 +34,7 @@ make_path($output_dir) unless -d $output_dir;
 # -----------------------------
 # Error log
 # -----------------------------
-my $error_log = "$output_dir/error.log";
+my $error_log = "$output_dir/script.log";
 open(my $errfh, '>', $error_log) or die "Cannot open $error_log: $!";
 
 # -----------------------------
@@ -190,8 +190,10 @@ my %server_queries = (
 # -----------------------------
 # Run QUERY REPLICATION for all nodes
 # -----------------------------
+my $qrepl="$output_dir/qrepl";
+make_path($qrepl) unless -d $qrepl;
 foreach my $node (@nodes) {
-    my $outfile = "$output_dir/replication_$node.txt";
+    my $outfile = "$qrepl/replication_$node.txt";
     my $cmd = qq{$quoted_dsm -id=$adminid -password=$password -optfile=$quoted_opt "QUERY REPLICATION $node"};
     run_cmd($cmd, $outfile);
 }
