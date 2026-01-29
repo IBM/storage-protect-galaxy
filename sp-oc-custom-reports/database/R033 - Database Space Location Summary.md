@@ -1,0 +1,32 @@
+# R033 -- Database Space Location Summary
+
+## 1. Overview
+
+Summarizes database space filesystem sizing and distribution across
+DBSPACE locations.
+
+## 2. Required Inputs
+
+None.
+
+## 3. Output Details
+
+Filesystem size (MB), Number of DBSPACE locations using each size.
+
+## 4. SQL Query
+
+```sql 
+SELECT
+    TOTAL_FS_SIZE_MB,
+    COUNT(*) AS NUM_LOCATIONS
+FROM
+    dbspace
+GROUP BY
+    TOTAL_FS_SIZE_MB;
+
+```
+
+## 5. Purpose for Customers
+
+Helps customers assess DBSPACE layout consistency and storage allocation
+strategies.
