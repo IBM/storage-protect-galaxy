@@ -1,6 +1,6 @@
-# 📊 IBM Storage Protect – Report Repository
+# IBM Storage Protect – Report Repository
 
-## 📘 About This Repository
+## About This Repository
 This repository provides a centralized collection of IBM Storage Protect custom reports. Each report is stored as an individual Markdown file inside a category folder and can be accessed using the links below.
 
 ## How to Use These Reports in Storage Protect OC
@@ -16,7 +16,7 @@ The SP OC interface provides an intuitive way to manage, customize, and visualiz
 
 ---
 
-## 🗄️ Storage Utilization  
+## Storage Utilization  
 *Reports that show how storage capacity is allocated, used, and consumed across the environment.*
 
 | Report | Tags |
@@ -30,7 +30,7 @@ The SP OC interface provides an intuitive way to manage, customize, and visualiz
 
 ---
 
-## 📉 Storage Savings (Compression & Deduplication)  
+## Storage Savings (Compression & Deduplication)  
 *Reports that analyze how efficiently data is reduced using compression and deduplication.*
 
 | Report | Tags |
@@ -47,7 +47,7 @@ The SP OC interface provides an intuitive way to manage, customize, and visualiz
 
 ---
 
-## 🧪 Backup Activity & Health  
+## Backup Activity & Health  
 *Reports that monitor backup operations, failures, and data ingestion trends.*
 
 | Report | Tags |
@@ -64,7 +64,7 @@ The SP OC interface provides an intuitive way to manage, customize, and visualiz
 
 ---
 
-## 🗂️ Retention & Data Lifecycle  
+## Retention & Data Lifecycle  
 *Reports related to retention policies, expiring data, and cleanup activities.*
 
 | Report | Tags |
@@ -76,7 +76,7 @@ The SP OC interface provides an intuitive way to manage, customize, and visualiz
 
 ---
 
-## 🗄️ Database Monitoring & Health  
+## Database Monitoring & Health  
 *Reports that track database space usage, security, and layout.*
 
 | Report | Tags |
@@ -88,7 +88,7 @@ The SP OC interface provides an intuitive way to manage, customize, and visualiz
 
 ---
 
-## ☁️ Cloud & Object Store  
+## Cloud & Object Store  
 *Reports related to cloud tiering, container usage, and cloud pool monitoring.*
 
 | Report | Tags |
@@ -98,7 +98,7 @@ The SP OC interface provides an intuitive way to manage, customize, and visualiz
 
 ---
 
-## 🔄 Replication, Chargeback & System Overview  
+## Replication, Chargeback & System Overview  
 *High-level reports for replication status, chargeback, and overall system health.*
 
 | Report | Tags |
@@ -109,7 +109,7 @@ The SP OC interface provides an intuitive way to manage, customize, and visualiz
 
 ---
 
-## 🏷️ Tag Reference
+## Tag Reference
 
 Use these tags to quickly find reports by characteristic:
 
