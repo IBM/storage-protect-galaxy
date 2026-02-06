@@ -20,7 +20,7 @@ These scripts collect system, network, configuration, logs, server, core and per
 ## How to Run
 ### Basic Command
 ```bash
-perl mustgather.pl --product sp-client-ba --output-dir <target_path> --adminid <id> --password <pwd> [options]
+perl mustgather.pl --product sp-client-ba --output-dir <target_path> --adminid <id>  [options]
 ```
 
 ## Mandatory Parameters
@@ -28,7 +28,6 @@ perl mustgather.pl --product sp-client-ba --output-dir <target_path> --adminid <
 - `--product, -p` : Product name (`sp-client-ba`)  
 - `--output-dir, -o` : Target folder for collected data
 - `--adminid, -id` : Storage protect server admin ID
-- `--password, -pwd` :Storage protect server password 
 
 ## Optional Parameters
 
@@ -42,7 +41,7 @@ perl mustgather.pl --product sp-client-ba --output-dir <target_path> --adminid <
 
 ## Example
 ```bash
-perl mustgather.pl --product sp-client-ba --output-dir /tmp/mustgather_output --adminid admin --password P@ssw0rd --verbose
+perl mustgather.pl --product sp-client-ba --output-dir /tmp/mustgather_output --adminid admin --verbose
 
 ```
 
