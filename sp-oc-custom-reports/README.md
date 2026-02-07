@@ -37,7 +37,7 @@ The SP OC interface provides an intuitive way to manage, customize, and visualiz
 |--------|------|
 | [Node with the Best Overall Savings](storage_savings/Node%20with%20the%20Best%20Overall%20Savings.md) | `Top10`, `Usage`, `Performance` |
 | [Top 10 Best Compressed Nodes](storage_savings/Top%2010%20Best%20Compressed%20Nodes.md) | `Top10`, `Usage`, `Performance` |
-| [Top 10 Least Compressed Nodes](storage_savings/Top%2010%20Least%20Compressed%20Nodes.md) | `Bottom10`, `Usage`, `Performance` |
+| [Top 10 Least Compressed Nodes](storage_savings/Top%2010%20least%20Compressed%20Nodes.md) | `Bottom10`, `Usage`, `Performance` |
 | [Top 10 Deduplicated Nodes](storage_savings/Top%2010%20Deduplicated%20Nodes.md) | `Top10`, `Usage`, `Performance` |
 | [Worst Deduplicated Nodes](storage_savings/Worst%20Deduplicated%20Nodes.md) | `Bottom10`, `Usage`, `Performance` |
 | [Lowest Compression Rate](storage_savings/Lowest%20Compression%20Rate.md) | `Bottom10`, `Usage`, `Performance` |
