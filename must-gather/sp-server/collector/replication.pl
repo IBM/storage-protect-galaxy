@@ -174,17 +174,34 @@ if (scalar @servers >= 2) {
 # Define dsm administrative client queries
 # -----------------------------
 my %server_queries = (
-    "replrule.txt"       => "QUERY REPLRULE",
-    "replfailures.txt"   => "QUERY REPLFAILURES",
-    "replnodes.txt"      => "QUERY REPLNODE *",
-    "replserver.txt"     => "QUERY REPLSERVER",
+    "replrule.txt"                => "query replrule",
+    "replfailures_summary.txt"    => "query replfailures type=summary",
+    "replfailures_objects.txt"    => "query replfailures type=objects",
+    "replnodes.txt"               => "query replnode *",
+    "replserver.txt"              => "query replserver",
+    "filespace.txt"               => "query filespace * f=d",
+    "occupancy.txt"               => "query occupancy",
+    "stgrule.txt"                 => "query stgrule f=d",
+    "unresolvedchunks.txt"        => "show unresolvedchunks",
+);
+
+run_cmd(
+    qq{$quoted_dsm -id=$adminid -password=$password -optfile=$quoted_opt "query occupancy"},
+    "$output_dir/qocc.csv"
+);
+
+run_cmd(
+    qq{$quoted_dsm -id=$adminid -password=$password -optfile=$quoted_opt "query auditoccupancy"},
+    "$output_dir/qauditocc.csv"
 );
 
 # -----------------------------
 # Run QUERY REPLICATION for all nodes
 # -----------------------------
+my $qrepl="$output_dir/qrepl";
+make_path($qrepl) unless -d $qrepl;
 foreach my $node (@nodes) {
-    my $outfile = "$output_dir/replication_$node.txt";
+    my $outfile = "$qrepl/replication_$node.txt";
     my $cmd = qq{$quoted_dsm -id=$adminid -password=$password -optfile=$quoted_opt "QUERY REPLICATION $node"};
     run_cmd($cmd, $outfile);
 }
@@ -205,37 +222,87 @@ foreach my $file (sort keys %server_queries) {
     my $cmd = qq{$quoted_dsm -id=$adminid -password=$password -optfile=$quoted_opt "$query"};
     run_cmd($cmd, $outfile);
 }
+# =========================================================
+# STORAGE POOL DISCOVERY (CLOUD / DIRECTORY ONLY)
+# =========================================================
+my $stglist_file = "$output_dir/stgpool_list.txt";
+run_cmd(
+    qq{$quoted_dsm -id=$adminid -password=$password -optfile=$quoted_opt "select STGPOOL_NAME, STG_TYPE from STGPOOLS"},
+    $stglist_file
+);
+make_path("$output_dir/container") unless -d "$output_dir/container";
 
+open(my $sfh, '<', $stglist_file) or die "Cannot open $stglist_file";
+while (<$sfh>) {
+    next if /^\s*$/ || /ANR|ANS|STGPOOL_NAME|-+|IBM Storage Protect|Session/i;
+    s/^\s+|\s+$//g;
+    my ($name, $type) = split(/\s+/, $_, 2);
+    next unless $name && $type;
+
+    # ONLY CLOUD or DIRECTORY
+    next unless $type eq 'CLOUD' || $type eq 'DIRECTORY';
+
+    my %container_queries = (
+        "showsdpool_$name.txt"        => "show sdpool $name",
+        "extentupdate_$name.txt"      => "query extentupdates $name",
+    );
+
+    foreach my $file (sort keys %container_queries) {
+        run_cmd(
+            qq{$quoted_dsm -id=$adminid -password=$password -optfile=$quoted_opt "$container_queries{$file}"},
+            "$output_dir/container/$file"
+        );
+    }
+}
+close($sfh);
 # -----------------------------
 # Collect summary for all queries
 # -----------------------------
 my %summary;
 
-# Static queries
-foreach my $file (sort keys %server_queries) {
-    my $outfile = "$output_dir/$file";
-    $summary{$file} = (-s $outfile) ? "SUCCESS" : "FAILED";
+sub mark_summary {
+    my ($key, $file) = @_;
+    $summary{$key} = (-s $file) ? "Success" : "Failed";
 }
 
-# QUERY REPLICATION per node
+# ---- Static server queries
+foreach my $file (keys %server_queries) {
+    mark_summary($file, "$output_dir/$file");
+}
+
+# ---- CSV outputs
+mark_summary("qocc.csv",       "$output_dir/qocc.csv");
+mark_summary("qauditocc.csv",  "$output_dir/qauditocc.csv");
+
+# ---- QUERY REPLICATION per node
 foreach my $node (@nodes) {
-    my $outfile = "$output_dir/replication_$node.txt";
-    $summary{"replication_$node.txt"} = (-s $outfile) ? "SUCCESS" : "FAILED";
+    my $file = "$output_dir/qrepl/replication_$node.txt";
+    mark_summary("replication_$node.txt", $file);
 }
 
-# VALIDATE REPLPOLICY
-$summary{"validate_replpolicy.txt"} = (-s $validate_file) ? "SUCCESS" : "FAILED";
+# ---- VALIDATE REPLPOLICY
+mark_summary("validate_replpolicy.txt", $validate_file)
+    if $target_server;
 
-# -----------------------------
-# Print summary if verbose
-# -----------------------------
-if ($verbose) {
-    print "\n=== Server Module Summary ===\n";
-    foreach my $file (sort keys %summary) {
-        printf "  %-15s : %s\n", $file, $summary{$file};
+# ---- Container / CLOUD / DIRECTORY queries
+my $container_dir = "$output_dir/container";
+if (-d $container_dir) {
+    opendir(my $dh, $container_dir);
+    while (my $f = readdir($dh)) {
+        next if $f =~ /^\./;
+        mark_summary($f, "$container_dir/$f");
     }
-    print "Collected server info saved in: $output_dir\n";
-    print "Check script.log for any failures.\n";
+    closedir($dh);
+}
+
+# ---- Print summary when verbose
+if ($verbose) {
+    print "\n=== Replication Module Summary ===\n";
+    foreach my $k (sort keys %summary) {
+        printf "  %-35s : %s\n", $k, $summary{$k};
+    }
+    print "\nReplication data collected in: $output_dir\n";
+    print "Check script.log for command failures.\n";
 }
 
 # -----------------------------

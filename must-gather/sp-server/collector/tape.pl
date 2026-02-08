@@ -113,6 +113,7 @@ sub run_cmd {
 # Define dsm administrative client queries
 # -----------------------------
 my %server_queries = (
+    "qserver.txt"    =>"q server f=d",
     "libraries.txt"  => "q library format=detailed",
     "drives.txt"     => "q drive f=d",
     "paths.txt"      => "q path f=d",
@@ -207,7 +208,7 @@ if (-s $raw_lib_file && open(my $lfh, '<', $raw_lib_file)) {
 
 open(my $sfh, '>', $showslots_file) or do {
     print $errfh "Cannot open $showslots_file: $!\n";
-    $collected_files{"showslots.txt"} = "FAILED";
+    $collected_files{"showslots.txt"} = "Failed";
     goto SHOWSLOTS_DONE;
 };
 
@@ -218,7 +219,7 @@ if (@libs) {
         my $cmd = qq{$quoted_dsm -id=$adminid -password=$password -optfile=$quoted_opt "show slots $lib"};
         run_cmd($cmd, $tmp_out);  
     }
-    $collected_files{"showslots.txt"} = "SUCCESS";
+    $collected_files{"showslots.txt"} = "Success";
 } else {
     print $errfh "No libraries detected in $raw_lib_file\n";
     $collected_files{"showslots.txt"} = "NOT FOUND";
@@ -294,28 +295,45 @@ foreach my $outfile (keys %os_queries) {
     my $status = system($cmd);
     $status >>= 8;
     if ($status == 0) {
-        $collected_files{$outfile} = "SUCCESS";
+        $collected_files{$outfile} = "Success";
     } else {
-        $collected_files{$outfile} = "FAILED";
+        $collected_files{$outfile} = "Failed";
         print $errfh "Error: Failed to run $os_queries{$outfile}. Exit code: $status\n";
     }
 }
+# -----------------------------
+# Run tsmdlst and collect output
+# -----------------------------
+my $tsmdlst_out = "$output_dir/tsmdlst.out";
+my $tsmdlst_cmd;
 
-# -----------------------------
-# Collect tsmdlst output on Windows
-# -----------------------------
-if ($os =~ /MSWin32/i) {
-    my $tsmdlst_exe = "C:\\Program Files\\Tivoli\\TSM\\console\\tsmdlst.exe";
-    my $tsmdlst_out = "$output_dir/tsmdlst.out";
-    if (-x $tsmdlst_exe) {
-        my $status = system("\"$tsmdlst_exe\" > \"$tsmdlst_out\" 2>>$error_log");
-        $status >>= 8;
-        $collected_files{"tsmdlst.out"} = ($status == 0) ? "SUCCESS" : "FAILED";
-    } else {
-        $collected_files{"tsmdlst.out"} = "NOT FOUND";
-        print $errfh "Warning: tsmdlst not found at $tsmdlst_exe\n";
+if ($^O =~ /MSWin32/i) {
+    # Windows location
+    my $tsmdlst_path = 'C:\\Program Files\\Tivoli\\TSM\\server\\tsmdlst.exe';
+    if (-e $tsmdlst_path) {
+        $tsmdlst_cmd = qq{"$tsmdlst_path"};
+    }
+} else {
+    # Unix/Linux location
+    my $tsmdlst_path = '/opt/tivoli/tsm/devices/bin/tsmdlst';
+    if (-x $tsmdlst_path) {
+        $tsmdlst_cmd = qq{cd /opt/tivoli/tsm/devices/bin && ./tsmdlst};
     }
 }
+
+if ($tsmdlst_cmd) {
+    my $rc = run_cmd($tsmdlst_cmd, $tsmdlst_out);
+    if ($rc == 0 && -s $tsmdlst_out) {
+        $collected_files{'tsmdlst.out'} = "Success";
+    } else {
+        print $errfh "Error: tsmdlst command Failed\n";
+        $collected_files{'tsmdlst.out'} = "Failed";
+    }
+} else {
+    print $errfh "Warning: tsmdlst not found or not executable\n";
+    $collected_files{'tsmdlst.out'} = "NOT FOUND";
+}
+
 
 # -----------------------------
 # Summary of collected files
@@ -326,7 +344,7 @@ my %summary;
 # Static queries
 foreach my $file (sort keys %server_queries) {
     my $outfile = "$output_dir/$file";
-    $summary{$file} = (-s $outfile) ? "SUCCESS" : "FAILED";
+    $summary{$file} = (-s $outfile) ? "Success" : "Failed";
 }
 
 if ($verbose) {
@@ -349,8 +367,8 @@ my $fail_count = 0;
 my $total = scalar keys %collected_files;
 
 foreach my $status (values %collected_files) {
-    $Success_count++ if $status eq "SUCCESS";
-    $fail_count++    if $status eq "FAILED";
+    $Success_count++ if $status eq "Success";
+    $fail_count++    if $status eq "Failed";
 }
 
 my $module_status;

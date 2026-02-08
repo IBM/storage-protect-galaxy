@@ -12,10 +12,21 @@ our @EXPORT_OK = qw(
     get_memory_info 
     get_disk_usage 
     get_processes 
+    get_os_info
+    get_memory_info
+    get_disk_usage
+    get_processes
     get_dsm_processes
     get_vss_writers
     get_vss_providers
     get_event_logs
+    get_system_event_logs
+    get_application_event_logs
+    get_security_event_logs
+    get_ulimit_all
+    get_os_release
+    get_errpt
+    get_linux_messages
 );
 
 ###############################################################################
@@ -222,5 +233,55 @@ sub get_security_event_logs {
         return "Security Event Logs collected successfully";
     } else {
         return "Security Event Logs collection failed or empty";
+    }
+}
+
+# Linux: /etc/os-release
+sub get_os_release {
+    my $os = lc(env::_os());
+    return if $os !~ /linux/;
+    return `cat /etc/os-release 2>/dev/null`;
+}
+
+# AIX: errpt -a
+sub get_errpt {
+    my $os = lc(env::_os());
+    return if $os !~ /aix/;
+    return `errpt -a 2>/dev/null`;
+}
+
+# Linux: /var/log/messages
+sub get_linux_messages {
+    my $os = lc(env::_os());
+    return if $os !~ /linux/;
+    return (-e "/var/log/messages")
+        ? `cat /var/log/messages 2>/dev/null`
+        : "File /var/log/messages not found\n";
+}
+
+#################################################################################
+# get_ulimit_all()
+# Purpose: Retrieve and display all current user-level resource limits for the system.
+# Behavior: Executes a system command to list resource limits such as file size, open files, stack size, and process limits.
+#################################################################################
+sub get_ulimit_all {
+    my $output_dir = shift || ".";
+    my $os = lc(env::_os());
+    return if $os =~ /mswin32/i;  # Not applicable on Windows
+
+    make_path($output_dir) unless -d $output_dir;
+
+    my $outfile = "$output_dir/ulimit.txt";
+
+    # Use a shell so ulimit (builtin) works everywhere
+    my $output = `sh -c 'ulimit -a' 2>&1`;
+
+    if ($output && $output !~ /not found/i) {
+        utils::write_to_file($outfile, $output);
+        return $output;
+    } else {
+        utils::write_to_file($outfile,
+            "Failed to collect ulimit -a\n$output");
+        return "Failed to collect ulimit -a\n";
     }
 }
