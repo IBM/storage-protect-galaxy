@@ -31,16 +31,45 @@ our @EXPORT_OK = qw(
 
 ###############################################################################
 # get_os_info
+#
+# Purpose  : Collect comprehensive OS information
+# Input    : $output_file (optional) - File path to write output
+# Output   : OS information string or writes to file if path provided
+# Behavior : Collects detailed OS info based on platform:
+#            - Windows: systeminfo
+#            - AIX: oslevel -s and uname -a
+#            - Solaris: uname -a and /etc/release
+#            - Linux: uname -a and /etc/*-release
 ###############################################################################
 sub get_os_info {
-    my $os = lc(env::_os());
+    my ($output_file) = @_;
+    my $os = env::_os();
+    my $cmd;
+    my $output = "";
 
     if ($os =~ /MSWin32/i) {
-        return `ver 2>NUL`;
-    } elsif ($os =~ /sunos/i) {
-        return `uname -a 2>/dev/null; showrev -a 2>/dev/null`;
+        $cmd = $output_file ? "systeminfo >\"$output_file\" 2>&1" : "systeminfo 2>&1";
+    } elsif ($os =~ /aix/i) {
+        $cmd = $output_file
+            ? "oslevel -s >\"$output_file\" 2>&1 && uname -a >>\"$output_file\" 2>&1"
+            : "oslevel -s 2>&1 && uname -a 2>&1";
+    } elsif ($os =~ /solaris/i) {
+        $cmd = $output_file
+            ? "uname -a >\"$output_file\" 2>&1 && cat /etc/release >>\"$output_file\" 2>&1"
+            : "uname -a 2>&1 && cat /etc/release 2>&1";
     } else {
-        return `uname -a 2>/dev/null`;
+        # Linux and others
+        $cmd = $output_file
+            ? "uname -a >\"$output_file\" 2>&1 && cat /etc/*-release >>\"$output_file\" 2>&1"
+            : "uname -a 2>&1 && cat /etc/*-release 2>&1";
+    }
+
+    if ($output_file) {
+        system($cmd);
+        return -s $output_file ? 1 : 0;  # Return success/failure
+    } else {
+        $output = `$cmd`;
+        return $output;
     }
 }
 

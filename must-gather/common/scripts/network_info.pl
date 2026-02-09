@@ -129,7 +129,7 @@ if ($@) {
 if ($verbose) {
     print "\n=== Network Module Summary ===\n";
     foreach my $file (sort keys %collected_files) {
-        printf "  %-25s : %s\n", $file, $collected_files{$file};
+        printf "  %-15s : %s\n", $file, $collected_files{$file};
     }
     print "Collected system info is in: $output_dir\n";
     print "Check script.log for any issues.\n";
