@@ -1,7 +1,7 @@
 #  Must-Gather Scripts for IBM Spectrum Protect for Databases - SQL 
-# sp-client-hyperv
+# sp-client-sql
 ## Overview
-These scripts collect system, network, configuration, logs, server, sql  and performance data for IBM Spectrum Protect for Virtual Environments - Data Protection for Hyper-V.
+These scripts collect system, network, configuration, logs, server, sql  and performance data for IBM Spectrum Protect for Virtual Environments - Data Protection for Databases - SQL.
 
 ## Tested Platforms
 - Windows
@@ -14,14 +14,16 @@ These scripts collect system, network, configuration, logs, server, sql  and per
 ## How to Run
 ### Basic Command
 ```bash
-perl mustgather.pl --product sp-client-hyperv --output-dir <target_path> --adminid <id>  [options]
+perl mustgather.pl --product sp-client-sql --output-dir <target_path> -caseno <caseno> --adminid <adminid> --verbose    
 ```
 
 ## Mandatory Parameters
 
-- `--product, -p` : Product name (`sp-client-hyperv`)  
+- `--product, -p` : Product name (`sp-client-sql`)
 - `--output-dir, -o` : Target folder for collected data
-- `--adminid, -id` : Storage protect server admin ID
+- `--caseno, -c` : IBM Support Case Number (format: TS followed by 9 digits, e.g., TS020757841)
+- `--adminid, -id` : Storage Protect server admin ID (password will be prompted securely)
+
 
 ## Optional Parameters
 
@@ -35,7 +37,7 @@ perl mustgather.pl --product sp-client-hyperv --output-dir <target_path> --admin
 
 ## Example
 ```bash
-perl mustgather.pl --product sp-client-hyperv --output-dir /tmp/mustgather_output --adminid admin --verbose
+perl mustgather.pl --product sp-client-sql --output-dir /tmp/mustgather_output --adminid admin -caseno TS738982982 --verbose
 
 ```
 

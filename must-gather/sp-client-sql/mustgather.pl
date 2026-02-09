@@ -36,7 +36,8 @@ if(!$help){
 # Verify product installation
 # ----------------------------------
 my $base_path = env::get_ba_base_path();
-unless ($base_path) {
+my $sql_base_path = env::get_sql_base_path();
+unless ($sql_base_path) {
     die "Product '$product' is not installed on this machine.\n";
 }
 
@@ -45,123 +46,31 @@ my $os = env::_os();
 # ----------------------------------
 # Module List
 # ----------------------------------
-my @all_modules = qw(system network config logs performance server sql);
-my @selected_modules = $modules ? split /,/, $modules : @all_modules;
+my @default_modules = qw(network system server);  # Always run config
+my @requested_modules = $modules ? split /,/, $modules : qw(system network config logs performance server sql);
+
+# Combine and remove duplicates
+my %seen;
+my @selected_modules = grep { !$seen{$_}++ } (@default_modules, @requested_modules);
+
 
 print "\n############## Starting Collection of $product diagnostic information ##############\n\n";
 print "Modules to be collected (" . scalar(@selected_modules) . "): @selected_modules\n\n" if $verbose;
 
 # ----------------------------------
-# Detect Server Address (for network module)
+# Detect Server Address and TCP Port
 # ----------------------------------
-my $opt_file;
-if ($optfile) {
-    # User-specified option file
-    $opt_file = $optfile;
-} else {
-    $opt_file = "$base_path/dsm.opt";
-}
+my $opt_file = $optfile ? $optfile : "$base_path/dsm.opt";
 my $server_ip;
+my $port;
+
 if (grep { $_ eq "network" } @selected_modules) {
-    
-    my ($dsm_opt_path, $dsm_sys_path);
-    my $server_address = "Unknown";
-
-    if ($os =~ /MSWin32/i) {
-        $dsm_opt_path = $opt_file;
-        if (-e $dsm_opt_path && open(my $fh, '<', $dsm_opt_path)) {
-            while (<$fh>) {
-                next if /^\s*;/;
-                if (/^\s*TCPSERVERADDRESS\s+(\S+)/i) {
-                    $server_address = $1;
-                    last;
-                }
-            }
-            close $fh;
-        }
-    } 
-    else {
-        $dsm_opt_path = $opt_file;
-        $dsm_sys_path = "$base_path/dsm.sys";
-        my $active_server;
-
-        if (-e $dsm_opt_path && open(my $fh, '<', $dsm_opt_path)) {
-            while (<$fh>) {
-                next if /^\s*;/;
-                if (/^\s*SERVERNAME\s+(\S+)/i) {
-                    $active_server = $1;
-                    last;
-                }
-            }
-            close $fh;
-        }
-
-        if ($active_server && -e $dsm_sys_path && open(my $fh, '<', $dsm_sys_path)) {
-            my $in_target_stanza = 0;
-            while (<$fh>) {
-                next if /^\s*;/;
-                if (/^\s*SERVERNAME\s+(\S+)/i) {
-                    $in_target_stanza = ($1 eq $active_server) ? 1 : 0;
-                } elsif ($in_target_stanza && /^\s*TCPSERVERADDRESS\s+(\S+)/i) {
-                    $server_address = $1;
-                    last;
-                }
-            }
-            close $fh;
-        }
-    }
-
-    $server_ip = $server_address ne "Unknown" ? $server_address : undef;
-    print "Detected server address: " . ($server_ip // 'Not found') . "\n" if $verbose;
+    $server_ip = utils::get_server_address($opt_file, $base_path, $os);
 }
 
-# ----------------------------------
-# Determine TCP Port (for server module)
-# ----------------------------------
+$port = utils::get_tcp_port($opt_file, $base_path, $os);
 
-my $port = 1500;  # Default
-    my ($dsm_opt, $dsm_sys) = ($opt_file, "$base_path/dsm.sys");
 
-    if ($os =~ /MSWin32/i) {
-        # Windows: check dsm.opt
-        if (-e $dsm_opt && open(my $fh, '<', $dsm_opt)) {
-            while (<$fh>) {
-                next if /^\s*[;#]/;
-                if (/^TCPPORT\s+(\d+)/i) {
-                    $port = $1;
-                    last;
-                }
-            }
-            close $fh;
-        }
-    } else {
-        # Unix-like: read from dsm.sys (match server stanza)
-        my $active_server;
-        if (-e $dsm_opt && open(my $fh, '<', $dsm_opt)) {
-            while (<$fh>) {
-                next if /^\s*[;#]/;
-                if (/^SERVERNAME\s+(\S+)/i) {
-                    $active_server = $1;
-                    last;
-                }
-            }
-            close $fh;
-        }
-
-        if ($active_server && -e $dsm_sys && open(my $fh, '<', $dsm_sys)) {
-            my $in_stanza = 0;
-            while (<$fh>) {
-                next if /^\s*[;#]/;
-                if (/^SERVERNAME\s+(\S+)/i) {
-                    $in_stanza = ($1 eq $active_server);
-                } elsif ($in_stanza && /^TCPPORT\s+(\d+)/i) {
-                    $port = $1;
-                    last;
-                }
-            }
-            close $fh;
-        }
-    }
 # ----------------------------------
 # Run Modules
 # ----------------------------------
@@ -182,11 +91,11 @@ foreach my $module (@selected_modules) {
     } elsif ($module eq "network") {
         $script = File::Spec->catfile($FindBin::Bin, "..", "common", "scripts", "network_info.pl");
     } elsif ($module eq "performance") {
-        $script = File::Spec->catfile($FindBin::Bin, "collector", "performance.pl");
+        $script = File::Spec->catfile($FindBin::Bin,"..","sp-client-ba", "collector", "performance.pl");
     } elsif ($module eq "config") {
-        $script = File::Spec->catfile($FindBin::Bin, "collector", "config.pl");
+        $script = File::Spec->catfile($FindBin::Bin,"..","sp-client-ba", "collector", "config.pl");
     } elsif ($module eq "logs") {
-        $script = File::Spec->catfile($FindBin::Bin, "collector", "log.pl");
+        $script = File::Spec->catfile($FindBin::Bin,"..","sp-client-ba", "collector", "log.pl");
     } elsif ($module eq "sql") {
         $script = File::Spec->catfile($FindBin::Bin, "collector", "sql.pl");
     } elsif ($module eq "server") {

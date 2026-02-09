@@ -4,7 +4,7 @@ use warnings;
 use Exporter 'import';
 use File::Spec;
 
-our @EXPORT_OK = qw(_os get_ba_base_path get_server_address);
+our @EXPORT_OK = qw(_os get_ba_base_path get_server_address get_hyperv_base_path get_sql_base_path);
 
 ###############################################################################
 # _os
@@ -348,5 +348,58 @@ sub is_sp_server_running {
 
     return $process_found;
 }
+
+# -----------------------------
+# Get hyberv base path
+# 1. Check HKLM\SOFTWARE\IBM\SpectrumProtect\DPHyperV\Path
+# 2. Check HKLM\SOFTWARE\WOW6432Node\IBM\SpectrumProtect\DPHyperV\Path
+# -----------------------------
+sub get_hyperv_base_path {
+    my $os = _os();
+    return undef unless $os =~ /MSWin32/i;
+
+    my @reg_keys = (
+        'HKLM\\SOFTWARE\\IBM\\SpectrumProtect\\DPHyperV',
+        'HKLM\\SOFTWARE\\WOW6432Node\\IBM\\SpectrumProtect\\DPHyperV',
+    );
+
+    foreach my $key (@reg_keys) {
+        my $cmd = qq{reg query "$key" /v Path 2>NUL};
+        my $out = `$cmd`;
+
+        if ($out =~ /Path\s+REG_\w+\s+([^\r\n]+)/i) {
+            my $path = $1;
+            $path =~ s/^\s+|\s+$//g;
+            return $path if -d $path;
+        }
+    }
+
+    return undef;
+}
+
+# -----------------------------
+#Get Sql base Path
+# 1. Check HKLM\SOFTWARE\IBM\ADSM\CurrentVersion\TDPSQL
+# 2. Check HKLM\SOFTWARE\WOW6432Node\IBM\ADSM\CurrentVersion\TDPSQL
+# -----------------------------
+sub get_sql_base_path {
+    my $os = _os();
+    return undef unless $os =~ /MSWin32/i; # Only for Windows
+    my @reg_keys = (    
+         "HKLM\\SOFTWARE\\IBM\\ADSM\\CurrentVersion\\TDPSQL",
+         "HKLM\\SOFTWARE\\WOW6432Node\\IBM\\ADSM\\CurrentVersion\\TDPSQL"
+         );
+         foreach my $key (@reg_keys) {
+            my $cmd = qq{reg query "$key" /v Path 2>NUL};
+            my $out = `$cmd`;
+            if ($out =~ /Path\s+REG_\w+\s+([^\r\n]+)/i) {
+                my $path = $1;
+                $path =~ s/^\s+|\s+$//g;
+                return $path if -d $path;
+            }
+        }
+    return undef;
+    }
+
 
 1;

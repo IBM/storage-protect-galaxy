@@ -56,7 +56,7 @@ if ($os !~ /MSWin32/i) {
 # -----------------------------
 # Installation directory
 # -----------------------------
-my $install_dir = "C:/Program Files/Tivoli/TSM/TDPSQL";
+my $install_dir = env::get_sql_base_path();
 
 unless (-d $install_dir) {
     print $errfh "TDPSQL install directory not found: $install_dir\n";
@@ -127,11 +127,46 @@ foreach my $outfile (keys %tdp_cmds) {
 # ===============================================================
 # 7. VSS-related data (optional but recommended)
 # ===============================================================
+
+# 7.1 List VSS services registered with Spectrum Protect
+my $dsmcutil_list = "$output_dir/dsmcutil_list.txt";
 utils::run_to_file(
     "$base_path/dsmcutil list",
-    "$output_dir/dsmcutil_list.txt"
+    $dsmcutil_list
 );
-$results{"dsmcutil_list.txt"} = (-s "$output_dir/dsmcutil_list.txt") ? "Success" : "Failed";
+$results{"dsmcutil_list.txt"} = (-s $dsmcutil_list) ? "Success" : "Failed";
+
+# 7.2 Query each VSS service returned by dsmcutil list
+if (-s $dsmcutil_list) {
+
+    open my $fh, '<', $dsmcutil_list;
+    while (my $line = <$fh>) {
+        chomp $line;
+
+        # Skip headers / empty lines
+        next if $line =~ /^\s*$/;
+        next if $line =~ /Service\s+Name/i;
+
+        # Extract service name (first column)
+        my ($service) = split(/\s+/, $line);
+        next unless $service;
+
+        my $outfile = "$output_dir/dsmcutil_query_$service.txt";
+
+        utils::run_to_file(
+            "$base_path/dsmcutil query /name:\"$service\"",
+            $outfile
+        );
+
+        $results{"dsmcutil_query_$service.txt"} =
+            (-s $outfile) ? "Success" : "Failed";
+    }
+    close $fh;
+
+} else {
+    print $errfh "dsmcutil list output is empty; skipping per-service queries\n";
+}
+
 
 # ===============================================================
 # Summary

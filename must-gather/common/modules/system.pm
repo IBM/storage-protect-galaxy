@@ -15,6 +15,7 @@ our @EXPORT_OK = qw(
     get_dsm_processes
     get_vss_writers
     get_vss_providers
+    get_vss_shadows
     get_event_logs
 );
 
@@ -161,6 +162,21 @@ sub get_vss_providers {
 
     make_path($output_dir) unless -d $output_dir;
     my $output = `vssadmin list providers 2>NUL`;
+    utils::write_to_file("$output_dir/vss_providers.txt", $output);
+    return $output;
+}
+
+####################################################
+#get_vss_shadows
+# Purpose: Collect list of Volume Shadow Copies (Windows only)  
+############################################################
+sub get_vss_shadows {
+    my $output_dir = shift || ".";
+    my $os = lc(env::_os());
+    return if $os !~ /MSWin32/i;
+
+    make_path($output_dir) unless -d $output_dir;
+    my $output = `vvssadmin list shadows 2>NUL`;
     utils::write_to_file("$output_dir/vss_providers.txt", $output);
     return $output;
 }
