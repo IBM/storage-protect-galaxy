@@ -202,10 +202,6 @@ Optional:
   --no-compress      Disable compression
   --verbose, -v      Verbose logging
   --help, -h         Show this help
-
-Example:
-  perl mustgather.pl --product sp-client-hyperv --output-dir /tmp/output --caseno TS020757841 --adminid admin1 --verbose
-USAGE
 }
 
 # ----------------------------------

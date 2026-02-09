@@ -61,7 +61,7 @@ perl mustgather.pl --product sp-client-ba --output-dir /tmp/mustgather_output --
 - `--product, -p` : Product name (see table above for valid product names)
 - `--output-dir, -o` : Target folder for collected data
 - `--caseno, -c` : IBM Support Case Number (format: TS followed by 9 digits, e.g., TS020757841)
-- `--adminid, -id` : Storage Protect server admin ID 
+- `--adminid, -id` :  Storage Protect server admin ID (password prompted securely)
 
 ### Optional Parameters
 
