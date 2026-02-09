@@ -46,8 +46,8 @@ my $os = env::_os();
 # ----------------------------------
 # Module List
 # ----------------------------------
-my @all_modules      = qw(system network config logs performance server core);
-my @selected_modules = @all_modules;
+my @all_modules      = qw(system network config logs performance server core lanfree);
+my @selected_modules = $modules ? split /,/, $modules : @all_modules;
 
 print "\n############## Starting Collection of $product diagnostic information ##############\n\n";
 print "Modules to be collected (" . scalar(@selected_modules) . "): @selected_modules\n\n"
@@ -173,6 +173,7 @@ foreach my $module (@selected_modules) {
     elsif ($module eq "performance") { $script = "$FindBin::Bin/collector/performance.pl"; }
     elsif ($module eq "server")      { $script = "$FindBin::Bin/../common/scripts/server_info.pl"; }
     elsif ($module eq "core")        { $script = "$FindBin::Bin/collector/core.pl"; }
+    elsif ($module eq "lanfree")        { $script = "$FindBin::Bin/collector/lanfree.pl"; }
     else {
         $module_status{$module} = "SKIPPED";
         next;
