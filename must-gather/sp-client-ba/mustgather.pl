@@ -13,7 +13,7 @@ use env;
 # ----------------------------------
 # Parameters (REMOVED password command-line)
 # ----------------------------------
-my ($product, $output_dir, $optfile, $modules, $no_compress, $verbose, $help, );
+my ($product, $output_dir, $optfile, $modules, $no_compress, $verbose, $help);
 GetOptions(
     "product|p=s"       => \$product,
     "output-dir|o=s"    => \$output_dir,

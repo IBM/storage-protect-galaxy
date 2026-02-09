@@ -182,6 +182,11 @@ $password = undef if defined $password;
 $adminid = undef if defined $adminid;
 
 
+# SECURITY: Zero memory before compression
+$password = undef if defined $password;
+$adminid = undef if defined $adminid;
+
+
 # ----------------------------------
 # Usage helper
 # ----------------------------------

@@ -145,7 +145,6 @@ if ($instance_info) {
         "$inst_dir/dsmserv.opt",
         "$inst_dir/dsmserv.err",
         "$inst_dir/dsmffdc.log",
-        "$inst_dir/tsmdlst"
     );
 
     foreach my $filepath (@server_files) {
@@ -156,16 +155,16 @@ if ($instance_info) {
             if (open(my $fh, '<', $filepath)) {
                 open(my $outfh, '>', $dest_file) or do {
                     print $errfh "Error: Could not write $dest_file: $!\n";
-                    $collected_files{$filename} = "FAILED";
+                    $collected_files{$filename} = "Failed";
                     next;
                 };
                 while (<$fh>) { print $outfh $_; }
                 close($fh);
                 close($outfh);
-                $collected_files{$filename} = "SUCCESS";
+                $collected_files{$filename} = "Success";
             } else {
                 print $errfh "Error: Could not open $filepath: $!\n";
-                $collected_files{$filename} = "FAILED";
+                $collected_files{$filename} = "Failed";
             }
         } else {
             print $errfh "Warning: $filepath not found for instance $inst_name\n";
@@ -175,6 +174,9 @@ if ($instance_info) {
 } else {
     print $errfh "Warning: Could not detect server instance information\n";
 }
+
+
+
 # -----------------------------
 # Summary of collected files
 # -----------------------------
@@ -185,12 +187,12 @@ my %summary;
 # Static queries
 foreach my $file (sort keys %server_queries) {
     my $outfile = "$output_dir/$file";
-    $summary{$file} = (-s $outfile) ? "SUCCESS" : "FAILED";
+    $summary{$file} = (-s $outfile) ? "Success" : "Failed";
 }
 
 
 if ($verbose) {
-    print "\n=== Server Config Module Summary ===\n";
+    print "\n=== Config Module Summary ===\n";
     foreach my $file (sort keys %summary) {
         printf "  %-15s : %s\n", $file, $summary{$file};
     }
@@ -209,8 +211,8 @@ my $fail_count = 0;
 my $total = scalar keys %collected_files;
 
 foreach my $status (values %collected_files) {
-    $Success_count++ if $status eq "SUCCESS";
-    $fail_count++    if $status eq "FAILED";
+    $Success_count++ if $status eq "Success";
+    $fail_count++    if $status eq "Failed";
 }
 
 my $module_status;
