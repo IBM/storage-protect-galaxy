@@ -88,104 +88,40 @@ system("reg export \"HKLM\\SOFTWARE\\IBM\\ADSM\" \"$reg_out\" /y >nul 2>&1");
 $collected_files{"ADSM_registry.txt"} = (-s $reg_out) ? "Success" : "Failed";
 
 # ===============================================================
-# 3. VE / Derby logs
+# 3. VE / Webserver / TSMCLI / RecoveryAgent logs
+#    (Common logic – summary-safe)
 # ===============================================================
-my ($vmcli_dir, $webserver_dir, $tsmcli_dir);
-
-my @vmcli_candidates = (
-    "C:/Program Files/IBM/SpectrumProtect/Framework/VEGUI",
-    "C:/Program Files/ibm/SpectrumProtect/Framework/VEGUI",
-    "C:/Program Files (x86)/Common Files/Tivoli/TDPVMware/VMwarePlugin"
+utils::collect_ve_component_logs(
+    $output_dir,
+    $errfh,
+    \%collected_files
 );
-
-foreach my $p (@vmcli_candidates) {
-    if (-d $p) {
-        $vmcli_dir = $p;
-        last;
-    }
-}
-
-$webserver_dir = "C:/IBM/SpectrumProtect/webserver/usr/servers/veProfile";
-$tsmcli_dir ="C:/Program Files/ibm/SpectrumProtect/Framework/TSM/tsmcli";
-
-my %log_dirs = (
-    "vmcli_logs"  => $vmcli_dir,
-    "veProfile"  => $webserver_dir,
-    "derby_logs" => ($vmcli_dir ? "$vmcli_dir/derby" : undef),
-    "tsmcli_logs" => $tsmcli_dir,
-);
-
-foreach my $k (keys %log_dirs) {
-    my $src = $log_dirs{$k};
-    my $dest = "$output_dir/$k";
-    if ($src && -d $src) {
-        system("xcopy \"$src\" \"$dest\" /E /I /Q >nul 2>&1");
-        $collected_files{$k} = "Success";
-    } else {
-        $collected_files{$k} = "Not Found";
-        print $errfh "Directory not found: $src\n" if $src;
-    }
-}
 
 # ===============================================================
 # 4. Cluster logs (if present)
 # ===============================================================
 my $cluster_dir = "$output_dir/cluster_logs";
 make_path($cluster_dir);
-system("powershell -Command \"if (Get-Cluster -ErrorAction SilentlyContinue) { cluster log /g >nul }\" 2>nul");
+
+system(
+    "powershell -Command \"if (Get-Cluster -ErrorAction SilentlyContinue) { cluster log /g >nul }\" 2>nul"
+);
 
 if (-d "C:/Windows/Cluster/Reports") {
-    system("xcopy \"C:/Windows/Cluster/Reports\" \"$cluster_dir\" /E /I /Q >nul 2>&1");
+    system(
+        "xcopy \"C:/Windows/Cluster/Reports\" \"$cluster_dir\" /E /I /Q >nul 2>&1"
+    );
     $collected_files{"Cluster_Logs"} = "Success";
 } else {
     $collected_files{"Cluster_Logs"} = "Not Found";
 }
 
 # ===============================================================
-# 5. VM guest file inventory
-# ===============================================================
-my $vm_file_dir = "$output_dir/vm_inventory_files";
-make_path($vm_file_dir);
-my $vm_cmd = 'Get-VM | ForEach-Object { if ($_.Path) { dir $_.Path -Recurse | Out-File "' .
-             $vm_file_dir . '/vm_files_$($_.Name).txt" } }';
-system("powershell -Command \"$vm_cmd\" 2>nul");
-$collected_files{"VM_File_Inventory"} = (glob("$vm_file_dir/*.txt")) ? "Success" : "Not Found";
-
-# ===============================================================
-# 6. DSMC show vm
+# 5. DSMC show vm
 # ===============================================================
 my $show_vm = `dsmc show vm all 2>&1`;
 utils::write_to_file("$output_dir/show_vm.out", $show_vm);
 $collected_files{"show_vm.out"} = $show_vm ? "Success" : "Failed";
-
-# ===============================================================
-# 7. Recovery Agent / Mount operation logs
-# ===============================================================
-my $all_users = $ENV{ALLUSERSPROFILE};
-
-my %recovery_paths = (
-    "TDPVMware_Logs"    => "$all_users/Tivoli/TSM/TDPVMware",
-    "RecoveryAgent_Logs"=> "$all_users/Tivoli/TSM/RecoveryAgent",
-);
-
-# Windows 2003 / XP compatibility
-if ($all_users =~ /Documents and Settings/i) {
-    $recovery_paths{"TDPVMware_Logs"} =
-        "$all_users/Application Data/Tivoli/TSM/TDPVMware";
-}
-
-foreach my $label (keys %recovery_paths) {
-    my $src  = $recovery_paths{$label};
-    my $dest = "$output_dir/$label";
-
-    if (-d $src) {
-        system("xcopy \"$src\" \"$dest\" /E /I /Q >nul 2>&1");
-        $collected_files{$label} = "Success";
-    } else {
-        $collected_files{$label} = "Not Found";
-        print $errfh "Directory not found: $src\n";
-    }
-}
 
 # ===============================================================
 # Summary
@@ -193,14 +129,14 @@ foreach my $label (keys %recovery_paths) {
 if ($verbose) {
     print "\n=== Hyper-V Module Summary ===\n";
     foreach my $k (sort keys %collected_files) {
-        printf "  %-35s : %s\n", $k, $collected_files{$k};
+        printf "  %-30s : %s\n", $k, $collected_files{$k};
     }
     print "Collected data saved in: $output_dir\n";
 }
 
 close($errfh);
 
-# Exit code
+# Exit code logic unchanged
 my $success = grep { $collected_files{$_} eq "Success" } keys %collected_files;
 my $total   = scalar keys %collected_files;
 exit(($success == $total) ? 0 : 2);

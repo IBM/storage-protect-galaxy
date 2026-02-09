@@ -48,19 +48,20 @@ The must-gather scripts are developed to collect diagnostic data across multiple
 ### Basic Command
 
 ```bash
-perl mustgather.pl --product <product_name> --output-dir <target_path> --adminid <id>  [options]
+perl mustgather.pl --product <product_name> --output-dir <target_path> --caseno <case_number> --adminid <id> [options]
 ```
 ### Example
 
 ```bash
-perl mustgather.pl --product sp-client-ba --output-dir /tmp/mustgather_output --adminid admin  --verbose
+perl mustgather.pl --product sp-client-ba --output-dir /tmp/mustgather_output --caseno TS020757841 --adminid admin --verbose
 ```
 
 ### Mandatory Parameters
 
-- `--product, -p` : Product name (`sp-client-ba`)  
+- `--product, -p` : Product name (see table above for valid product names)
 - `--output-dir, -o` : Target folder for collected data
-- `--adminid, -id` : Storage protect server admin ID
+- `--caseno, -c` : IBM Support Case Number (format: TS followed by 9 digits, e.g., TS020757841)
+- `--adminid, -id` : Storage Protect server admin ID 
 
 ### Optional Parameters
 

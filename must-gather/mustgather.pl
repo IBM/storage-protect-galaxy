@@ -14,7 +14,7 @@ use File::Spec;
 # Parameters
 # ----------------------------------
 # Command-line optfile for must-gather execution
-my ($product, $output_dir, $time, $optfile, $modules, $no_compress, $verbose, $help, $adminid);
+my ($product, $output_dir, $time, $optfile, $modules, $no_compress, $verbose, $help, $adminid, $caseno);
 
 GetOptions(
     "product|p=s"     => \$product,      # Product name to collect
@@ -25,20 +25,21 @@ GetOptions(
     "verbose|v"       => \$verbose,      # Verbose mode
     "help|h"          => \$help,         # Show help
     "adminid|id=s"    => \$adminid,      # Server admin ID
+    "caseno|c=s"      => \$caseno,       # IBM Support Case Number
 ) or die("Error in command line arguments\n");
 
-my $caseno;
 my $password;
 # Mandatory arguments check
-if(!$help){
+if ($help) {
+    print_usage();
+    exit 0;
+}else{
     die "Error: --product is mandatory\n" unless $product;
     die "Error: --output-dir is mandatory\n" unless $output_dir;
+    die "Error: --caseno is mandatory\n" unless $caseno;
 
-    # Prompt for IBM Support Case Number 
-    print "Enter IBM Support Case Number: ";
-    $caseno = <STDIN>;
-    chomp $caseno;
-    die "Case number is mandatory\n" unless $caseno;
+    # Validate case number format and sanitize
+    $caseno = utils::validate_caseno($caseno);
 
     # SECURITY: Interactive password prompt ONLY if adminid provided
 
@@ -79,7 +80,6 @@ if(!$help){
 
     die "Failed to read password\n" unless $read_ok;
 
-}
 }
 # Generate timestamp for unique output folder
 my $timestamp = utils::timestamp();
@@ -129,6 +129,7 @@ cleanup($output_dir);
 $output_dir = File::Spec->catdir($output_dir, "mustgather_${caseno}_${product}_$timestamp");
 make_path($output_dir) unless -d $output_dir;
 
+}
 # ----------------------------------
 # Print help if requested
 # ----------------------------------
@@ -146,6 +147,7 @@ print "Starting must-gather for product: $product\n" if $verbose;
         'sp-client-vmware' => "$FindBin::Bin/sp-client-vmware/mustgather.pl",
         'sp-server-sta' => "$FindBin::Bin/sp-server-sta/mustgather.pl",
         'sp-client-hyperv' => "$FindBin::Bin/sp-client-hyperv/mustgather.pl",
+        'sp-client-sql' => "$FindBin::Bin/sp-client-sql/mustgather.pl",
         # Add more products as developed
     );
 
@@ -174,10 +176,6 @@ if (exists $product_scripts{$product}) {
         delete $ENV{MUSTGATHER_ADMINID};
         delete $ENV{MUSTGATHER_PASSWORD};
 }
-else{
-    print_usage();
-    exit 0;
-}
 
 # SECURITY: Zero memory before compression
 $password = undef if defined $password;
@@ -189,20 +187,24 @@ $adminid = undef if defined $adminid;
 # ----------------------------------
 sub print_usage {
     print <<"USAGE";
-Usage: mustgather.pl --product <name> --output-dir <path> [optfile]
+Usage: mustgather.pl --product <name> --output-dir <path> --caseno <case_number> [options]
 
 Mandatory:
-  --product, -p      Product name (sp-client-ba, sp-client-vmware, sp-server-sta, sp-client-sql, sp-server, sp-client-space-mgmt, sp-client-hsm, sp-client-hyperv, sp-client-oracle, sp-client-exchange, sp-client-domino, sp-client-erp-sap-hana, sp-client-erp-db2, sp-client-erp-oracle ) 
+  --product, -p      Product name (sp-client-ba, sp-client-vmware, sp-server-sta, sp-client-sql, sp-server, sp-client-space-mgmt, sp-client-hsm, sp-client-hyperv, sp-client-oracle, sp-client-exchange, sp-client-domino, sp-client-erp-sap-hana, sp-client-erp-db2, sp-client-erp-oracle)
   --output-dir, -o   Target folder for collected data
-  --adminid, -id    Storage Protect server admin ID (password prompted securely)
+  --caseno, -c       IBM Support Case Number (format: TS followed by 9 digits, e.g., TS020757841)
+  --adminid, -id     Storage Protect server admin ID (password prompted securely)
   
 Optional:
   --modules, -m      Comma-separated modules (default: all)
-   \x1b[33mNote : For sp-client-ba, there is no need to provide the --module parameter; it collects all by default.\x1b[0m   
+   \x1b[33mNote : For sp-client-ba, there is no need to provide the --module parameter; it collects all by default.\x1b[0m
   --optfile          Path to optfile file (default if not provided)
   --no-compress      Disable compression
   --verbose, -v      Verbose logging
   --help, -h         Show this help
+
+Example:
+  perl mustgather.pl --product sp-client-hyperv --output-dir /tmp/output --caseno TS020757841 --adminid admin1 --verbose
 USAGE
 }
 

@@ -13,7 +13,7 @@ use env;
 # ----------------------------------
 # Parameters
 # ----------------------------------
-my ($product, $output_dir, $optfile, $modules, $no_compress, $verbose, $help, $adminid);
+my ($product, $output_dir, $optfile, $modules, $no_compress, $verbose, $help);
 
 GetOptions(
     "product|p=s"       => \$product,
@@ -23,12 +23,10 @@ GetOptions(
     "no-compress"       => \$no_compress,
     "verbose|v"         => \$verbose,
     "help|h"            => \$help,
-    "adminid|id=s"      => \$adminid,
-
 ) or die "Invalid arguments. Run with --help for usage.\n";
 
-if(!$help){
-    die "Error: --product is mandatory\n" unless defined $product;
+if (!$help) {
+    die "Error: --product is mandatory\n"    unless defined $product;
     die "Error: --output-dir is mandatory\n" unless defined $output_dir;
 }
 
@@ -36,7 +34,9 @@ if(!$help){
 # Verify product installation
 # ----------------------------------
 my $base_path = env::get_ba_base_path();
-unless ($base_path) {
+
+my $hyperv_path = env::get_hyperv_base_path();
+unless ($hyperv_path) {
     die "Product '$product' is not installed on this machine.\n";
 }
 
@@ -45,123 +45,28 @@ my $os = env::_os();
 # ----------------------------------
 # Module List
 # ----------------------------------
-my @all_modules = qw(system network config logs performance server hyperv);
-my @selected_modules = $modules ? split /,/, $modules : @all_modules;
+my @default_modules = qw(network system server);  # Always run config
+my @requested_modules = $modules ? split /,/, $modules : qw(system network config logs performance server hyperv);
+
+# Combine and remove duplicates
+my %seen;
+my @selected_modules = grep { !$seen{$_}++ } (@default_modules, @requested_modules);
 
 print "\n############## Starting Collection of $product diagnostic information ##############\n\n";
 print "Modules to be collected (" . scalar(@selected_modules) . "): @selected_modules\n\n" if $verbose;
 
 # ----------------------------------
-# Detect Server Address (for network module)
+# Detect Server Address and TCP Port
 # ----------------------------------
-my $opt_file;
-if ($optfile) {
-    # User-specified option file
-    $opt_file = $optfile;
-} else {
-    $opt_file = "$base_path/dsm.opt";
-}
+my $opt_file = $optfile ? $optfile : "$base_path/dsm.opt";
 my $server_ip;
+my $port;
+
 if (grep { $_ eq "network" } @selected_modules) {
-    
-    my ($dsm_opt_path, $dsm_sys_path);
-    my $server_address = "Unknown";
-
-    if ($os =~ /MSWin32/i) {
-        $dsm_opt_path = $opt_file;
-        if (-e $dsm_opt_path && open(my $fh, '<', $dsm_opt_path)) {
-            while (<$fh>) {
-                next if /^\s*;/;
-                if (/^\s*TCPSERVERADDRESS\s+(\S+)/i) {
-                    $server_address = $1;
-                    last;
-                }
-            }
-            close $fh;
-        }
-    } 
-    else {
-        $dsm_opt_path = $opt_file;
-        $dsm_sys_path = "$base_path/dsm.sys";
-        my $active_server;
-
-        if (-e $dsm_opt_path && open(my $fh, '<', $dsm_opt_path)) {
-            while (<$fh>) {
-                next if /^\s*;/;
-                if (/^\s*SERVERNAME\s+(\S+)/i) {
-                    $active_server = $1;
-                    last;
-                }
-            }
-            close $fh;
-        }
-
-        if ($active_server && -e $dsm_sys_path && open(my $fh, '<', $dsm_sys_path)) {
-            my $in_target_stanza = 0;
-            while (<$fh>) {
-                next if /^\s*;/;
-                if (/^\s*SERVERNAME\s+(\S+)/i) {
-                    $in_target_stanza = ($1 eq $active_server) ? 1 : 0;
-                } elsif ($in_target_stanza && /^\s*TCPSERVERADDRESS\s+(\S+)/i) {
-                    $server_address = $1;
-                    last;
-                }
-            }
-            close $fh;
-        }
-    }
-
-    $server_ip = $server_address ne "Unknown" ? $server_address : undef;
-    print "Detected server address: " . ($server_ip // 'Not found') . "\n" if $verbose;
+    $server_ip = utils::get_server_address($opt_file, $base_path, $os);
 }
 
-# ----------------------------------
-# Determine TCP Port (for server module)
-# ----------------------------------
-
-my $port = 1500;  # Default
-    my ($dsm_opt, $dsm_sys) = ($opt_file, "$base_path/dsm.sys");
-
-    if ($os =~ /MSWin32/i) {
-        # Windows: check dsm.opt
-        if (-e $dsm_opt && open(my $fh, '<', $dsm_opt)) {
-            while (<$fh>) {
-                next if /^\s*[;#]/;
-                if (/^TCPPORT\s+(\d+)/i) {
-                    $port = $1;
-                    last;
-                }
-            }
-            close $fh;
-        }
-    } else {
-        # Unix-like: read from dsm.sys (match server stanza)
-        my $active_server;
-        if (-e $dsm_opt && open(my $fh, '<', $dsm_opt)) {
-            while (<$fh>) {
-                next if /^\s*[;#]/;
-                if (/^SERVERNAME\s+(\S+)/i) {
-                    $active_server = $1;
-                    last;
-                }
-            }
-            close $fh;
-        }
-
-        if ($active_server && -e $dsm_sys && open(my $fh, '<', $dsm_sys)) {
-            my $in_stanza = 0;
-            while (<$fh>) {
-                next if /^\s*[;#]/;
-                if (/^SERVERNAME\s+(\S+)/i) {
-                    $in_stanza = ($1 eq $active_server);
-                } elsif ($in_stanza && /^TCPPORT\s+(\d+)/i) {
-                    $port = $1;
-                    last;
-                }
-            }
-            close $fh;
-        }
-    }
+$port = utils::get_tcp_port($opt_file, $base_path, $os);
 # ----------------------------------
 # Run Modules
 # ----------------------------------
@@ -182,11 +87,11 @@ foreach my $module (@selected_modules) {
     } elsif ($module eq "network") {
         $script = File::Spec->catfile($FindBin::Bin, "..", "common", "scripts", "network_info.pl");
     } elsif ($module eq "performance") {
-        $script = File::Spec->catfile($FindBin::Bin, "collector", "performance.pl");
+        $script = File::Spec->catfile($FindBin::Bin,"..","sp-client-ba", "collector", "performance.pl");
     } elsif ($module eq "config") {
-        $script = File::Spec->catfile($FindBin::Bin, "collector", "config.pl");
+        $script = File::Spec->catfile($FindBin::Bin,"..","sp-client-ba" ,"collector", "config.pl");
     } elsif ($module eq "logs") {
-        $script = File::Spec->catfile($FindBin::Bin, "collector", "log.pl");
+        $script = File::Spec->catfile($FindBin::Bin,"..","sp-client-ba ", "collector", "log.pl");
     } elsif ($module eq "hyperv") {
         $script = File::Spec->catfile($FindBin::Bin, "collector", "hyperv.pl");
     } elsif ($module eq "server") {
@@ -273,5 +178,34 @@ foreach my $module (sort { lc($a) cmp lc($b) } @selected_modules) {
 }
 
 print "\nCheck script.log inside each module folder for detailed failures.\n\n";
+
+# ----------------------------------
+# Compress output folder if not disabled
+# ----------------------------------
+if (!$no_compress) {
+    my $zip_name = "$output_dir.zip";
+
+    if ($os =~ /MSWin32/i) {
+        # Windows compression using PowerShell
+        my $ps_cmd = "powershell -Command \"Compress-Archive -Path '$output_dir\\*' -DestinationPath '$zip_name' -Force\"";
+        system($ps_cmd) == 0
+            or warn "Failed to compress folder on Windows: $!";
+    } else {
+        # Unix-like compression using zip
+        system("zip -r '$zip_name' '$output_dir' >/dev/null 2>&1") == 0
+            or warn "Failed to compress folder on Unix-like OS: $!";
+    }
+
+    # Remove uncompressed folder after compression
+    use File::Path qw(remove_tree);
+    remove_tree($output_dir, {error => \my $err});
+    if (@$err) {
+        warn "Errors occurred while removing $output_dir:\n";
+        for my $diag (@$err) {
+            my ($file, $message) = %$diag;
+            warn "$file: $message\n";
+        }
+    }
+}
 printf "%-5s : %s\n\n", "Output", "$output_dir.zip" unless $no_compress;
 printf "%-5s : %s\n\n", "Output", "$output_dir" if $no_compress;

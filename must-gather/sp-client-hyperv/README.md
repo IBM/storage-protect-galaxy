@@ -15,20 +15,20 @@ These scripts collect system, network, configuration, logs, server, hyperv and p
 ## How to Run
 ### Basic Command
 ```bash
-perl mustgather.pl --product sp-client-hyperv --output-dir <target_path> --adminid <id>  [options]
+perl mustgather.pl --product sp-client-hyperv --output-dir <target_path> --caseno <case_number> --adminid <id> [options]
 ```
 
 ## Mandatory Parameters
 
-- `--product, -p` : Product name (`sp-client-hyperv`)  
+- `--product, -p` : Product name (`sp-client-hyperv`)
 - `--output-dir, -o` : Target folder for collected data
-- `--adminid, -id` : Storage protect server admin ID
+- `--caseno, -c` : IBM Support Case Number (format: TS followed by 9 digits, e.g., TS020757841)
+- `--adminid, -id` : Storage Protect server admin ID (password will be prompted securely)
 
 ## Optional Parameters
 
-- `--modules, -m` : Comma-separated list of modules to collect (default: all) 
-### Note : For sp-client-ba no need to provide --module parameter, it collect all by default 
-- `--optfile` : Path to storage protect options file  
+- `--modules, -m` : Comma-separated list of modules to collect (default: all)
+- `--optfile` : Path to storage protect options file
 - `--no-compress` : Disable output compression  
 - `--verbose, -v` : Print detailed logs  
 - `--help, -h` : Display usage  
@@ -36,8 +36,7 @@ perl mustgather.pl --product sp-client-hyperv --output-dir <target_path> --admin
 
 ## Example
 ```bash
-perl mustgather.pl --product sp-client-hyperv --output-dir /tmp/mustgather_output --adminid admin --verbose
-
+perl mustgather.pl --product sp-client-hyperv --output-dir /tmp/mustgather_output --caseno TS020757841 --adminid admin --verbose
 ```
 
 ## Data Collection Modules
@@ -54,11 +53,13 @@ perl mustgather.pl --product sp-client-hyperv --output-dir /tmp/mustgather_outpu
 
 - `performance` : Captures performance metrics Instrumentation logs(`dsminstr.log`).
 
-- `hyperv` :
-Collects Hyper-V–specific diagnostics including:
-Hyper-V PowerShell outputs (VMs, services, integration services)
-VM inventory and VM file listings
-Hyper-V cluster logs (if applicable)
-VE framework, derby, and veProfile logs
-Recovery Agent and mount operation logs
-dsmc show vm output
+- `hyperv` : Collects Hyper-V–specific diagnostics including:
+  - Hyper-V PowerShell outputs (VMs, services, integration services)
+  - VM inventory and VM file listings
+  - Hyper-V cluster logs (if applicable)
+  - VE framework, derby, and veProfile logs
+  - Recovery Agent and mount operation logs
+  - dsmc show vm output
+
+## Output
+The collected data will be saved in the specified output directory and compressed into a `.zip` file (unless `--no-compress` is used).

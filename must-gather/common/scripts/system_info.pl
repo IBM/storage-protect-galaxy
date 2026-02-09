@@ -126,7 +126,7 @@ if ($verbose) {
     foreach my $file (sort keys %results) {
         my $path = "$output_dir/$file";
         my $status = (-e $path && -s $path) ? "Success" : "Failed";
-        printf "  %-25s : %s\n", $file, $status;
+        printf "  %-15s : %s\n", $file, $status;
     }
     print "Collected system info is in: $output_dir\n";
     print "Check script.log for any issues.\n";
