@@ -1,34 +1,29 @@
-#  Must-Gather Scripts for IBM Storage Protect Backup Archive Client
-
-# sp-client-ba
+#  Must-Gather Scripts for IBM Spectrum Protect for Databases - SQL 
+# sp-client-sql
 ## Overview
-These scripts collect system, network, configuration, logs, server, core and performance data for IBM Storage Protect clients and servers. 
+These scripts collect system, network, configuration, logs, server, sql  and performance data for IBM Spectrum Protect for Virtual Environments - Data Protection for Databases - SQL.
 
 ## Tested Platforms
-- Linux (RHEL,Ubuntu)
 - Windows
-- AIX
-- Solaris
-- macOS
 
 ## Prerequisites
 - Perl 5.x installed
-- Sudo privileges for network/firewall commands (Linux/Aix/Solaris/MacOS)
 - IBM Storage Protect Product must be installed on the system.
 - Output directory must have write permissions
 
 ## How to Run
 ### Basic Command
 ```bash
-perl mustgather.pl --product sp-client-ba --output-dir <target_path> --adminid <id> --caseno <case_number> [options]
+perl mustgather.pl --product sp-client-sql --output-dir <target_path> -caseno <caseno> --adminid <adminid> --verbose    
 ```
 
 ## Mandatory Parameters
 
-- `--product, -p` : Product name (`sp-client-ba`)
+- `--product, -p` : Product name (`sp-client-sql`)
 - `--output-dir, -o` : Target folder for collected data
-- `--adminid, -id` : Storage protect server admin ID
 - `--caseno, -c` : IBM Support Case Number (format: TS followed by 9 digits, e.g., TS020757841)
+- `--adminid, -id` : Storage Protect server admin ID (password will be prompted securely)
+
 
 ## Optional Parameters
 
@@ -42,7 +37,7 @@ perl mustgather.pl --product sp-client-ba --output-dir <target_path> --adminid <
 
 ## Example
 ```bash
-perl mustgather.pl --product sp-client-ba --output-dir /tmp/mustgather_output --adminid admin --verbose
+perl mustgather.pl --product sp-client-sql --output-dir /tmp/mustgather_output --adminid admin -caseno TS738982982 --verbose
 
 ```
 
@@ -54,10 +49,10 @@ perl mustgather.pl --product sp-client-ba --output-dir /tmp/mustgather_output --
 
 - `server`: Runs Storage Protect administrative queries for system, storage, logs, and server status.
 
-- `config` : Collects IBM Storage Protect configuration files (`dsm.opt`, `dsm.sys`, `dsminfo.txt`).  
+- `config` : Collects IBM Storage Protect configuration files (`dsm.opt`, `dsm.sys`, `dsminfo.txt`, `query vm`).  
 
 - `logs` : Gathers client logs such as `dsmj.log`, `dsminstr.log`, `dsmwebcl.log`, `dsmerror.log`, `dsmsched.log`. 
 
 - `performance` : Captures performance metrics Instrumentation logs(`dsminstr.log`).
 
-- `core` : Searches and collects the latest core dumps.
+- `sql` : Collects Data Protection for SQL configuration, logs, version details, registry data, and TDPSQL query outputs.
