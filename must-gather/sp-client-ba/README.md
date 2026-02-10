@@ -20,14 +20,15 @@ These scripts collect system, network, configuration, logs, server, core and per
 ## How to Run
 ### Basic Command
 ```bash
-perl mustgather.pl --product sp-client-ba --output-dir <target_path> --adminid <id>  [options]
+perl mustgather.pl --product sp-client-ba --output-dir <target_path> --adminid <id> --caseno <case_number> [options]
 ```
 
 ## Mandatory Parameters
 
-- `--product, -p` : Product name (`sp-client-ba`)  
+- `--product, -p` : Product name (`sp-client-ba`)
 - `--output-dir, -o` : Target folder for collected data
 - `--adminid, -id` : Storage protect server admin ID
+- `--caseno, -c` : IBM Support Case Number (format: TS followed by 9 digits, e.g., TS020757841)
 
 ## Optional Parameters
 

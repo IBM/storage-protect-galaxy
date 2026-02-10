@@ -273,6 +273,118 @@ sub _parse_server_address {
 }
 
 ###############################################################################
+# get_oracle_base_path
+#
+# Purpose  : Determine Data Protection for Oracle client base installation directory.
+# Input    : None
+# Output   : Absolute path to Oracle client bin directory, or undef if not found.
+# Behavior :
+#   1. Check DSMI_DIR environment variable (highest priority).
+#   2. Run 'tdpoconf showenvironment' to extract installation path (all platforms).
+#   3. Fallback to OS-specific default install paths.
+#   4. Return undef if product is not installed or path missing.
+###############################################################################
+sub get_oracle_base_path {
+    my $os = _os();
+
+    # 1. Environment override (DSMI_DIR is the standard variable for TDP Oracle)
+    if ($ENV{DSMI_DIR} && -d $ENV{DSMI_DIR}) {
+        return $ENV{DSMI_DIR} if -f "$ENV{DSMI_DIR}/tdpo.opt";
+    }
+
+    # 2. Use tdpoconf showenvironment (works on all platforms including Windows)
+    my $tdpoconf_path = _get_oracle_path_from_tdpoconf();
+    return $tdpoconf_path if $tdpoconf_path;
+
+    # 3. OS-specific fallback paths
+    if ($os =~ /MSWin32/i) {
+        # Windows: Search common drives
+        foreach my $drive ('C:', 'D:', 'E:', 'F:', 'G:') {
+            foreach my $subpath (
+                "$drive/Program Files/Tivoli/TSM/AgentOBA64",
+                "$drive/Program Files/Tivoli/TSM/AgentOBA",
+                "$drive/Program Files (x86)/Tivoli/TSM/AgentOBA"
+            ) {
+                return $subpath if -d $subpath && -f "$subpath/tdpo.opt";
+            }
+        }
+    }
+    elsif ($os =~ /aix/i) {
+        # AIX paths
+        foreach my $path (
+            "/usr/tivoli/tsm/client/oracle/bin64",
+            "/usr/tivoli/tsm/client/oracle/bin"
+        ) {
+            return $path if -d $path && -f "$path/tdpo.opt";
+        }
+    }
+    elsif ($os =~ /linux|sunos|solaris/i) {
+        # Linux, Solaris paths
+        foreach my $path (
+            "/opt/tivoli/tsm/client/oracle/bin64",
+            "/opt/tivoli/tsm/client/oracle/bin"
+        ) {
+            return $path if -d $path && -f "$path/tdpo.opt";
+        }
+    }
+
+    # 4. Not found
+    return undef;
+}
+
+###############################################################################
+# _get_oracle_path_from_tdpoconf
+#
+# Purpose  : Extract TDP Oracle installation path from tdpoconf command.
+# Input    : None
+# Output   : Installation path or undef if not found.
+# Notes    : Runs 'tdpoconf showenvironment' and parses output for DSMI_DIR
+#            Works on all platforms (Unix, Linux, Windows)
+###############################################################################
+sub _get_oracle_path_from_tdpoconf {
+    my $os = _os();
+    
+    # Run tdpoconf showenvironment
+    my $cmd = ($os =~ /MSWin32/i)
+        ? 'tdpoconf showenvironment 2>NUL'
+        : 'tdpoconf showenvironment 2>/dev/null';
+    
+    my @output = `$cmd`;
+    return undef unless @output;
+
+    # Parse output for DSMI_DIR or installation path
+    foreach my $line (@output) {
+        chomp $line;
+        
+        # Look for DSMI_DIR variable
+        if ($line =~ /DSMI_DIR[=\s]+(.+)/i) {
+            my $path = $1;
+            $path =~ s/^\s+|\s+$//g;  # Trim whitespace
+            $path =~ s/^["']|["']$//g;  # Remove quotes
+            return $path if -d $path && -f "$path/tdpo.opt";
+        }
+        
+        # Look for installation directory line
+        if ($line =~ /Installation\s+(?:Directory|Path)[:\s]+(.+)/i) {
+            my $path = $1;
+            $path =~ s/^\s+|\s+$//g;
+            $path =~ s/^["']|["']$//g;
+            return $path if -d $path && -f "$path/tdpo.opt";
+        }
+        
+        # Look for TDPO_DIR (alternative variable name)
+        if ($line =~ /TDPO_DIR[=\s]+(.+)/i) {
+            my $path = $1;
+            $path =~ s/^\s+|\s+$//g;
+            $path =~ s/^["']|["']$//g;
+            return $path if -d $path && -f "$path/tdpo.opt";
+        }
+    }
+
+    return undef;
+}
+
+###############################################################################
 # is_sp_server_running
 #
 # Purpose  : Detect whether the IBM Storage Protect Server is running.
@@ -348,6 +460,7 @@ sub is_sp_server_running {
 
     return $process_found;
 }
+
 
 # -----------------------------
 # Get hyberv base path

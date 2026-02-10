@@ -54,105 +54,17 @@ print "Modules to be collected (" . scalar(@selected_modules) . "): @selected_mo
     if $verbose;
 
 # ----------------------------------
-# Detect Server Address
+# Detect Server Address and TCP Port
 # ----------------------------------
 my $opt_file = $optfile ? $optfile : "$base_path/dsm.opt";
 my $server_ip;
+my $port;
 
 if (grep { $_ eq "network" } @selected_modules) {
-    my $server_address = "Unknown";
-
-    if ($os =~ /MSWin32/i) {
-        if (-e $opt_file && open(my $fh, '<', $opt_file)) {
-            while (<$fh>) {
-                next if /^\s*[;#]/;
-                if (/^\s*(TCPSERVERADDRESS|TCPS)\s+(\S+)/i) {
-                    $server_address = $2;
-                    last;
-                }
-            }
-            close $fh;
-        }
-    } else {
-        my $dsm_sys_path = "$base_path/dsm.sys";
-        my $active_server;
-
-        if (-e $opt_file && open(my $fh, '<', $opt_file)) {
-            while (<$fh>) {
-                next if /^\s*[;#]/;
-                if (/^\s*(SERVERNAME|SE)\s+(\S+)/i) {
-                    $active_server = $2;
-                    last;
-                }
-            }
-            close $fh;
-        }
-
-        if ($active_server && -e $dsm_sys_path && open(my $fh, '<', $dsm_sys_path)) {
-            my $in_target = 0;
-            while (<$fh>) {
-                next if /^\s*[;#]/;
-                if (/^\s*(SERVERNAME|SE)\s+(\S+)/i) {
-                    $in_target = ($2 eq $active_server);
-                }
-                elsif ($in_target && /^\s*(TCPSERVERADDRESS|TCPS)\s+(\S+)/i) {
-                    $server_address = $2;
-                    last;
-                }
-            }
-            close $fh;
-        }
-    }
-
-    $server_ip = $server_address ne "Unknown" ? $server_address : undef;
-    print "Detected server address: " . ($server_ip // 'Not found') . "\n" if $verbose;
+    $server_ip = utils::get_server_address($opt_file, $base_path, $os);
 }
 
-# ----------------------------------
-# Determine TCP Port
-# ----------------------------------
-my $port = 1500;
-my $dsm_sys = "$base_path/dsm.sys";
-
-if ($os =~ /MSWin32/i) {
-    if (-e $opt_file && open(my $fh, '<', $opt_file)) {
-        while (<$fh>) {
-            next if /^\s*[;#]/;
-            if (/^\s*(TCPPORT|TCPP)\s+(\d+)/i) {
-                $port = $2;
-                last;
-            }
-        }
-        close $fh;
-    }
-} else {
-    my $active_server;
-    if (-e $opt_file && open(my $fh, '<', $opt_file)) {
-        while (<$fh>) {
-            next if /^\s*[;#]/;
-            if (/^\s*(SERVERNAME|SE)\s+(\S+)/i) {
-                $active_server = $2;
-                last;
-            }
-        }
-        close $fh;
-    }
-
-    if ($active_server && -e $dsm_sys && open(my $fh, '<', $dsm_sys)) {
-        my $in_stanza = 0;
-        while (<$fh>) {
-            next if /^\s*[;#]/;
-            if (/^\s*(SERVERNAME|SE)\s+(\S+)/i) {
-                $in_stanza = ($2 eq $active_server);
-            }
-            elsif ($in_stanza && /^\s*(TCPPORT|TCPP)\s+(\d+)/i) {
-                $port = $2;
-                last;
-            }
-        }
-        close $fh;
-    }
-}
+$port = utils::get_tcp_port($opt_file, $base_path, $os);
 
 # ----------------------------------
 # Run Modules
