@@ -46,7 +46,7 @@ my $os = env::_os();
 # ----------------------------------
 # Module List
 # ----------------------------------
-my @default_modules = qw(network system server);  # Always run config
+my @default_modules = qw(network system server config);  # Always run config
 my @requested_modules = $modules ? split /,/, $modules : qw(system network config logs performance server sql);
 
 # Combine and remove duplicates

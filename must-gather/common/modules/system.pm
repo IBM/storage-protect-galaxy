@@ -176,7 +176,7 @@ sub get_vss_shadows {
     return if $os !~ /MSWin32/i;
 
     make_path($output_dir) unless -d $output_dir;
-    my $output = `vvssadmin list shadows 2>NUL`;
+    my $output = `vssadmin list shadows 2>NUL`;
     utils::write_to_file("$output_dir/vss_providers.txt", $output);
     return $output;
 }

@@ -107,6 +107,10 @@ if ($^O =~ /MSWin32/i) {
         $results{"vss_providers.txt"} = system::get_vss_providers($output_dir);
         utils::write_to_file("$output_dir/vss_providers.txt", $results{"vss_providers.txt"}) if $results{"vss_providers.txt"};
 
+        # VSS Shadows
+        $results("vss_shadows.txt") = system::get_vss_shadows($output_dir);
+        utils::write_to_file("$output_dir/vss_shadows.txt", $results{"vss_shadows.txt"}) if $results{"vss_shadows.txt"};
+
         # Event Logs
         $results{"system_eventlog.txt"}       = system::get_system_event_logs($output_dir);
         $results{"application_eventlog.txt"}  = system::get_application_event_logs($output_dir);

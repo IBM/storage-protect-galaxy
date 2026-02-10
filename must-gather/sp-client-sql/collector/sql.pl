@@ -61,6 +61,7 @@ my $install_dir = env::get_sql_base_path();
 unless (-d $install_dir) {
     print $errfh "TDPSQL install directory not found: $install_dir\n";
 }
+
 # ===============================================================
 # 3. Data Protection for SQL version
 # ===============================================================
@@ -93,7 +94,6 @@ foreach my $file (@log_files) {
     my ($name) = $file =~ /([^\/\\]+)$/;
     my $dest = "$output_dir/$name";
 
-
     if (-e $file) {
         if (copy($file, $dest)) {
             $results{$name} = (-s $dest) ? "Success" : "Failed";
@@ -125,40 +125,41 @@ foreach my $outfile (keys %tdp_cmds) {
 }
 
 # ===============================================================
-# 7. VSS-related data (optional but recommended)
+# 7. VSS-related data (automated)
 # ===============================================================
 
 # 7.1 List VSS services registered with Spectrum Protect
 my $dsmcutil_list = "$output_dir/dsmcutil_list.txt";
 utils::run_to_file(
-    "$base_path/dsmcutil list",
+    "\"$base_path/dsmcutil\" list",
     $dsmcutil_list
 );
 $results{"dsmcutil_list.txt"} = (-s $dsmcutil_list) ? "Success" : "Failed";
 
-# 7.2 Query each VSS service returned by dsmcutil list
+# 7.2 Query each VSS service
 if (-s $dsmcutil_list) {
 
     open my $fh, '<', $dsmcutil_list;
     while (my $line = <$fh>) {
         chomp $line;
 
-        # Skip headers / empty lines
-        next if $line =~ /^\s*$/;
-        next if $line =~ /Service\s+Name/i;
+        # Match: "   1. TSM Client Acceptor"
+        next unless $line =~ /^\s*\d+\.\s+(.+)$/;
 
-        # Extract service name (first column)
-        my ($service) = split(/\s+/, $line);
-        next unless $service;
+        my $service = $1;
+        $service =~ s/\s+$//;
 
-        my $outfile = "$output_dir/dsmcutil_query_$service.txt";
+        my $safe_service = $service;
+        $safe_service =~ s/[^\w\.-]/_/g;
+
+        my $outfile = "$output_dir/dsmcutil_query/dsmcutil_query_$safe_service.txt";
 
         utils::run_to_file(
-            "$base_path/dsmcutil query /name:\"$service\"",
+            "\"$base_path/dsmcutil\" query /name:\"$service\"",
             $outfile
         );
 
-        $results{"dsmcutil_query_$service.txt"} =
+        $results{"dsmcutil_query_$safe_service.txt"} =
             (-s $outfile) ? "Success" : "Failed";
     }
     close $fh;
@@ -166,7 +167,6 @@ if (-s $dsmcutil_list) {
 } else {
     print $errfh "dsmcutil list output is empty; skipping per-service queries\n";
 }
-
 
 # ===============================================================
 # Summary
