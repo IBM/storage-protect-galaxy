@@ -12,25 +12,64 @@ our @EXPORT_OK = qw(
     get_memory_info 
     get_disk_usage 
     get_processes 
+    get_os_info
+    get_memory_info
+    get_disk_usage
+    get_processes
     get_dsm_processes
     get_vss_writers
     get_vss_providers
-    get_vss_shadows
     get_event_logs
+    get_system_event_logs
+    get_application_event_logs
+    get_security_event_logs
+    get_ulimit_all
+    get_os_release
+    get_errpt
+    get_linux_messages
 );
 
 ###############################################################################
 # get_os_info
+#
+# Purpose  : Collect comprehensive OS information
+# Input    : $output_file (optional) - File path to write output
+# Output   : OS information string or writes to file if path provided
+# Behavior : Collects detailed OS info based on platform:
+#            - Windows: systeminfo
+#            - AIX: oslevel -s and uname -a
+#            - Solaris: uname -a and /etc/release
+#            - Linux: uname -a and /etc/*-release
 ###############################################################################
 sub get_os_info {
-    my $os = lc(env::_os());
+    my ($output_file) = @_;
+    my $os = env::_os();
+    my $cmd;
+    my $output = "";
 
     if ($os =~ /MSWin32/i) {
-        return `ver 2>NUL`;
-    } elsif ($os =~ /sunos/i) {
-        return `uname -a 2>/dev/null; showrev -a 2>/dev/null`;
+        $cmd = $output_file ? "systeminfo >\"$output_file\" 2>&1" : "systeminfo 2>&1";
+    } elsif ($os =~ /aix/i) {
+        $cmd = $output_file
+            ? "oslevel -s >\"$output_file\" 2>&1 && uname -a >>\"$output_file\" 2>&1"
+            : "oslevel -s 2>&1 && uname -a 2>&1";
+    } elsif ($os =~ /solaris/i) {
+        $cmd = $output_file
+            ? "uname -a >\"$output_file\" 2>&1 && cat /etc/release >>\"$output_file\" 2>&1"
+            : "uname -a 2>&1 && cat /etc/release 2>&1";
     } else {
-        return `uname -a 2>/dev/null`;
+        # Linux and others
+        $cmd = $output_file
+            ? "uname -a >\"$output_file\" 2>&1 && cat /etc/*-release >>\"$output_file\" 2>&1"
+            : "uname -a 2>&1 && cat /etc/*-release 2>&1";
+    }
+
+    if ($output_file) {
+        system($cmd);
+        return -s $output_file ? 1 : 0;  # Return success/failure
+    } else {
+        $output = `$cmd`;
+        return $output;
     }
 }
 
@@ -166,21 +205,6 @@ sub get_vss_providers {
     return $output;
 }
 
-####################################################
-#get_vss_shadows
-# Purpose: Collect list of Volume Shadow Copies (Windows only)  
-############################################################
-sub get_vss_shadows {
-    my $output_dir = shift || ".";
-    my $os = lc(env::_os());
-    return if $os !~ /MSWin32/i;
-
-    make_path($output_dir) unless -d $output_dir;
-    my $output = `vssadmin list shadows 2>NUL`;
-    utils::write_to_file("$output_dir/vss_providers.txt", $output);
-    return $output;
-}
-
 ###############################################################################
 # get_system_event_logs
 # Purpose  : Collect System event logs (Windows only)
@@ -238,5 +262,55 @@ sub get_security_event_logs {
         return "Security Event Logs collected successfully";
     } else {
         return "Security Event Logs collection failed or empty";
+    }
+}
+
+# Linux: /etc/os-release
+sub get_os_release {
+    my $os = lc(env::_os());
+    return if $os !~ /linux/;
+    return `cat /etc/os-release 2>/dev/null`;
+}
+
+# AIX: errpt -a
+sub get_errpt {
+    my $os = lc(env::_os());
+    return if $os !~ /aix/;
+    return `errpt -a 2>/dev/null`;
+}
+
+# Linux: /var/log/messages
+sub get_linux_messages {
+    my $os = lc(env::_os());
+    return if $os !~ /linux/;
+    return (-e "/var/log/messages")
+        ? `cat /var/log/messages 2>/dev/null`
+        : "File /var/log/messages not found\n";
+}
+
+#################################################################################
+# get_ulimit_all()
+# Purpose: Retrieve and display all current user-level resource limits for the system.
+# Behavior: Executes a system command to list resource limits such as file size, open files, stack size, and process limits.
+#################################################################################
+sub get_ulimit_all {
+    my $output_dir = shift || ".";
+    my $os = lc(env::_os());
+    return if $os =~ /mswin32/i;  # Not applicable on Windows
+
+    make_path($output_dir) unless -d $output_dir;
+
+    my $outfile = "$output_dir/ulimit.txt";
+
+    # Use a shell so ulimit (builtin) works everywhere
+    my $output = `sh -c 'ulimit -a' 2>&1`;
+
+    if ($output && $output !~ /not found/i) {
+        utils::write_to_file($outfile, $output);
+        return $output;
+    } else {
+        utils::write_to_file($outfile,
+            "Failed to collect ulimit -a\n$output");
+        return "Failed to collect ulimit -a\n";
     }
 }
