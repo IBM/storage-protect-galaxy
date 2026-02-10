@@ -45,7 +45,7 @@ my $os = env::_os();
 # Module List (ensure config runs first, no duplicates)
 # ----------------------------------
 my @default_modules = qw(config network system);  # Always run config
-my @requested_modules = $modules ? split /,/, $modules : qw(system network server tape replication stgpool dbbackup tiering install-upgrade librarysharing oc);
+my @requested_modules = $modules ? split /,/, $modules : qw(system network server tape replication stgpool dbbackup tiering install-upgrade librarysharing oc dbreorganisation expiration lanfree server-crash dbcorruption nas-ndmp);
 
 # Combine and remove duplicates
 my %seen;
@@ -180,7 +180,7 @@ foreach my $module (@selected_modules) {
     my $exit_code = 1;
     my $script;
         # Check if SP server is running for modules that require it
-    if ($module =~ /^(config|tape|replication|stgpool|server|dbbackup|librarysharing|oc|tiering)$/) {
+    if ($module =~ /^(config|tape|replication|stgpool|server|dbbackup|librarysharing|oc|tiering|dbreorganisation|expiration|lanfree|nas-ndmp|dbcorruption)$/) {
         unless (env::is_sp_server_running()) {
             warn "Storage Protect Server is NOT running. Skipping $module module...\n";
             $module_status{$module} = "SKIPPED";
@@ -225,6 +225,24 @@ foreach my $module (@selected_modules) {
     elsif ($module eq "oc"){
         $script = File::Spec->catfile($FindBin::Bin, "collector", "oc.pl");
     }
+    elsif ($module eq "dbreorganisation"){
+        $script = File::Spec->catfile($FindBin::Bin, "collector", "dbreorganisation.pl");
+    }
+    elsif ($module eq "expiration"){
+        $script = File::Spec->catfile($FindBin::Bin, "collector", "expiration.pl");
+    }
+    elsif ($module eq "lanfree"){
+        $script = File::Spec->catfile($FindBin::Bin, "collector", "lanfree.pl");
+    }
+    elsif ($module eq "server-crash"){
+        $script = File::Spec->catfile($FindBin::Bin, "collector", "server_crash.pl");
+    }
+    elsif ($module eq "dbcorruption"){
+        $script = File::Spec->catfile($FindBin::Bin, "collector", "dbcorruption.pl");
+    }
+    elsif ($module eq "nas-ndmp"){
+        $script = File::Spec->catfile($FindBin::Bin, "collector", "nas_ndmp.pl");
+    }
     else {
         warn "Warning: Unknown module '$module'. Skipping...\n";
         $module_status{$module} = "SKIPPED";
@@ -239,7 +257,7 @@ foreach my $module (@selected_modules) {
     push @args, ("-s", $server_ip) if $module eq "network" && $server_ip;
     push @args, ("-p", $port) if $module eq "network" && $port;
     push @args, "-v" if $verbose;
-    push @args, ("--optfile",$optfile) if ($module eq "config" || $module eq "server" || $module eq "tape" || $module eq "replication" ||$module eq "stgpool" ||$module eq "TSM-dbbackup" || $module eq "tiering" || $module eq "librarysharing" || $module eq "oc") && $optfile;
+    push @args, ("--optfile",$optfile) if ($module eq "config" || $module eq "server" || $module eq "tape" || $module eq "replication" ||$module eq "stgpool" ||$module eq "dbbackup" || $module eq "tiering" || $module eq "librarysharing" || $module eq "oc" || $module eq "expiration" || $module eq "lanfree"  || $module eq "dbreorganisation") && $optfile;
     # Execute the script
     $exit_code = system(@args);
     $exit_code >>= 8;  # Normalize child exit code
