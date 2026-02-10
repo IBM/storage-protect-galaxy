@@ -103,29 +103,34 @@ if ($^O !~ /MSWin32/i){
 # -----------------------------
 # Linux: /etc/os-release
 # -----------------------------
+if ($^O =~ /linux/i) {
 $results{"os_release.txt"} = system::get_os_release();
 utils::write_to_file(
     "$output_dir/os_release.txt",
     $results{"os_release.txt"}
 ) if $results{"os_release.txt"};
+}
 
 # -----------------------------
 # Linux: /var/log/messages
 # -----------------------------
+if( $^O =~ /linux/i ) {
 $results{"messages.log"} = system::get_linux_messages();
 utils::write_to_file(
     "$output_dir/messages.log",
     $results{"messages.log"}
 ) if $results{"messages.log"};
-
+}
 # -----------------------------
 # AIX: errpt -a
 # -----------------------------
+if ($^O =~ /aix/i) {
 $results{"errpt.txt"} = system::get_errpt();
 utils::write_to_file(
     "$output_dir/errpt.txt",
     $results{"errpt.txt"}
 ) if $results{"errpt.txt"};
+}
 
 # -----------------------------
 # Windows-specific: VSS and Event Logs
@@ -141,6 +146,10 @@ if ($^O =~ /MSWin32/i) {
         # VSS Providers
         $results{"vss_providers.txt"} = system::get_vss_providers($output_dir);
         utils::write_to_file("$output_dir/vss_providers.txt", $results{"vss_providers.txt"}) if $results{"vss_providers.txt"};
+
+        #VSS Shadows
+        $results{"vss_shadows.txt"} = system::get_vss_shadows($output_dir);
+        utils::write_to_file("$output_dir/vss_shadows.txt", $results{"vss_shadows.txt"}) if $results{"vss_shadows.txt"};
 
         # Event Logs
         $results{"system_eventlog.txt"}       = system::get_system_event_logs($output_dir);
@@ -161,7 +170,7 @@ if ($verbose) {
     foreach my $file (sort keys %results) {
         my $path = "$output_dir/$file";
         my $status = (-e $path && -s $path) ? "Success" : "Failed";
-        printf "  %-15s : %s\n", $file, $status;
+        printf "  %-30s : %s\n", $file, $status;
     }
     print "Collected system info is in: $output_dir\n";
     print "Check script.log for any issues.\n";
