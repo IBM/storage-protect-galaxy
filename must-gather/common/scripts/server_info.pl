@@ -143,7 +143,7 @@ foreach my $file (sort keys %server_queries) {
 if ($verbose) {
     print "\n=== Server Module Summary ===\n";
     foreach my $file (sort keys %summary) {
-        printf "  %-15s : %s\n", $file, $summary{$file};
+        printf "  %-30s : %s\n", $file, $summary{$file};
     }
     print "Collected server info saved in: $output_dir\n";
     print "Check script.log for any failures.\n";

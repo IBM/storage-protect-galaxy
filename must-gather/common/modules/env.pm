@@ -4,7 +4,7 @@ use warnings;
 use Exporter 'import';
 use File::Spec;
 
-our @EXPORT_OK = qw(_os get_ba_base_path get_server_address get_hyperv_base_path get_sql_base_path);
+our @EXPORT_OK = qw(_os get_ba_base_path get_server_address get_hyperv_base_path get_sql_base_path get_vmware_base_path);
 
 ###############################################################################
 # _os
@@ -273,6 +273,83 @@ sub _parse_server_address {
 }
 
 ###############################################################################
+# is_sp_server_running
+#
+# Purpose  : Detect whether the IBM Storage Protect Server is running.
+#
+# Input    : None
+# Output   : Returns 1 (true) if running, 0 (false) otherwise.
+#
+# Notes    :
+#   Windows :
+#       - The Storage Protect server runs as a Windows Service.
+#       - We first detect all services that match:
+#           "IBM Storage Protect SERVER*"
+#       - Then query each one and check for RUNNING state.
+#
+#   Linux/AIX :
+#       - Detects "dsmserv" via ps -ef.
+#
+#   Fallback :
+#       - Checks TCP port 1500 LISTEN.
+###############################################################################
+sub is_sp_server_running {
+
+    my $os = $^O;
+    my $process_found = 0;
+
+    # -------------------------
+    # WINDOWS LOGIC
+    # -------------------------
+    if ($os =~ /MSWin32/i) {
+
+        # Step 1: Find all Storage Protect server service names
+        my @svc_list = `sc query | findstr /I "IBM Storage Protect SERVER"`;
+
+        my @sp_services;
+        foreach my $line (@svc_list) {
+            if ($line =~ /SERVICE_NAME:\s+(.*)/i) {
+                push @sp_services, $1;
+            }
+        }
+
+        # Step 2: Query each service directly
+        foreach my $svc (@sp_services) {
+
+            my @details = `sc query "$svc"`;
+
+            # Check for RUNNING state
+            if (grep { /STATE\s+:\s+4\s+RUNNING/i } @details) {
+                $process_found = 1;
+                last;
+            }
+        }
+    }
+
+    # -------------------------
+    # LINUX / AIX LOGIC
+    # -------------------------
+    elsif ($os =~ /linux|aix/i) {
+        my @ps = `ps -ef | grep dsmserv | grep -v grep`;
+        if (grep { /dsmserv/ } @ps) {
+            $process_found = 1;
+        }
+    }
+
+    # -------------------------
+    # Fallback: TCP port 1500
+    # -------------------------
+    unless ($process_found) {
+        my @net = `netstat -an 2>/dev/null`;
+        if (grep { /:1500\s+.*LISTEN/i } @net) {
+            $process_found = 1;
+        }
+    }
+
+    return $process_found;
+}
+
+###############################################################################
 # get_oracle_base_path
 #
 # Purpose  : Determine Data Protection for Oracle client base installation directory.
@@ -384,83 +461,6 @@ sub _get_oracle_path_from_tdpoconf {
     return undef;
 }
 
-###############################################################################
-# is_sp_server_running
-#
-# Purpose  : Detect whether the IBM Storage Protect Server is running.
-#
-# Input    : None
-# Output   : Returns 1 (true) if running, 0 (false) otherwise.
-#
-# Notes    :
-#   Windows :
-#       - The Storage Protect server runs as a Windows Service.
-#       - We first detect all services that match:
-#           "IBM Storage Protect SERVER*"
-#       - Then query each one and check for RUNNING state.
-#
-#   Linux/AIX :
-#       - Detects "dsmserv" via ps -ef.
-#
-#   Fallback :
-#       - Checks TCP port 1500 LISTEN.
-###############################################################################
-sub is_sp_server_running {
-
-    my $os = $^O;
-    my $process_found = 0;
-
-    # -------------------------
-    # WINDOWS LOGIC
-    # -------------------------
-    if ($os =~ /MSWin32/i) {
-
-        # Step 1: Find all Storage Protect server service names
-        my @svc_list = `sc query | findstr /I "IBM Storage Protect SERVER"`;
-
-        my @sp_services;
-        foreach my $line (@svc_list) {
-            if ($line =~ /SERVICE_NAME:\s+(.*)/i) {
-                push @sp_services, $1;
-            }
-        }
-
-        # Step 2: Query each service directly
-        foreach my $svc (@sp_services) {
-
-            my @details = `sc query "$svc"`;
-
-            # Check for RUNNING state
-            if (grep { /STATE\s+:\s+4\s+RUNNING/i } @details) {
-                $process_found = 1;
-                last;
-            }
-        }
-    }
-
-    # -------------------------
-    # LINUX / AIX LOGIC
-    # -------------------------
-    elsif ($os =~ /linux|aix/i) {
-        my @ps = `ps -ef | grep dsmserv | grep -v grep`;
-        if (grep { /dsmserv/ } @ps) {
-            $process_found = 1;
-        }
-    }
-
-    # -------------------------
-    # Fallback: TCP port 1500
-    # -------------------------
-    unless ($process_found) {
-        my @net = `netstat -an 2>/dev/null`;
-        if (grep { /:1500\s+.*LISTEN/i } @net) {
-            $process_found = 1;
-        }
-    }
-
-    return $process_found;
-}
-
 
 # -----------------------------
 # Get hyberv base path
@@ -515,4 +515,30 @@ sub get_sql_base_path {
     }
 
 
+sub get_vmware_base_path {
+    my $os = _os();
+    if ( $os =~ /MSWin32/i ) { # Only for Windows) 
+    my @reg_keys = (
+        "HKLM\\SOFTWARE\\IBM\\SpectrumProtect\\DPVMware",
+        "HKLM\\SOFTWARE\\WOW6432Node\\IBM\\SpectrumProtect\\DPVMware",
+    );
+    foreach my $key (@reg_keys) {
+        my $cmd = qq{reg query "$key" /v Path 2>NUL};
+        my $out = `$cmd`;
+        if ($out =~ /Path\s+REG_\w+\s+([^\r\n]+)/i) {
+            my $path = $1;
+            $path =~ s/^\s+|\s+$//g;
+            return $path if -d $path;
+        }
+    }
+    }
+    if ($os =~ /linux/i) {
+        foreach my $path (
+            "/opt/tivoli/tsm/tdpvmware",
+        ) {
+            return $path if -d $path;
+        }
+    }
+    return undef;
+}
 1;
