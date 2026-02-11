@@ -61,3 +61,21 @@ perl mustgather.pl --product sp-server --output-dir /tmp/mustgather_output --adm
 - `stgpool` – Retrieves detailed storage pool information, statistics, and volume associations.
 
 - `tape` – Collects tape library, drive, path definitions, volume information, and tape-related diagnostics.
+
+- `dbbackup` – Collects database backup configuration, history, schedules, and DB backup–related diagnostics.
+
+- `dbreorganisation` – Gathers database reorganization details, DB2 formula analysis, and server reorganization information.
+
+- `expiration` – Collects expiration configuration, status, schedules, and recent expiration activity.
+
+- `tiering` – Collects data tiering configuration, policies, tiering status, and activity details.
+
+- `librarysharing` – Collects library sharing configuration, device definitions, paths, and sharing status.
+
+- `lanfree` – Gathers LAN-free configuration, SAN device mappings, and related diagnostics.
+
+- `oc` – Collects Object Container (OC) configuration, capacity usage, and container-related diagnostics.
+
+- `install-upgrade` – Collects installation and upgrade history, version details, and related logs.
+
+- `server-crash` – Collects server crash diagnostics including logs, stack traces (if available), and crash-related information.
