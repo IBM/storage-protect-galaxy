@@ -149,6 +149,7 @@ print "Starting must-gather for product: $product\n" if $verbose;
         'sp-client-hyperv' => "$FindBin::Bin/sp-client-hyperv/mustgather.pl",
         'sp-client-sql' => "$FindBin::Bin/sp-client-sql/mustgather.pl",
         'sp-client-oracle' => "$FindBin::Bin/sp-client-oracle/mustgather.pl",
+        'sp-client-exchange' => "$FindBin::Bin/sp-client-exchange/mustgather.pl",
         # Add more products as developed
     );
 

@@ -542,3 +542,22 @@ sub get_vmware_base_path {
     return undef;
 }
 1;
+
+sub get_exchange_base_path{
+     my $os = _os();
+    return undef unless $os =~ /MSWin32/i; # Only for Windows
+    my @reg_keys = (    
+         "HKLM\\SOFTWARE\\IBM\\ADSM\\CurrentVersion\\TDPExchange",
+         "HKLM\\SOFTWARE\\WOW6432Node\\IBM\\ADSM\\CurrentVersion\\TDPExchange"
+         );
+         foreach my $key (@reg_keys) {
+            my $cmd = qq{reg query "$key" /v Path 2>NUL};
+            my $out = `$cmd`;
+            if ($out =~ /Path\s+REG_\w+\s+([^\r\n]+)/i) {
+                my $path = $1;
+                $path =~ s/^\s+|\s+$//g;
+                return $path if -d $path;
+            }
+        }
+    return undef;
+}
