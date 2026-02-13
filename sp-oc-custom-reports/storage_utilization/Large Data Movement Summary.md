@@ -36,7 +36,7 @@ WHERE
     AND s.start_time > DATE(current_timestamp - 30 days)
 GROUP BY
     DATE(s.start_time),
-    activity;
+    activity
 ```
 
 ---

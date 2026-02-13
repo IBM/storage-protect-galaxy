@@ -57,7 +57,7 @@ INNER JOIN
         ON a.node = b.name
         AND a.server = b.server
 ORDER BY
-    dedup_pct ASC;
+    dedup_pct ASC
 ```
 
 ---

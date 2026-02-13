@@ -31,7 +31,7 @@ SELECT
     USED_FS_SIZE_MB,
     FREE_SPACE_MB
 FROM
-    DBSPACE;
+    DBSPACE
 ```
 
 ---

@@ -48,7 +48,7 @@ WHERE
     AND s.START_TIME >= (current_date - 1 days)
 
 ORDER BY
-    COMPSAVINGS_MB DESC;
+    COMPSAVINGS_MB DESC
 ```
 
 ---

@@ -92,7 +92,7 @@ FROM (
 ORDER BY
     size DESC
 FETCH FIRST
-    10 ROWS ONLY;
+    10 ROWS ONLY
 ```
 
 ---

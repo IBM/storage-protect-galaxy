@@ -35,7 +35,7 @@ SELECT
     FREE_PAGES,
     LAST_BACKUP_DATE
 FROM
-    db;
+    db
 ```
 
 ---

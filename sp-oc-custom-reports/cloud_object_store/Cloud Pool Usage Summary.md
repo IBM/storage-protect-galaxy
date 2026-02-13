@@ -35,7 +35,7 @@ FROM
 WHERE
     stg_type = 'CLOUD'
 GROUP BY
-    pooltype;
+    pooltype
 ```
 
 ---

@@ -38,7 +38,7 @@ WHERE
     state = 'DELETED'
     AND expdate > current timestamp - 1 days
 ORDER BY
-    expdate DESC;
+    expdate DESC
 ```
 
 ---

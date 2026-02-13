@@ -38,7 +38,7 @@ FROM
     stgpools
 GROUP BY
     stg_type,
-    pooltype;
+    pooltype
 ```
 
 ---

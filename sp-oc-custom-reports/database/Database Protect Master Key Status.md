@@ -28,7 +28,7 @@ Verify that database encryption key protection is enabled. Critical for ensuring
 SELECT
     PROTECT_MASTER_KEY
 FROM
-    db;
+    db
 ```
 
 ---

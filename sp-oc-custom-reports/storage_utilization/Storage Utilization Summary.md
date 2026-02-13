@@ -35,7 +35,7 @@ SELECT
     type,
     stg_type
 FROM
-    TSMGUI_ALLSTG_GRID;
+    TSMGUI_ALLSTG_GRID
 ```
 
 ---

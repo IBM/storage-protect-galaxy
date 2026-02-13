@@ -42,7 +42,7 @@ WHERE
     stgpool_name <> ''
     AND voltype = 'RETENTION'
 GROUP BY
-    stgpool_name;
+    stgpool_name
 ```
 
 ---

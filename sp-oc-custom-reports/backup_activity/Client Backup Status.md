@@ -107,7 +107,7 @@ FROM (
     )
 )
 WHERE
-    total > 0;
+    total > 0
 ```
 
 ---

@@ -38,7 +38,7 @@ INNER JOIN
 WHERE
     h.datetime > current_timestamp - 1 days
 ORDER BY
-    r.pitdate DESC;
+    r.pitdate DESC
 ```
 
 ---

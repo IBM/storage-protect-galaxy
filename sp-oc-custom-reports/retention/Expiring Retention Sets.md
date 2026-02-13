@@ -44,7 +44,7 @@ WHERE
     AND t.HOLDCOUNT = 0
     AND (t.STATUS = 1 OR t.STATUS = 16)
 ORDER BY
-    r.EXPDATE ASC;
+    r.EXPDATE ASC
 ```
 
 ---

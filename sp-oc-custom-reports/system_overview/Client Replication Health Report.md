@@ -75,7 +75,7 @@ FROM
             TSMGUI_REPLCLI_GRID
         WHERE
             SERVER = '%1$s'
-    );
+    )
 ```
 
 ---

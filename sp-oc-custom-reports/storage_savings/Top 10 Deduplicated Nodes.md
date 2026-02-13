@@ -63,7 +63,7 @@ ORDER BY
     DEDUP_PCT DESC
 
 FETCH FIRST
-    10 ROWS ONLY;
+    10 ROWS ONLY
 ```
 
 ---

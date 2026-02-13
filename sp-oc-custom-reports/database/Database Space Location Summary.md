@@ -31,7 +31,7 @@ SELECT
 FROM
     dbspace
 GROUP BY
-    TOTAL_FS_SIZE_MB;
+    TOTAL_FS_SIZE_MB
 ```
 
 ---

@@ -58,9 +58,9 @@ The SP OC interface provides an intuitive way to manage, customize, and visualiz
 | [Client Backup Status](backup_activity/Client%20Backup%20Status.md) | `Health`, `Performance` |
 | [Highest Rate of Backup Failure](backup_activity/Highest%20Rate%20of%20Backup%20Failure.md) | `Top10`, `Health` |
 | [Highest Rate of Backup Failure in VM Clients](backup_activity/Highest%20Rate%20of%20Backup%20Failure%20in%20VM%20Clients.md) | `Top10`, `Health` |
-| [Summary of Most Data Backed Up](backup_activity/Summary%20of%20Most%20Data%20Backed%20Up.md) | `Top10`, `Usage`, `Performance` |
-| [Top 10 Clients with Largest Number of File Backups](backup_activity/Top%2010%20Clients%20with%20Largest%20Number%20of%20File%20Backups.md) | `Top10`, `Usage` |
-| [Summary of Daily Data Ingest](backup_activity/Summary%20of%20Daily%20Data%20Ingest.md) | `Usage`, `Performance` |
+| [Summary of Most Data Backed Up](backup_activity/Summary%20of%20most%20Data%20Backed%20Up.md) | `Top10`, `Usage`, `Performance` |
+| [Top 10 Clients with Largest Number of File Backups](backup_activity/Top%2010%20clients%20with%20largest%20number%20of%20file%20backups.md) | `Top10`, `Usage` |
+| [Summary of Daily Data Ingest](backup_activity/Summary%20of%20Daily%20Data%20ingest.md) | `Usage`, `Performance` |
 
 ---
 

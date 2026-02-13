@@ -26,7 +26,6 @@ Quickly assess server configuration and compliance. Helps validate security poli
 
 ```sql 
 SELECT
-    '--> Information from STATUS table' AS section_label,
     s.server_name,
     s.install_date,
     s.restart_date,
@@ -65,7 +64,7 @@ SELECT
     ) AS pw_strength
 FROM
     status s,
-    sysibm.sysdummy1 d;
+    sysibm.sysdummy1 d
 ```
 
 ---

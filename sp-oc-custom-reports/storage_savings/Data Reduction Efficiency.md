@@ -62,7 +62,7 @@ FROM (
         server
 )
 ORDER BY
-    dedup_pct DESC;
+    dedup_pct DESC
 ```
 
 ---

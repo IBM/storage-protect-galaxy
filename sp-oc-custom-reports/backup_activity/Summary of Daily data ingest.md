@@ -36,7 +36,7 @@ WHERE
 GROUP BY
     DATE(s.START_TIME)
 ORDER BY
-    Date DESC;
+    Date DESC
 ```
 
 ---

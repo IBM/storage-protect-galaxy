@@ -58,7 +58,7 @@ FROM (
 INNER JOIN
     tsmgui_allcli_grid b
         ON a.node_name = b.name
-        AND a.server = b.server;
+        AND a.server = b.server
 ```
 
 ---

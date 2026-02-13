@@ -93,7 +93,7 @@ INNER JOIN
 ORDER BY
     rate DESC
 FETCH FIRST
-    10 ROWS ONLY;
+    10 ROWS ONLY
 ```
 
 ---

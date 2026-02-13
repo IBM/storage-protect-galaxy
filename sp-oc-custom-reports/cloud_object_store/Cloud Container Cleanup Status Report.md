@@ -35,7 +35,7 @@ FROM
 WHERE
     locked_cntrs_pending_30 > 0
 ORDER BY
-    locked_cntrs_pending_bytes_30 DESC;
+    locked_cntrs_pending_bytes_30 DESC
 ```
 
 ---

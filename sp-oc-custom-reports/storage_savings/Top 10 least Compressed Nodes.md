@@ -57,7 +57,7 @@ ORDER BY
     COMP_PCT ASC
 
 FETCH FIRST
-    10 ROWS ONLY;
+    10 ROWS ONLY
 ```
 
 ---

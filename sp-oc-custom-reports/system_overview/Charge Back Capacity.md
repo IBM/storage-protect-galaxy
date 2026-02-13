@@ -42,7 +42,7 @@ FROM
 WHERE
     CONFIGURED > 0
 ORDER BY
-    STATUS;
+    STATUS
 ```
 
 ---

@@ -34,7 +34,7 @@ SELECT
     pct_encrypted,
     reusedelay
 FROM
-    stgpools;
+    stgpools
 ```
 
 ---

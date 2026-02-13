@@ -57,7 +57,7 @@ INNER JOIN
         ON a.node = b.name
         AND a.server = b.server
 ORDER BY
-    comp_pct ASC;
+    comp_pct ASC
 ```
 
 ---
