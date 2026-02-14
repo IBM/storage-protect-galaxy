@@ -15,12 +15,12 @@ These scripts collect system, network, configuration, logs, server, Exchange, an
 ## How to Run
 ### Basic Command
 ```bash
-perl mustgather.pl --product sp-client-hyperv --output-dir <target_path> --caseno <case_number> --adminid <id> [options]
+perl mustgather.pl --product sp-client-exchange --output-dir <target_path> --caseno <case_number> --adminid <id> [options]
 ```
 
 ## Mandatory Parameters
 
-- `--product, -p` : Product name (`sp-client-hyperv`)
+- `--product, -p` : Product name (`sp-client-exchange`)
 - `--output-dir, -o` : Target folder for collected data
 - `--caseno, -c` : IBM Support Case Number (format: TS followed by 9 digits, e.g., TS020757841)
 - `--adminid, -id` : Storage Protect server admin ID (password will be prompted securely)
@@ -36,7 +36,7 @@ perl mustgather.pl --product sp-client-hyperv --output-dir <target_path> --casen
 
 ## Example
 ```bash
-perl mustgather.pl --product sp-client-hyperv --output-dir /tmp/mustgather_output --caseno TS020757841 --adminid admin --verbose
+perl mustgather.pl --product sp-client-exchange --output-dir /tmp/mustgather_output --caseno TS020757841 --adminid admin --verbose
 ```
 
 ## Data Collection Modules
