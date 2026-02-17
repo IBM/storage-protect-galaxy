@@ -144,10 +144,10 @@ print "Starting must-gather for product: $product\n" if $verbose;
  my %product_scripts = (
         'sp-client-ba' => "$FindBin::Bin/sp-client-ba/mustgather.pl",
         'sp-server' => "$FindBin::Bin/sp-server/mustgather.pl",
-        'sp-client-vmware' => "$FindBin::Bin/sp-client-vmware/mustgather.pl",
         'sp-server-sta' => "$FindBin::Bin/sp-server-sta/mustgather.pl",
         'sp-client-hyperv' => "$FindBin::Bin/sp-client-hyperv/mustgather.pl",
         'sp-client-sql' => "$FindBin::Bin/sp-client-sql/mustgather.pl",
+        'sp-client-exchange' => "$FindBin::Bin/sp-client-exchange/mustgather.pl",
         # Add more products as developed
     );
 
