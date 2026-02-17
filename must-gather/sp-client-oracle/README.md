@@ -2,7 +2,7 @@
 
 # sp-client-oracle
 ## Overview
-These scripts collect system, network, configuration, logs, server, oracle and performance data for IBM Spectrum Protect for Virtual Environments - Data Protection for Hyper-V.
+These scripts collect system, network, configuration, logs, server, oracle and performance data for IBM Spectrum Protect for Databases - Data protection for orcale.
 
 ## Tested Platforms
 - Windows
