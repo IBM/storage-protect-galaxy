@@ -53,16 +53,24 @@ foreach my $conf ("$base_path/dsm.opt", "$base_path/dsm.sys") {
     open(my $fh, '<', $conf) or next;
     while (<$fh>) {
         next if /^\s*$/ || /^[#;]/;
-        if (/^\s*ERRORLOGNAME\s+(\S+)/i) {
+        if (/^\s*ERRORLOGNAME\s+(.+)/i) {
             my $full = $1;
+            $full =~ s/^\s+|\s+$//g;
+            $full =~ s/^["']|["']$//g;   # remove surrounding quotes
+
             my $dir = dirname($full);
             $errorlog_path = $dir if -d $dir;
+
             print "Found ERRORLOGNAME override: $errorlog_path\n" if $verbose;
-        }
-        if (/^\s*SCHEDLOGNAME\s+(\S+)/i) {
+       }
+        if (/^\s*SCHEDLOGNAME\s+(.+)/i) {
             my $full = $1;
+            $full =~ s/^\s+|\s+$//g;
+            $full =~ s/^["']|["']$//g;
+
             my $dir = dirname($full);
             $schedlog_path = $dir if -d $dir;
+
             print "Found SCHEDLOGNAME override: $schedlog_path\n" if $verbose;
         }
     }

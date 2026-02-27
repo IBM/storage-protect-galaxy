@@ -4,7 +4,7 @@ use warnings;
 use Exporter 'import';
 use File::Spec;
 
-our @EXPORT_OK = qw(_os get_ba_base_path get_server_address get_hyperv_base_path get_sql_base_path  get_oracle_base_path);
+our @EXPORT_OK = qw(_os get_ba_base_path get_server_address get_hyperv_base_path get_sql_base_path  get_oracle_base_path get_api_base_path);
 
 ###############################################################################
 # _os
@@ -513,6 +513,72 @@ sub get_sql_base_path {
         }
     return undef;
     }
+
+    ###############################################################################
+# get_api_base_path
+#
+# Purpose  : Determine IBM Storage Protect API client installation directory.
+# Input    : None
+# Output   : Absolute path to API bin directory, or undef if not found.
+# Behavior :
+#   1. Check DSMI_DIR environment variable (highest priority).
+#   2. Fallback to OS-specific default install paths.
+#   3. Detect bin64 first, then bin.
+###############################################################################
+sub get_api_base_path {
+
+    my $os = _os();
+
+    # 1. Environment override
+    if ($ENV{DSMI_DIR} && -d $ENV{DSMI_DIR}) {
+
+        foreach my $subdir ("bin64", "bin") {
+
+            my $candidate = File::Spec->catdir($ENV{DSMI_DIR}, $subdir);
+
+            return $candidate if -d $candidate;
+        }
+    }
+
+    # 2. OS-specific fallback paths
+
+    if ($os =~ /linux|sunos|solaris/i) {
+
+        foreach my $path (
+            "/opt/tivoli/tsm/client/api/bin64",
+            "/opt/tivoli/tsm/client/api/bin"
+        ) {
+            return $path if -d $path;
+        }
+    }
+
+    elsif ($os =~ /aix/i) {
+
+        foreach my $path (
+            "/usr/tivoli/tsm/client/api/bin64",
+            "/usr/tivoli/tsm/client/api/bin"
+        ) {
+            return $path if -d $path;
+        }
+    }
+
+    elsif ($os =~ /MSWin32/i) {
+
+        foreach my $drive ('C:', 'D:', 'E:', 'F:') {
+
+            foreach my $path (
+                "$drive/Program Files/Tivoli/TSM/api64",
+                "$drive/Program Files/Tivoli/TSM/api",
+                "$drive/Program Files (x86)/Tivoli/TSM/api64",
+                "$drive/Program Files (x86)/Tivoli/TSM/api"
+            ) {
+                return $path if -d $path;
+            }
+        }
+    }
+
+    return undef;
+}
 
 
 1;

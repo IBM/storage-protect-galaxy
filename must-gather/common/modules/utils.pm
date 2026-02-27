@@ -14,6 +14,7 @@ our @EXPORT_OK = qw(
     validate_caseno 
     get_reg_path 
     collect_ve_component_logs
+    clean_path
 );
 
 # -----------------------------
@@ -354,6 +355,15 @@ sub collect_ve_component_logs {
     return;   # IMPORTANT: no return value
 }
 
-
+# -----------------------------
+# clean path
+# -----------------------------
+sub clean_path {
+    my ($path) = @_;
+    return unless $path;
+    $path =~ s/^\s+|\s+$//g;
+    $path =~ s/^["']|["']$//g;
+    return $path;
+}
 
 1;

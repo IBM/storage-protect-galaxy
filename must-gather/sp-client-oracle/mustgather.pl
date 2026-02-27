@@ -33,12 +33,16 @@ if (!$help) {
 # ----------------------------------
 # Verify product installation
 # ----------------------------------
-my $base_path=env::get_ba_base_path();
+my $base_path=env::get_api_base_path();
+unless($base_path){
+     die "Product '$product' is not installed on this machine.\n";
+}
 
 my $base_oracle_path = env::get_oracle_base_path();
 unless ($base_oracle_path) {
     die "Product '$product' is not installed on this machine.\n";
 }
+my $ba_base_path = env::get_ba_base_path();
 
 my $os = env::_os();
 
@@ -52,9 +56,52 @@ my @requested_modules = $modules ? split /,/, $modules : qw(system network confi
 my %seen;
 my @selected_modules = grep { !$seen{$_}++ } (@default_modules, @requested_modules);
 
+unless ($ba_base_path) {
+
+    @selected_modules = grep {
+        $_ ne 'config' &&
+        $_ ne 'logs' &&
+        $_ ne 'performance' &&
+        $_ ne 'server'
+    } @selected_modules;
+}
+
 print "\n############## Starting Collection of $product diagnostic information ##############\n\n";
 print "Modules to be collected (" . scalar(@selected_modules) . "): @selected_modules\n\n"
     if $verbose;
+
+# ----------------------------------
+# Interactive RMAN (ONLY ONCE)
+# ----------------------------------
+my ($rman_script, $rman_msglog);
+
+if (grep { $_ eq "oracle" } @selected_modules) {
+
+    print "\nIf RMAN backup script was used, enter full path (or press Enter to skip): ";
+    $rman_script = <STDIN>;
+    chomp $rman_script;
+
+    print "\nIf RMAN message log was generated, enter full path (or press Enter to skip): ";
+    $rman_msglog = <STDIN>;
+    chomp $rman_msglog;
+
+    for ($rman_script, $rman_msglog) {
+        next unless $_;
+        s/^\s+|\s+$//g;
+        s/^["']|["']$//g;
+    }
+}
+my $oracle_user;
+
+if (grep { $_ eq "oracle" } @selected_modules) {
+
+    print "\nEnter Oracle OS username (or press Enter to skip environment capture): ";
+    $oracle_user = <STDIN>;
+    chomp $oracle_user;
+
+    $oracle_user =~ s/^\s+|\s+$//g;
+}
+
 
 # ----------------------------------
 # Detect Server Address and TCP Port
@@ -81,7 +128,7 @@ my $count = 0;
 
 foreach my $module (@selected_modules) {
     $count++;
-    print "Running module ($count/$total): $module\n" if $verbose;
+    print "\nRunning module ($count/$total): $module\n" if $verbose;
 
     my $exit_code = 1; 
 
@@ -113,6 +160,10 @@ foreach my $module (@selected_modules) {
     push @args, ("-p", $port) if $module eq "network" && $port;
     push @args, "-v" if $verbose;
     push @args, ("--optfile", $optfile) if $optfile && ($module eq "config" || $module eq "server");
+    push @args, ("--rman-script", $rman_script) if $module eq "oracle" && $rman_script;
+    push @args, ("--rman-msglog", $rman_msglog) if $module eq "oracle" && $rman_msglog;
+    push @args, ("--oracle-user", $oracle_user) if $module eq "oracle" && $oracle_user;
+
     $exit_code = system(@args);
     $exit_code >>= 8;
 
@@ -127,34 +178,50 @@ my $product_version = "Unknown";
 my $node_name       = "Unknown";
 my $server_name     = "Unknown";
 
-my $oracle_info_path = "$output_dir/oracle/oracle_info.txt";
-if (-e $oracle_info_path && open(my $fh, '<', $oracle_info_path)) {
+my $oracle_env_file = "$output_dir/oracle/oracle_environment.txt";
+
+if (-e $oracle_env_file && open(my $fh, '<', $oracle_env_file)) {
+
+    my ($v, $r, $l, $s);
+
     while (my $line = <$fh>) {
+
         chomp $line;
 
-        # Capture version line
-        if ($line =~ /^Version\s+(.+)/i) {
-            $product_version = $1;
-            $product_version =~ s/\s+$//;
-        }
-    }
-    close $fh;
-}
-
-my $console_file = "$output_dir/config/systeminfo_console.txt";
-if (-e $console_file && open(my $fh, '<', $console_file)) {
-    while (<$fh>) {
-        if (/Node Name:\s*(\S+)/i) {
-            $node_name = $1;
-        }
-        elsif (/Session established with server\s+(\S+):/i) {
+        # ---- Server & Node ----
+        if ($line =~ /^\s*Server Name:\s*(\S+)/i) {
             $server_name = $1;
         }
-    }
-    close $fh;
-}
-unlink $console_file if -e $console_file;
 
+        if ($line =~ /^\s*Node Name:\s*(\S+)/i) {
+            $node_name = $1;
+        }
+
+        # ---- Version Components ----
+        if ($line =~ /^\s*Version:\s*(\d+)/i) {
+            $v = $1;
+        }
+
+        if ($line =~ /^\s*Release:\s*(\d+)/i) {
+            $r = $1;
+        }
+
+        if ($line =~ /^\s*Level:\s*(\d+)/i) {
+            $l = $1;
+        }
+
+        if ($line =~ /^\s*Sublevel:\s*(\d+)/i) {
+            $s = $1;
+        }
+    }
+
+    close $fh;
+
+    # Build full version string
+    if (defined $v && defined $r && defined $l && defined $s) {
+        $product_version = "$v.$r.$l.$s";
+    }
+}
 
 # ----------------------------------
 # Summary

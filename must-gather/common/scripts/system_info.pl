@@ -7,6 +7,7 @@ use File::Path qw(make_path);
 use lib "$FindBin::Bin/../modules";   # include common modules
 use system;
 use utils;
+use env;
 
 # -----------------------------
 # Parameters / CLI optfile
@@ -40,6 +41,8 @@ my %results;
 # -----------------------------
 # Collect OS info
 # -----------------------------
+
+my $os = env::_os();
 eval {
     print $errfh "Collecting OS information...\n";
     $results{"os_info.txt"} = system::get_os_info();
@@ -103,30 +106,35 @@ if ($^O !~ /MSWin32/i){
 # -----------------------------
 # Linux: /etc/os-release
 # -----------------------------
-$results{"os_release.txt"} = system::get_os_release();
-utils::write_to_file(
-    "$output_dir/os_release.txt",
-    $results{"os_release.txt"}
-) if $results{"os_release.txt"};
+if ($os =~ /linux/i){
+    $results{"os_release.txt"} = system::get_os_release();
+    utils::write_to_file(
+        "$output_dir/os_release.txt",
+        $results{"os_release.txt"}
+    ) if $results{"os_release.txt"};
+}
 
 # -----------------------------
 # Linux: /var/log/messages
 # -----------------------------
-$results{"messages.log"} = system::get_linux_messages();
-utils::write_to_file(
-    "$output_dir/messages.log",
-    $results{"messages.log"}
-) if $results{"messages.log"};
+if ($os =~ /linux/i){
+    $results{"messages.log"} = system::get_linux_messages();
+    utils::write_to_file(
+        "$output_dir/messages.log",
+        $results{"messages.log"}
+    ) if $results{"messages.log"};
+}
 
 # -----------------------------
 # AIX: errpt -a
 # -----------------------------
-$results{"errpt.txt"} = system::get_errpt();
-utils::write_to_file(
-    "$output_dir/errpt.txt",
-    $results{"errpt.txt"}
-) if $results{"errpt.txt"};
-
+if ($os =~ /aix/i){
+    $results{"errpt.txt"} = system::get_errpt();
+    utils::write_to_file(
+        "$output_dir/errpt.txt",
+        $results{"errpt.txt"}
+    ) if $results{"errpt.txt"};
+}
 # -----------------------------
 # Windows-specific: VSS and Event Logs
 # -----------------------------

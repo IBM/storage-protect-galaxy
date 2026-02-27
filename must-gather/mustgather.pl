@@ -70,7 +70,7 @@ if ($help) {
     eval {
         require Term::ReadPassword;
         Term::ReadPassword->import();
-        print "Enter password for admin '$adminid': ";
+        print "\nEnter password for admin '$adminid': ";
         $password = Term::ReadPassword::read_password();
         print "\n";
         chomp $password;
@@ -107,40 +107,56 @@ my $timestamp = utils::timestamp();
 # Cleanup previous must-gather output
 # ----------------------------------
 sub cleanup {
-    my ($output_dir) = @_;
+    my ($output_dir, $verbose) = @_;
 
-    # Safety: prevent deletion of root or invalid paths
-    if (!$output_dir || $output_dir eq '/' || $output_dir eq 'C:\\' || $output_dir eq 'C:/') {
-        warn "Refusing to clean up unsafe directory: $output_dir\n";
+    # Validate input
+    unless (defined $output_dir && length $output_dir) { 
+        warn "Cleanup skipped: invalid output directory\n";
+        return;
+    }
+
+    # Absolute safety checks
+    if ($output_dir eq '/' ||
+        $output_dir =~ /^C:\\?$/i ||
+        $output_dir =~ /^[A-Za-z]:\\?$/) {
+        warn "Refusing to clean unsafe directory: $output_dir\n";
+        return;
+    }
+
+    # Skip if directory does not exist
+    unless (-d $output_dir) {
+        print "Cleanup skipped: $output_dir does not exist\n" if $verbose;
         return;
     }
 
     opendir(my $dh, $output_dir) or do {
-        warn "Cannot open directory $output_dir: $!";
+        warn "Cannot open directory $output_dir: $!\n";
         return;
     };
 
     while (my $entry = readdir($dh)) {
-        next if $entry =~ /^\.\.?$/;  # skip . and ..
-        
-        # Delete known must-gather folders/files only
-        if ($entry =~ /^mustgather_/i || $entry =~ /^(System|Network|Config|Logs|Performance)$/) {
-            my $full_path = File::Spec->catfile($output_dir, $entry);
-            remove_tree($full_path, {error => \my $err});
-            if (@$err) {
-                warn "Errors occurred while removing $full_path:\n";
-                for my $diag (@$err) {
-                    my ($file, $message) = %$diag;
-                    warn "$file: $message\n";
-                }
-            } else {
-                print "Removed $full_path\n" if $verbose;
+        next if $entry =~ /^\.\.?$/;
+
+        # Only remove mustgather folders
+        next unless $entry =~ /^mustgather_/i;
+
+        my $full_path = File::Spec->catdir($output_dir, $entry);
+
+        print "Removing previous folder: $full_path\n" if $verbose;
+
+        remove_tree($full_path, { error => \my $err });
+
+        if (@$err) {
+            warn "Errors removing $full_path:\n";
+            for my $diag (@$err) {
+                my ($file, $message) = %$diag;
+                warn "$file: $message\n";
             }
         }
     }
+
     closedir($dh);
 }
-
 # Clean previous must-gather folders
 cleanup($output_dir);
 

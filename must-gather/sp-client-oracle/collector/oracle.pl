@@ -7,6 +7,7 @@ use FindBin;
 use lib "$FindBin::Bin/../../common/modules";
 use env;
 use system;
+use utils;
 use Getopt::Long;
 
 # ===============================================================
@@ -18,11 +19,14 @@ use Getopt::Long;
 # -----------------------------
 # Parse command-line arguments
 # -----------------------------
-my ($output_dir, $verbose, $optfile);
+my ($output_dir, $verbose, $optfile, $rman_script, $rman_msglog, $oracle_user);
 GetOptions(
     "output-dir|o=s" => \$output_dir,
     "verbose|v"      => \$verbose,
     "optfile=s"      => \$optfile,
+    "rman-script=s"  => \$rman_script,
+    "rman-msglog=s"  => \$rman_msglog,
+    "oracle-user=s"  => \$oracle_user,
 ) or die "Invalid arguments. Run with --help for usage.\n";
 
 # -----------------------------
@@ -36,13 +40,6 @@ make_path($output_dir) unless -d $output_dir;
 # -----------------------------
 my $base_oracle_path = env::get_oracle_base_path();
 my $os = env::_os();
-
-# -----------------------------
-# Default installation paths for TDP Oracle
-# -----------------------------
-# Windows: C:\Program Files\Tivoli\TSM\AgentOBA or C:\Program Files\Tivoli\TSM\AgentOBA64
-# Linux, Solaris: /opt/tivoli/tsm/client/oracle/bin or /opt/tivoli/tsm/client/oracle/bin64
-# AIX: /usr/tivoli/tsm/client/oracle/bin64
 
 # -----------------------------
 # Error log setup
@@ -73,15 +70,15 @@ sub collect_text_file {
             while (<$in>) { print $out $_; }
             close($in);
             close($out);
-            $collected_items{$item_name} = "Success";
+            $collected_items{$dest_filename} = "Success";
             print $errfh "Collected $item_name from: $source_path\n" if $verbose;
         } else {
             print $errfh "Error: Could not copy $item_name: $!\n";
-            $collected_items{$item_name} = "Failed";
+            $collected_items{$dest_filename} = "Failed";
         }
     } else {
         print $errfh "Warning: $item_name not found at: $source_path\n";
-        $collected_items{$item_name} = "NOT FOUND";
+        $collected_items{$dest_filename} = "NOT FOUND";
     }
 }
 
@@ -110,7 +107,7 @@ sub run_system_command {
 # =============================
 print $errfh "=== Section 1: TDP Oracle Configuration ===\n" if $verbose;
 
-# 1.1 Determine which tdpo.opt to use
+# 1.1 Determine which tdpo.opt to use 
 my $tdpo_opt_file;
 if ($optfile) {
     $tdpo_opt_file = $optfile;
@@ -185,7 +182,7 @@ if (-e $tdpo_opt_file && open(my $fh, '<', $tdpo_opt_file)) {
 }
 
 if ($dsm_opt_path) {
-    collect_text_file($dsm_opt_path, "dsm.opt", "dsm.opt");
+    collect_text_file($dsm_opt_path, "oracle_dsm.opt", "dsm.opt");
 } else {
     print $errfh "Warning: dsm.opt not found (DSMI_ORC_CONFIG not set or file missing)\n";
     $collected_items{"dsm.opt"} = "NOT FOUND";
@@ -193,7 +190,7 @@ if ($dsm_opt_path) {
 
 # 1.7 Collect dsm.sys (UNIX only)
 if ($os !~ /MSWin32/i) {
-    collect_text_file("$base_oracle_path/dsm.sys", "dsm.sys", "dsm.sys");
+    collect_text_file("$base_oracle_path/dsm.sys", "oracle_dsm.sys", "dsm.sys");
 }
 
 # =============================
@@ -221,14 +218,51 @@ sub collect_log_file {
 }
 
 # Collect log files
-collect_log_file("dsmerror.log", "$base_oracle_path/dsmerror.log");
-collect_log_file("dsierror.log", "$base_oracle_path/dsierror.log");
-collect_log_file("dsmsched.log", "$base_oracle_path/dsmsched.log");
-collect_log_file("dsminstr.log", "$base_oracle_path/dsminstr.log");
-collect_log_file("tdpoerror.log", "$base_oracle_path/tdpoerror.log");
+my ($errorlog_path, $schedlog_path, $instrlog_path);
 
+foreach my $conf (grep { defined && -f } ($dsm_opt_path, "$base_oracle_path/dsm.sys")) {
 
+    open(my $fh, '<', $conf) or next;
 
+    while (<$fh>) {
+
+        next if /^\s*$/ || /^[#;]/;
+
+        if (/^\s*ERRORLOGNAME\s+(.+)/i) {
+            $errorlog_path = utils::clean_path($1);
+        }
+
+        if (/^\s*SCHEDLOGNAME\s+(.+)/i) {
+            $schedlog_path = utils::clean_path($1);
+        }
+
+        if (/^\s*INSTRLOGNAME\s+(.+)/i) {
+            $instrlog_path = utils::clean_path($1);
+        }
+    }
+
+    close($fh);
+}
+
+collect_log_file(
+    "dsmerror.log",
+    $errorlog_path ? $errorlog_path : "$base_oracle_path/dsmerror.log"
+);
+
+collect_log_file(
+    "dsmsched.log",
+    $schedlog_path ? $schedlog_path : "$base_oracle_path/dsmsched.log"
+);
+
+collect_log_file(
+    "dsminstr.log",
+    $instrlog_path ? $instrlog_path : "$base_oracle_path/dsminstr.log"
+);
+
+collect_log_file(
+    "tdpoerror.log",
+    "$base_oracle_path/tdpoerror.log"
+);
 
 
 # =============================
@@ -236,63 +270,43 @@ collect_log_file("tdpoerror.log", "$base_oracle_path/tdpoerror.log");
 # =============================
 print $errfh "\n=== Section 3: Oracle Database Information ===\n" if $verbose;
 
-# 3.1 Collect Oracle instance details
+
+# 3.1 Oracle Info
 my $oracle_info_file = "$output_dir/oracle_info.txt";
-open(my $oracle_fh, '>', $oracle_info_file) or do {
-    print $errfh "Error: Cannot write $oracle_info_file: $!\n";
-    $collected_items{"oracle_info"} = "Failed";
-};
+open(my $oracle_fh, '>', $oracle_info_file);
 
 if ($oracle_fh) {
-    print $oracle_fh "\n=== TDP Oracle Version ===\n\n";
-    
-    # Try to get TDP version from tdpoconf
-    if ($tdpoconf && -e $tdpoconf) {
 
-        if ($^O eq 'MSWin32') {
-            # Windows: no 'head' command
-            my $count = 0;
-            if (open(my $tdp_fh, '-|', "\"$tdpoconf\" 2>&1")) {
-                while (my $line = <$tdp_fh>) {
-                    print $oracle_fh $line;
-                    last if ++$count >= 5;
-                }
-                close $tdp_fh;
-            }
-        }
-        else {
-            # UNIX/Linux/AIX
-            my $version_output = `"$tdpoconf" 2>&1 | head -5`;
-            print $oracle_fh $version_output if $version_output;
-        }
+    print $oracle_fh "=== Running Oracle Instances ===\n";
+
+    if ($os !~ /MSWin32/i) {
+        print $oracle_fh `ps -ef | grep pmon | grep -v grep`;
     }
-    
-    close($oracle_fh);
+
+    print $oracle_fh "\nORACLE_HOME=$ENV{ORACLE_HOME}\n" if $ENV{ORACLE_HOME};
+    print $oracle_fh "ORACLE_SID=$ENV{ORACLE_SID}\n" if $ENV{ORACLE_SID};
+
+    close $oracle_fh;
     $collected_items{"oracle_info"} = "Success";
-    print $errfh "Collected Oracle instance information\n" if $verbose;
 }
 
-
 # 3.2 Collect Oracle-specific environment variables
-my $env_file = "$output_dir/oracle_environment.txt";
-open(my $env_fh, '>', $env_file) or do {
-    print $errfh "Error: Cannot write $env_file: $!\n";
-    $collected_items{"oracle_environment"} = "Failed";
-};
 
-if ($env_fh) {
-    print $env_fh "=== Oracle-Specific Environment Variables ===\n\n";
-    
-    # Collect Oracle-related environment variables
-    foreach my $var (sort keys %ENV) {
-        if ($var =~ /^(ORACLE|TNS|NLS|TDP|DSMI)/i) {
-            print $env_fh "$var=$ENV{$var}\n";
-        }
-    }
-    
-    close($env_fh);
-    $collected_items{"oracle_environment"} = "Success";
-    print $errfh "Collected Oracle environment variables\n" if $verbose;
+run_system_command(
+    ($os =~ /MSWin32/i ? "set" : "env") .
+    " > \"$output_dir/oracle_environment.txt\" 2>&1",
+    "$output_dir/oracle_environment.txt",
+    "oracle_environment"
+);
+
+if ($oracle_user && $os !~ /MSWin32/i) {
+    run_system_command(
+        "su - $oracle_user -c env > \"$output_dir/env_oracle_user.txt\" 2>&1",
+        "$output_dir/env_oracle_user.txt",
+        "env_oracle_user"
+    );
+} else {
+    $collected_items{"env_oracle_user"} = "Skipped";
 }
 
 # =============================
@@ -300,38 +314,30 @@ if ($env_fh) {
 # =============================
 print $errfh "\n=== Section 4: RMAN Script Collection ===\n" if $verbose;
 
-print "\nIf RMAN scripts were used for backup/restore, provide full path including script name.\n";
-print "Example (Linux): /u01/app/oracle/scripts/backup.rman\n";
-print "Example (Windows): C:\\oracle\\scripts\\backup.rcv\n";
-print "Press Enter to skip RMAN script collection.\n\n";
-
-print "Enter full RMAN script path: ";
-my $rman_full_path = <STDIN>;
-chomp $rman_full_path;
-
-if ($rman_full_path) {
-
-    if (-f $rman_full_path) {
-
-        my ($filename) = $rman_full_path =~ /([^\/\\]+)$/;
-        my $dest = "$output_dir/$filename";
-
-        if (copy($rman_full_path, $dest)) {
-            $collected_items{"rman_script"} = "Success";
-            print $errfh "Collected RMAN script: $rman_full_path\n" if $verbose;
-        } else {
-            print $errfh "Failed to copy RMAN script: $!\n";
-            $collected_items{"rman_script"} = "Failed";
-        }
-
-    } else {
-        print $errfh "Invalid RMAN script path provided: $rman_full_path\n";
-        $collected_items{"rman_script"} = "Invalid Path";
-    }
-
+# -----------------------------
+# RMAN Script
+# -----------------------------
+if ($rman_script) {
+    $rman_script = utils::clean_path($rman_script);
+    collect_log_file(
+        (split(/[\/\\]/, $rman_script))[-1],
+        $rman_script
+    );
 } else {
-    print $errfh "RMAN script not provided. Skipping.\n";
     $collected_items{"rman_script"} = "Skipped";
+}
+
+# -----------------------------
+# RMAN Msglog
+# -----------------------------
+if ($rman_msglog) {
+    $rman_msglog = utils::clean_path($rman_msglog);
+    collect_log_file(
+        (split(/[\/\\]/, $rman_msglog))[-1],
+        $rman_msglog
+    );
+} else {
+    $collected_items{"rman_msglog"} = "Skipped";
 }
 
 # =============================
