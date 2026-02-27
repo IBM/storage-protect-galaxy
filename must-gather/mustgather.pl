@@ -41,6 +41,25 @@ if ($help) {
     # Validate case number format and sanitize
     $caseno = utils::validate_caseno($caseno);
 
+    # ----------------------------------
+    # Validate product name
+    # ----------------------------------
+    my %valid_products = (
+        'sp-client-ba'       => 1,
+        'sp-server'          => 1,
+        'sp-client-vmware'   => 1,
+        'sp-client-hyperv'   => 1,
+        'sp-client-sql'      => 1,
+        'sp-client-oracle'   => 1, 
+        'sp-client-exchange' => 1, 
+        'sp-client-domino'   => 1, 
+        'sp-client-erp-sap-hana'   => 1,   
+    );
+
+    unless (exists $valid_products{$product}) {
+        die "Error: Invalid product '$product'.\nRun with --help to see supported products.\n";
+    }
+
     # SECURITY: Interactive password prompt ONLY if adminid provided
 
     if ($adminid) {
@@ -200,7 +219,7 @@ sub print_usage {
 Usage: mustgather.pl --product <name> --output-dir <path> --caseno <case_number> [options]
 
 Mandatory:
-  --product, -p      Product name (sp-client-ba, sp-client-vmware, sp-server-sta, sp-client-sql, sp-server, sp-client-space-mgmt, sp-client-hsm, sp-client-hyperv, sp-client-oracle, sp-client-exchange, sp-client-domino, sp-client-erp-sap-hana, sp-client-erp-db2, sp-client-erp-oracle)
+  --product, -p      Product name (sp-client-ba, sp-client-vmware, sp-client-sql, sp-server, sp-client-hyperv, sp-client-oracle, sp-client-exchange, sp-client-domino, sp-client-erp-sap-hana)
   --output-dir, -o   Target folder for collected data
   --caseno, -c       IBM Support Case Number (format: TS followed by 9 digits, e.g., TS020757841)
   --adminid, -id     Storage Protect server admin ID (password prompted securely)
@@ -220,27 +239,36 @@ USAGE
 # Compress output folder if not disabled
 # ----------------------------------
 if (!$no_compress) {
+
     my $zip_name = "$output_dir.zip";
+    my $compress_success = 0;
 
     if ($^O =~ /MSWin32/i) {
         # Windows compression using PowerShell
         my $ps_cmd = "powershell -Command \"Compress-Archive -Path '$output_dir\\*' -DestinationPath '$zip_name' -Force\"";
-        system($ps_cmd) == 0
-            or warn "Failed to compress folder on Windows: $!";
+        $compress_success = (system($ps_cmd) == 0);
     } else {
         # Unix-like compression using zip
-        system("zip -r '$zip_name' '$output_dir' >/dev/null 2>&1") == 0
-            or warn "Failed to compress folder on Unix-like OS: $!";
+        $compress_success = (system("zip -r '$zip_name' '$output_dir' >/dev/null 2>&1") == 0);
     }
 
-    # Remove uncompressed folder after compression
-    remove_tree($output_dir, {error => \my $err});
-    if (@$err) {
-        warn "Errors occurred while removing $output_dir:\n";
-        for my $diag (@$err) {
-            my ($file, $message) = %$diag;
-            warn "$file: $message\n";
+    # Double-check zip file actually exists
+    if ($compress_success && -f $zip_name) {
+
+
+        # Remove uncompressed folder ONLY if compression succeeded
+        remove_tree($output_dir, {error => \my $err});
+        if (@$err) {
+            warn "Errors occurred while removing $output_dir:\n";
+            for my $diag (@$err) {
+                my ($file, $message) = %$diag;
+                warn "$file: $message\n";
+            }
         }
+
+    } else {
+        warn "Compression failed. Original folder preserved: $output_dir\n";
     }
 }
+
  print "This file can be sent to IBM Support team for analysis.\n\n";
