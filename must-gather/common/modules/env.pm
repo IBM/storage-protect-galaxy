@@ -299,13 +299,17 @@ sub get_oracle_base_path {
     # 3. OS-specific fallback paths
     if ($os =~ /MSWin32/i) {
         # Windows: Search common drives
-        foreach my $drive ('C:', 'D:', 'E:', 'F:', 'G:') {
-            foreach my $subpath (
-                "$drive/Program Files/Tivoli/TSM/AgentOBA64",
-                "$drive/Program Files/Tivoli/TSM/AgentOBA",
-                "$drive/Program Files (x86)/Tivoli/TSM/AgentOBA"
-            ) {
-                return $subpath if -d $subpath && -f "$subpath/tdpo.opt";
+        my @reg_keys = (    
+         "HKLM\\SOFTWARE\\IBM\\ADSM\\CurrentVersion\\AgentOBA64",
+         "HKLM\\SOFTWARE\\WOW6432Node\\IBM\\ADSM\\CurrentVersion\\AgentOBA64"
+         );
+         foreach my $key (@reg_keys) {
+            my $cmd = qq{reg query "$key" /v Path 2>NUL};
+            my $out = `$cmd`;
+            if ($out =~ /Path\s+REG_\w+\s+([^\r\n]+)/i) {
+                my $path = $1;
+                $path =~ s/^\s+|\s+$//g;
+                return $path if -d $path && -f "$path/tdpo.opt";
             }
         }
     }
@@ -564,14 +568,16 @@ sub get_api_base_path {
 
     elsif ($os =~ /MSWin32/i) {
 
-        foreach my $drive ('C:', 'D:', 'E:', 'F:') {
-
-            foreach my $path (
-                "$drive/Program Files/Tivoli/TSM/api64",
-                "$drive/Program Files/Tivoli/TSM/api",
-                "$drive/Program Files (x86)/Tivoli/TSM/api64",
-                "$drive/Program Files (x86)/Tivoli/TSM/api"
-            ) {
+        my @reg_keys = (    
+         "HKLM\\SOFTWARE\\IBM\\ADSM\\CurrentVersion\\Api64",
+         "HKLM\\SOFTWARE\\WOW6432Node\\IBM\\ADSM\\CurrentVersion\\Api64"
+         );
+         foreach my $key (@reg_keys) {
+            my $cmd = qq{reg query "$key" /v Path 2>NUL};
+            my $out = `$cmd`;
+            if ($out =~ /Path\s+REG_\w+\s+([^\r\n]+)/i) {
+                my $path = $1;
+                $path =~ s/^\s+|\s+$//g;
                 return $path if -d $path;
             }
         }

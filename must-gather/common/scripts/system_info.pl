@@ -67,9 +67,18 @@ if ($@) { print $errfh "Error collecting memory info: $@\n"; }
 # -----------------------------
 eval {
     print $errfh "Collecting disk usage...\n";
-    $results{"disk_usage.txt"} = system::get_disk_usage();
-    utils::write_to_file("$output_dir/disk_usage.txt", $results{"disk_usage.txt"});
-    print $errfh "Disk usage collection completed.\n";
+
+    my $output = system::get_disk_usage();
+
+    if ($output && $output !~ /^\s*$/) {
+        $results{"disk_usage.txt"} = $output;
+        utils::write_to_file("$output_dir/disk_usage.txt", $output);
+        print $errfh "Disk usage collection completed.\n";
+    } else {
+        print $errfh "Warning: Disk usage command is failed\n";
+        $results{"disk_usage.txt"} = "";
+    }
+
 };
 if ($@) { print $errfh "Error collecting disk usage: $@\n"; }
 

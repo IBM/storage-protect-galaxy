@@ -93,8 +93,6 @@ if ($os =~ /MSWin32/i) {
     $cmd = "\"$dsmc\" query systeminfo -filename=\"$dsminfo_file\" -optfile=\"$opt_file\" >\"$console_out\" 2>&1";
 }
 
-
-print $errfh "Executing: $cmd\n" if $verbose;
 my $status = system($cmd);
 $status >>= 8;
 print $errfh "Error: Failed to run dsmc query systeminfo (exit code $status)\n" if $status != 0;

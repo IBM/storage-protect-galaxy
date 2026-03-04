@@ -86,7 +86,6 @@ sub collect_text_file {
 sub run_system_command {
     my ($cmd, $output_file, $item_name) = @_;
     
-    print $errfh "Executing: $cmd\n" if $verbose;
     my $status = system($cmd);
     $status >>= 8;
     
@@ -198,45 +197,108 @@ if ($os !~ /MSWin32/i) {
 # =============================
 print $errfh "\n=== Section 2: Log Files Collection ===\n" if $verbose;
 
-# Helper function to collect log files
 sub collect_log_file {
     my ($filename, $source_path) = @_;
-    
+
     if (-e $source_path) {
+
         my $dest = "$output_dir/$filename";
+
         if (copy($source_path, $dest)) {
             $collected_items{$filename} = "Success";
             print $errfh "Collected $filename\n" if $verbose;
-        } else {
+        }
+        else {
             print $errfh "Error: Could not copy $filename: $!\n";
             $collected_items{$filename} = "Failed";
         }
-    } else {
+
+    }
+    else {
         print $errfh "Warning: $filename not found at: $source_path\n";
         $collected_items{$filename} = "NOT FOUND";
     }
 }
 
-# Collect log files
-my ($errorlog_path, $schedlog_path, $instrlog_path);
+# -----------------------------
+# Detect DSMI_LOG from tdpo.opt
+# -----------------------------
+my $tdpo_log_dir;
 
-foreach my $conf (grep { defined && -f } ($dsm_opt_path, "$base_oracle_path/dsm.sys")) {
-
-    open(my $fh, '<', $conf) or next;
+if (-e $tdpo_opt_file && open(my $fh, '<', $tdpo_opt_file)) {
 
     while (<$fh>) {
 
         next if /^\s*$/ || /^[#;]/;
 
-        if (/^\s*ERRORLOGNAME\s+(.+)/i) {
+        if (/^\s*DSMI_LOG\s+(.+)/i) {
+
+            $tdpo_log_dir = utils::clean_path($1);
+            print $errfh "Found DSMI_LOG: $tdpo_log_dir\n" if $verbose;
+        }
+    }
+
+    close($fh);
+}
+
+# -----------------------------
+# Resolve BA log paths
+# -----------------------------
+my ($errorlog_path, $schedlog_path, $instrlog_path);
+
+my $opt_file = $dsm_opt_path;
+my $dsm_sys  = "$base_oracle_path/dsm.sys";
+
+my $active_server;
+
+if ($opt_file && -e $opt_file && open(my $fh, '<', $opt_file)) {
+
+    while (<$fh>) {
+
+        next if /^\s*$/ || /^[#;]/;
+
+        if (/^\s*SERVERNAME\s+(\S+)/i) {
+            $active_server = $1;
+            last;
+        }
+    }
+
+    close $fh;
+}
+
+foreach my $conf (grep { defined && -f } ($opt_file, $dsm_sys)) {
+
+    open(my $fh, '<', $conf) or next;
+
+    my $in_target_stanza = 0;
+
+    while (<$fh>) {
+
+        next if /^\s*$/ || /^[#;]/;
+
+        if (/^\s*SERVERNAME\s+(\S+)/i) {
+
+            my $current = $1;
+
+            if ($active_server) {
+                $in_target_stanza = ($current eq $active_server) ? 1 : 0;
+            }
+            else {
+                $in_target_stanza = 1 if !$in_target_stanza;
+            }
+
+            next;
+        }
+
+        if ($in_target_stanza && /^\s*ERRORLOGNAME\s+(.+)/i) {
             $errorlog_path = utils::clean_path($1);
         }
 
-        if (/^\s*SCHEDLOGNAME\s+(.+)/i) {
+        if ($in_target_stanza && /^\s*SCHEDLOGNAME\s+(.+)/i) {
             $schedlog_path = utils::clean_path($1);
         }
 
-        if (/^\s*INSTRLOGNAME\s+(.+)/i) {
+        if ($in_target_stanza && /^\s*INSTRLOGNAME\s+(.+)/i) {
             $instrlog_path = utils::clean_path($1);
         }
     }
@@ -244,26 +306,35 @@ foreach my $conf (grep { defined && -f } ($dsm_opt_path, "$base_oracle_path/dsm.
     close($fh);
 }
 
+# -----------------------------
+# Collect BA logs
+# -----------------------------
 collect_log_file(
     "dsmerror.log",
-    $errorlog_path ? $errorlog_path : "$base_oracle_path/dsmerror.log"
+    $errorlog_path || "$base_oracle_path/dsmerror.log"
 );
 
 collect_log_file(
     "dsmsched.log",
-    $schedlog_path ? $schedlog_path : "$base_oracle_path/dsmsched.log"
+    $schedlog_path || "$base_oracle_path/dsmsched.log"
 );
 
 collect_log_file(
     "dsminstr.log",
-    $instrlog_path ? $instrlog_path : "$base_oracle_path/dsminstr.log"
+    $instrlog_path || "$base_oracle_path/dsminstr.log"
 );
+
+# -----------------------------
+# Collect TDPO log
+# -----------------------------
+my $tdpo_log = $tdpo_log_dir
+    ? "$tdpo_log_dir/tdpoerror.log"
+    : "$base_oracle_path/tdpoerror.log";
 
 collect_log_file(
     "tdpoerror.log",
-    "$base_oracle_path/tdpoerror.log"
+    $tdpo_log
 );
-
 
 # =============================
 # SECTION 3: Oracle Database Information

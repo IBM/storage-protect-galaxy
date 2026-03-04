@@ -105,11 +105,16 @@ sub get_disk_usage {
     my $os = lc(env::_os());
 
     if ($os =~ /MSWin32/i) {
-        return `wmic logicaldisk get size,freespace,caption 2>NUL`;
-    } elsif ($os =~ /aix|linux|darwin|sunos|solaris/) {
+        my $output = `wmic logicaldisk get size,freespace,caption 2>NUL`;
+        return ($output && $output !~ /^\s*$/) ? $output : undef;
+    } elsif ($os =~ /linux|darwin|sunos|solaris/) {
         my $output = `df -h 2>/dev/null`;
-        return $output ne '' ? $output : "Disk usage command failed on $os\n";
-    } else {
+        return ($output && $output !~ /^\s*$/) ? $output : undef;
+    } elsif ($os =~ /aix/i) {
+        my $output = `df -g 2>/dev/null`;
+        return ($output && $output !~ /^\s*$/) ? $output : undef;
+    }
+     else {
         return "Disk usage not supported on $os\n";
     }
 }

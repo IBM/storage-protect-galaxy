@@ -33,9 +33,11 @@ if (!$help) {
 # ----------------------------------
 # Verify product installation
 # ----------------------------------
+my $os = env::_os();
+
 my $base_path=env::get_api_base_path();
-unless($base_path){
-     die "Product '$product' is not installed on this machine.\n";
+if (!$base_path && $os !~ /MSWin32/i)  {
+     die "Product API is not installed on this machine.\n";
 }
 
 my $base_oracle_path = env::get_oracle_base_path();
@@ -43,8 +45,6 @@ unless ($base_oracle_path) {
     die "Product '$product' is not installed on this machine.\n";
 }
 my $ba_base_path = env::get_ba_base_path();
-
-my $os = env::_os();
 
 # ----------------------------------
 # Module List
@@ -76,12 +76,13 @@ print "Modules to be collected (" . scalar(@selected_modules) . "): @selected_mo
 my ($rman_script, $rman_msglog);
 
 if (grep { $_ eq "oracle" } @selected_modules) {
-
-    print "\nIf RMAN backup script was used, enter full path (or press Enter to skip): ";
+    print "\nEnter RMAN backup script path (Example: /u01/scripts/rman_backup.rcv or C:\\oracle\\scripts\\rman_backup.rcv)\n";
+    print "Press Enter to skip: ";
     $rman_script = <STDIN>;
     chomp $rman_script;
 
-    print "\nIf RMAN message log was generated, enter full path (or press Enter to skip): ";
+    print "\nEnter RMAN message log path (Example: /u01/logs/rman_backup.log or C:\\oracle\\logs\\rman_backup.log)\n";
+    print "Press Enter to skip: ";
     $rman_msglog = <STDIN>;
     chomp $rman_msglog;
 
@@ -95,7 +96,8 @@ my $oracle_user;
 
 if (grep { $_ eq "oracle" } @selected_modules) {
 
-    print "\nEnter Oracle OS username (or press Enter to skip environment capture): ";
+    print "\nEnter Oracle OS username (Example: oracle)\n";
+    print "Press Enter to skip environment capture: ";
     $oracle_user = <STDIN>;
     chomp $oracle_user;
 
@@ -178,7 +180,7 @@ my $product_version = "Unknown";
 my $node_name       = "Unknown";
 my $server_name     = "Unknown";
 
-my $oracle_env_file = "$output_dir/oracle/oracle_environment.txt";
+my $oracle_env_file = "$output_dir/oracle/tdpoconf_showenv.txt";
 
 if (-e $oracle_env_file && open(my $fh, '<', $oracle_env_file)) {
 
