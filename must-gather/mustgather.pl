@@ -53,7 +53,7 @@ if ($help) {
         'sp-client-oracle'   => 1, 
         'sp-client-exchange' => 1, 
         'sp-client-domino'   => 1, 
-        'sp-client-erp-sap-hana'   => 1,   
+        'sp-client-sap-hana'   => 1,   
     );
 
     unless (exists $valid_products{$product}) {
@@ -272,7 +272,7 @@ sub print_usage {
 Usage: mustgather.pl --product <name> --output-dir <path> --caseno <case_number> [options]
 
 Mandatory:
-  --product, -p      Product name (sp-client-ba, sp-client-vmware, sp-client-sql, sp-server, sp-client-hyperv, sp-client-oracle, sp-client-exchange, sp-client-domino, sp-client-erp-sap-hana)
+  --product, -p      Product name (sp-client-ba, sp-client-vmware, sp-client-sql, sp-server, sp-client-hyperv, sp-client-oracle, sp-client-exchange, sp-client-domino, sp-client-sap-hana)
   --output-dir, -o   Target folder for collected data
   --caseno, -c       IBM Support Case Number (format: TS followed by 9 digits, e.g., TS020757841)
   --adminid, -id     Storage Protect server admin ID (password prompted securely)
