@@ -250,21 +250,46 @@ my $opt_file = $dsm_opt_path;
 my $dsm_sys  = "$base_oracle_path/dsm.sys";
 
 my $active_server;
+if ($os =~ /MSWin32/i) {
 
-if ($opt_file && -e $opt_file && open(my $fh, '<', $opt_file)) {
+    if ($opt_file && -e $opt_file && open(my $fh, '<', $opt_file)) {
 
-    while (<$fh>) {
+        while (<$fh>) {
 
-        next if /^\s*$/ || /^[#;]/;
+            next if /^\s*$/ || /^[#;]/;
 
-        if (/^\s*SERVERNAME\s+(\S+)/i) {
-            $active_server = $1;
-            last;
+            if (/^\s*ERRORLOGNAME\s+(.+)/i) {
+                $errorlog_path = utils::clean_path($1);
+            }
+
+            if (/^\s*SCHEDLOGNAME\s+(.+)/i) {
+                $schedlog_path = utils::clean_path($1);
+            }
+
+            if (/^\s*INSTRLOGNAME\s+(.+)/i) {
+                $instrlog_path = utils::clean_path($1);
+            }
         }
+
+        close($fh);
     }
 
-    close $fh;
-}
+}else {
+
+    if (-e $opt_file && open(my $fh, '<', $opt_file)) {
+
+        while (<$fh>) {
+
+            next if /^\s*$/ || /^[#;]/;
+
+            if (/^\s*SERVERNAME\s+(\S+)/i) {
+                $active_server = $1;
+                last;
+            }
+        }
+
+        close $fh;
+    }
 
 foreach my $conf (grep { defined && -f } ($opt_file, $dsm_sys)) {
 
@@ -305,6 +330,7 @@ foreach my $conf (grep { defined && -f } ($opt_file, $dsm_sys)) {
 
     close($fh);
 }
+}
 
 # -----------------------------
 # Collect BA logs
@@ -341,7 +367,6 @@ collect_log_file(
 # =============================
 print $errfh "\n=== Section 3: Oracle Database Information ===\n" if $verbose;
 
-
 # 3.1 Oracle Info
 my $oracle_info_file = "$output_dir/oracle_info.txt";
 open(my $oracle_fh, '>', $oracle_info_file);
@@ -350,15 +375,79 @@ if ($oracle_fh) {
 
     print $oracle_fh "=== Running Oracle Instances ===\n";
 
+    # -------------------------
+    # UNIX / Linux / AIX
+    # -------------------------
     if ($os !~ /MSWin32/i) {
+
         print $oracle_fh `ps -ef | grep pmon | grep -v grep`;
+
+        print $oracle_fh "\nORACLE_HOME=$ENV{ORACLE_HOME}\n" if $ENV{ORACLE_HOME};
+        print $oracle_fh "ORACLE_SID=$ENV{ORACLE_SID}\n" if $ENV{ORACLE_SID};
+
+    }
+    # -------------------------
+    # Windows
+    # -------------------------
+    else {
+
+        print $oracle_fh "Windows Oracle Registry Information\n\n";
+
+        my @oracle_roots = (
+            "HKLM\\SOFTWARE\\ORACLE",
+            "HKLM\\SOFTWARE\\WOW6432Node\\ORACLE"
+        );
+
+        foreach my $root (@oracle_roots) {
+
+            my $keys = `reg query "$root" 2>NUL`;
+            next unless $keys;
+
+            foreach my $line (split /\n/, $keys) {
+
+                next unless $line =~ /KEY_/i;
+
+                my $subkey = $line;
+                $subkey =~ s/^\s+|\s+$//g;
+
+                print $oracle_fh "Registry Key: $subkey\n";
+
+                # ORACLE_HOME
+                my $home_out = `reg query "$subkey" /v ORACLE_HOME 2>NUL`;
+                if ($home_out =~ /ORACLE_HOME\s+REG_\w+\s+([^\r\n]+)/i) {
+
+                    my $oracle_home = $1;
+                    $oracle_home =~ s/^\s+|\s+$//g;
+
+                    print $oracle_fh "ORACLE_HOME=$oracle_home\n";
+                }
+
+                # ORACLE_SID
+                my $sid_out = `reg query "$subkey" /v ORACLE_SID 2>NUL`;
+                if ($sid_out =~ /ORACLE_SID\s+REG_\w+\s+([^\r\n]+)/i) {
+
+                    my $sid = $1;
+                    $sid =~ s/^\s+|\s+$//g;
+
+                    print $oracle_fh "ORACLE_SID=$sid\n";
+                }
+
+                print $oracle_fh "\n";
+            }
+        }
+
+        # Detect Oracle services (possible SIDs)
+        my $services = `sc query state= all | findstr /i OracleService`;
+        if ($services) {
+            print $oracle_fh "Detected Oracle Services (Possible SIDs):\n";
+            print $oracle_fh "$services\n";
+        }
     }
 
-    print $oracle_fh "\nORACLE_HOME=$ENV{ORACLE_HOME}\n" if $ENV{ORACLE_HOME};
-    print $oracle_fh "ORACLE_SID=$ENV{ORACLE_SID}\n" if $ENV{ORACLE_SID};
-
     close $oracle_fh;
-    $collected_items{"oracle_info"} = "Success";
+
+    $collected_items{"oracle_info"} =
+        (-s $oracle_info_file) ? "Success" : "Failed";
 }
 
 # 3.2 Collect Oracle-specific environment variables
@@ -369,6 +458,19 @@ run_system_command(
     "$output_dir/oracle_environment.txt",
     "oracle_environment"
 );
+    my $env_file = "$output_dir/oracle_environment.txt";
+
+    if (-e $env_file) {
+        open(my $in, '<', $env_file);
+        my @lines = <$in>;
+        close($in);
+
+        @lines = grep { $_ !~ /MUSTGATHER_PASSWORD/i } @lines;
+
+        open(my $out, '>', $env_file);
+        print $out @lines;
+        close($out);
+    }
 
 if ($oracle_user && $os !~ /MSWin32/i) {
     run_system_command(
@@ -376,9 +478,23 @@ if ($oracle_user && $os !~ /MSWin32/i) {
         "$output_dir/env_oracle_user.txt",
         "env_oracle_user"
     );
+    my $env_file = "$output_dir/env_oracle_user.txt";
+
+    if (-e $env_file) {
+        open(my $in, '<', $env_file);
+        my @lines = <$in>;
+        close($in);
+
+        @lines = grep { $_ !~ /MUSTGATHER_PASSWORD/i } @lines;
+
+        open(my $out, '>', $env_file);
+        print $out @lines;
+        close($out);
+    }
 } else {
     $collected_items{"env_oracle_user"} = "Skipped";
 }
+
 
 # =============================
 # SECTION 4: RMAN Script Collection (Interactive)

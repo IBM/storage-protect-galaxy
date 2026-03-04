@@ -62,43 +62,79 @@ if ($help) {
 
     # SECURITY: Interactive password prompt ONLY if adminid provided
 
-    if ($adminid) {
+ if ($adminid) {
 
     my $read_ok = 0;
-
-    # Preferred method
+    # -----------------------------
+    # Try Term::ReadKey (works on Windows + Unix)
+    # -----------------------------
     eval {
-        require Term::ReadPassword;
-        Term::ReadPassword->import();
+        require Term::ReadKey;
+        Term::ReadKey->import();
+
         print "\nEnter password for admin '$adminid': ";
-        $password = Term::ReadPassword::read_password();
+        Term::ReadKey::ReadMode('noecho');
+
+        $password = <STDIN>;
+
+        Term::ReadKey::ReadMode('restore');
         print "\n";
+
+        die "Failed to read password\n" unless defined $password;
+
         chomp $password;
         $read_ok = 1;
     };
 
-    # Unix fallback
+    # -----------------------------
+    # Try Term::ReadPassword
+    # -----------------------------
+    if (!$read_ok) {
+        eval {
+            require Term::ReadPassword;
+            Term::ReadPassword->import();
+
+            print "\nEnter password for admin '$adminid': ";
+            $password = Term::ReadPassword::read_password();
+            print "\n";
+
+            chomp $password;
+            $read_ok = 1;
+        };
+    }
+
+    # -----------------------------
+    # Unix fallback using stty
+    # -----------------------------
     if (!$read_ok && $^O !~ /MSWin32/i) {
+
         print "Enter password for admin '$adminid': ";
+
         system("stty", "-echo");
         $password = <STDIN>;
         system("stty", "echo");
+
         print "\n";
         chomp $password;
+
         $read_ok = 1;
     }
 
-    # Final fallback (visible, warned)
+    # -----------------------------
+    # Final fallback (visible input)
+    # -----------------------------
     if (!$read_ok) {
+
         warn "WARNING: Secure password masking not available. Input will be visible.\n";
+
         print "Enter password for admin '$adminid': ";
         $password = <STDIN>;
+
         chomp $password;
         $read_ok = 1;
     }
 
     die "Failed to read password\n" unless $read_ok;
-
 }
 # Generate timestamp for unique output folder
 my $timestamp = utils::timestamp();

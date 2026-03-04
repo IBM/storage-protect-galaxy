@@ -105,6 +105,21 @@ my %collected_files;
 
 if (-s $dsminfo_file) {
     $collected_files{"dsminfo.txt"} = "Success";
+     
+            my $env_file = "$output_dir/dsminfo.txt";
+
+            if (-e $env_file) {
+                open(my $in, '<', $env_file);
+                my @lines = <$in>;
+                close($in);
+
+                @lines = grep { $_ !~ /MUSTGATHER_PASSWORD/i } @lines;
+
+                open(my $out, '>', $env_file);
+                print $out @lines;
+                close($out);
+            }
+
 } else {
     $collected_files{"dsminfo.txt"} = "Failed";
     print $errfh "Error: dsminfo.txt was not created or is empty.\n";
