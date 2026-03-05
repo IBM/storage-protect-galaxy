@@ -69,15 +69,15 @@ sub collect_text_file {
             while (<$in>) { print $out $_; }
             close($in);
             close($out);
-            $collected_items{$item_name} = "Success";
+            $collected_items{$dest_filename} = "Success";
             print $errfh "Collected $item_name from: $source_path\n";
         } else {
             print $errfh "Error: Could not copy $item_name: $!\n";
-            $collected_items{$item_name} = "Failed";
+            $collected_items{$dest_filename} = "Failed";
         }
     } else {
         print $errfh "Warning: $item_name not found at: $source_path\n";
-        $collected_items{$item_name} = "NOT FOUND";
+        $collected_items{$dest_filename} = "NOT FOUND";
     }
 }
 
@@ -139,6 +139,31 @@ if ($os !~ /MSWin32/i && $domino_base) {
         print $errfh "Domino user: $domino_user\n";
         print $errfh "Domdsmc directory: " . ($domdsmc_dir || "Not found") . "\n";
     }
+}
+
+my $domdsmc;
+
+if ($domino_base) {
+     if($os !~ /MSWin32/i) {
+        $domdsmc = "$domino_base/domdsmc";
+    }
+}
+
+if ($domdsmc && -e $domdsmc) {
+
+    run_command_to_file("$domdsmc query adsm", "$output_dir/query_adsm.txt", "query_adsm");
+
+    run_command_to_file("$domdsmc query domino", "$output_dir/query_domino.txt", "query_domino");
+
+    run_command_to_file("$domdsmc query preferences", "$output_dir/query_preferences.txt", "query_preferences");
+
+} else {
+
+    print $errfh "Warning: domdsmc executable not found\n";
+
+    $collected_items{"query_adsm"}        = "NOT FOUND";
+    $collected_items{"query_domino"}      = "NOT FOUND";
+    $collected_items{"query_preferences"} = "NOT FOUND";
 }
 
 # -----------------------------

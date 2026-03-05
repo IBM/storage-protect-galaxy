@@ -220,12 +220,9 @@ print "Starting must-gather for product: $product\n" if $verbose;
         'sp-server-sta' => "$FindBin::Bin/sp-server-sta/mustgather.pl",
         'sp-client-hyperv' => "$FindBin::Bin/sp-client-hyperv/mustgather.pl",
         'sp-client-sql' => "$FindBin::Bin/sp-client-sql/mustgather.pl",
-<<<<<<< HEAD
         'sp-client-oracle' => "$FindBin::Bin/sp-client-oracle/mustgather.pl",
         'sp-client-sap-hana' => "$FindBin::Bin/sp-client-sap-hana/mustgather.pl",
-=======
         'sp-client-domino' => "$FindBin::Bin/sp-client-domino/mustgather.pl",
->>>>>>> 573c916 (Updated the domino script)
         # Add more products as developed
     );
 
