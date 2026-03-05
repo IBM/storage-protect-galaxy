@@ -38,7 +38,11 @@ my $ba_base_path = env::get_ba_base_path();
 unless ($base_path) {
     die "Product '$product' is not installed on this machine.\n";
 }
-
+unless ($ba_base_path) {
+    die "\nERROR: IBM Storage Protect BA Client is not installed or its configuration directory could not be located.\n".
+        "The BA Client is required to collect server connectivity information (dsm.opt / dsm.sys).\n".
+        "Please install the BA Client or provide a valid --optfile path and rerun the mustgather.\n\n";
+}
 my $os = env::_os();
 
 # ----------------------------------

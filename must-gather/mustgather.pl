@@ -37,6 +37,7 @@ if ($help) {
     die "Error: --product is mandatory\n" unless $product;
     die "Error: --output-dir is mandatory\n" unless $output_dir;
     die "Error: --caseno is mandatory\n" unless $caseno;
+    die "Error: --adminid is mandatory\n" unless $adminid;
 
     # Validate case number format and sanitize
     $caseno = utils::validate_caseno($caseno);
@@ -270,7 +271,7 @@ $adminid = undef if defined $adminid;
 # ----------------------------------
 sub print_usage {
     print <<"USAGE";
-Usage: mustgather.pl --product <name> --output-dir <path> --caseno <case_number> [options]
+Usage: mustgather.pl --product <name> --output-dir <path> --caseno <case_number> --adminid <admin_id> [options]
 
 Mandatory:
   --product, -p      Product name (sp-client-ba, sp-client-vmware, sp-client-sql, sp-server, sp-client-hyperv, sp-client-oracle, sp-client-exchange, sp-client-domino, sp-client-sap-hana)
