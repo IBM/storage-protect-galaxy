@@ -4,7 +4,7 @@ use warnings;
 use Exporter 'import';
 use File::Spec;
 
-our @EXPORT_OK = qw(_os get_ba_base_path get_server_address get_hyperv_base_path get_sql_base_path);
+our @EXPORT_OK = qw(_os get_ba_base_path get_server_address get_hyperv_base_path get_sql_base_path  get_oracle_base_path get_api_base_path);
 
 ###############################################################################
 # _os
@@ -299,13 +299,17 @@ sub get_oracle_base_path {
     # 3. OS-specific fallback paths
     if ($os =~ /MSWin32/i) {
         # Windows: Search common drives
-        foreach my $drive ('C:', 'D:', 'E:', 'F:', 'G:') {
-            foreach my $subpath (
-                "$drive/Program Files/Tivoli/TSM/AgentOBA64",
-                "$drive/Program Files/Tivoli/TSM/AgentOBA",
-                "$drive/Program Files (x86)/Tivoli/TSM/AgentOBA"
-            ) {
-                return $subpath if -d $subpath && -f "$subpath/tdpo.opt";
+        my @reg_keys = (    
+         "HKLM\\SOFTWARE\\IBM\\ADSM\\CurrentVersion\\AgentOBA64",
+         "HKLM\\SOFTWARE\\WOW6432Node\\IBM\\ADSM\\CurrentVersion\\AgentOBA64"
+         );
+         foreach my $key (@reg_keys) {
+            my $cmd = qq{reg query "$key" /v Path 2>NUL};
+            my $out = `$cmd`;
+            if ($out =~ /Path\s+REG_\w+\s+([^\r\n]+)/i) {
+                my $path = $1;
+                $path =~ s/^\s+|\s+$//g;
+                return $path if -d $path && -f "$path/tdpo.opt";
             }
         }
     }
@@ -373,7 +377,7 @@ sub _get_oracle_path_from_tdpoconf {
         }
         
         # Look for TDPO_DIR (alternative variable name)
-        if ($line =~ /TDPO_DIR[=\s]+(.+)/i) {
+        if ($line =~ /TDPO_OPTFILE[=\s]+(.+)/i) {
             my $path = $1;
             $path =~ s/^\s+|\s+$//g;
             $path =~ s/^["']|["']$//g;
@@ -513,6 +517,74 @@ sub get_sql_base_path {
         }
     return undef;
     }
+
+    ###############################################################################
+# get_api_base_path
+#
+# Purpose  : Determine IBM Storage Protect API client installation directory.
+# Input    : None
+# Output   : Absolute path to API bin directory, or undef if not found.
+# Behavior :
+#   1. Check DSMI_DIR environment variable (highest priority).
+#   2. Fallback to OS-specific default install paths.
+#   3. Detect bin64 first, then bin.
+###############################################################################
+sub get_api_base_path {
+
+    my $os = _os();
+
+    # 1. Environment override
+    if ($ENV{DSMI_DIR} && -d $ENV{DSMI_DIR}) {
+
+        foreach my $subdir ("bin64", "bin") {
+
+            my $candidate = File::Spec->catdir($ENV{DSMI_DIR}, $subdir);
+
+            return $candidate if -d $candidate;
+        }
+    }
+
+    # 2. OS-specific fallback paths
+
+    if ($os =~ /linux|sunos|solaris/i) {
+
+        foreach my $path (
+            "/opt/tivoli/tsm/client/api/bin64",
+            "/opt/tivoli/tsm/client/api/bin"
+        ) {
+            return $path if -d $path;
+        }
+    }
+
+    elsif ($os =~ /aix/i) {
+
+        foreach my $path (
+            "/usr/tivoli/tsm/client/api/bin64",
+            "/usr/tivoli/tsm/client/api/bin"
+        ) {
+            return $path if -d $path;
+        }
+    }
+
+    elsif ($os =~ /MSWin32/i) {
+
+        my @reg_keys = (    
+         "HKLM\\SOFTWARE\\IBM\\ADSM\\CurrentVersion\\Api64",
+         "HKLM\\SOFTWARE\\WOW6432Node\\IBM\\ADSM\\CurrentVersion\\Api64"
+         );
+         foreach my $key (@reg_keys) {
+            my $cmd = qq{reg query "$key" /v Path 2>NUL};
+            my $out = `$cmd`;
+            if ($out =~ /Path\s+REG_\w+\s+([^\r\n]+)/i) {
+                my $path = $1;
+                $path =~ s/^\s+|\s+$//g;
+                return $path if -d $path;
+            }
+        }
+    }
+
+    return undef;
+}
 
 
 1;

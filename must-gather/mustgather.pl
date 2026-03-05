@@ -53,7 +53,7 @@ if ($help) {
         'sp-client-oracle'   => 1, 
         'sp-client-exchange' => 1, 
         'sp-client-domino'   => 1, 
-        'sp-client-erp-sap-hana'   => 1,   
+        'sp-client-sap-hana'   => 1,   
     );
 
     unless (exists $valid_products{$product}) {
@@ -62,43 +62,79 @@ if ($help) {
 
     # SECURITY: Interactive password prompt ONLY if adminid provided
 
-    if ($adminid) {
+ if ($adminid) {
 
     my $read_ok = 0;
-
-    # Preferred method
+    # -----------------------------
+    # Try Term::ReadKey (works on Windows + Unix)
+    # -----------------------------
     eval {
-        require Term::ReadPassword;
-        Term::ReadPassword->import();
-        print "Enter password for admin '$adminid': ";
-        $password = Term::ReadPassword::read_password();
+        require Term::ReadKey;
+        Term::ReadKey->import();
+
+        print "\nEnter password for admin '$adminid': ";
+        Term::ReadKey::ReadMode('noecho');
+
+        $password = <STDIN>;
+
+        Term::ReadKey::ReadMode('restore');
         print "\n";
+
+        die "Failed to read password\n" unless defined $password;
+
         chomp $password;
         $read_ok = 1;
     };
 
-    # Unix fallback
+    # -----------------------------
+    # Try Term::ReadPassword
+    # -----------------------------
+    if (!$read_ok) {
+        eval {
+            require Term::ReadPassword;
+            Term::ReadPassword->import();
+
+            print "\nEnter password for admin '$adminid': ";
+            $password = Term::ReadPassword::read_password();
+            print "\n";
+
+            chomp $password;
+            $read_ok = 1;
+        };
+    }
+
+    # -----------------------------
+    # Unix fallback using stty
+    # -----------------------------
     if (!$read_ok && $^O !~ /MSWin32/i) {
+
         print "Enter password for admin '$adminid': ";
+
         system("stty", "-echo");
         $password = <STDIN>;
         system("stty", "echo");
+
         print "\n";
         chomp $password;
+
         $read_ok = 1;
     }
 
-    # Final fallback (visible, warned)
+    # -----------------------------
+    # Final fallback (visible input)
+    # -----------------------------
     if (!$read_ok) {
+
         warn "WARNING: Secure password masking not available. Input will be visible.\n";
+
         print "Enter password for admin '$adminid': ";
         $password = <STDIN>;
+
         chomp $password;
         $read_ok = 1;
     }
 
     die "Failed to read password\n" unless $read_ok;
-
 }
 # Generate timestamp for unique output folder
 my $timestamp = utils::timestamp();
@@ -107,40 +143,56 @@ my $timestamp = utils::timestamp();
 # Cleanup previous must-gather output
 # ----------------------------------
 sub cleanup {
-    my ($output_dir) = @_;
+    my ($output_dir, $verbose) = @_;
 
-    # Safety: prevent deletion of root or invalid paths
-    if (!$output_dir || $output_dir eq '/' || $output_dir eq 'C:\\' || $output_dir eq 'C:/') {
-        warn "Refusing to clean up unsafe directory: $output_dir\n";
+    # Validate input
+    unless (defined $output_dir && length $output_dir) { 
+        warn "Cleanup skipped: invalid output directory\n";
+        return;
+    }
+
+    # Absolute safety checks
+    if ($output_dir eq '/' ||
+        $output_dir =~ /^C:\\?$/i ||
+        $output_dir =~ /^[A-Za-z]:\\?$/) {
+        warn "Refusing to clean unsafe directory: $output_dir\n";
+        return;
+    }
+
+    # Skip if directory does not exist
+    unless (-d $output_dir) {
+        print "Cleanup skipped: $output_dir does not exist\n" if $verbose;
         return;
     }
 
     opendir(my $dh, $output_dir) or do {
-        warn "Cannot open directory $output_dir: $!";
+        warn "Cannot open directory $output_dir: $!\n";
         return;
     };
 
     while (my $entry = readdir($dh)) {
-        next if $entry =~ /^\.\.?$/;  # skip . and ..
-        
-        # Delete known must-gather folders/files only
-        if ($entry =~ /^mustgather_/i || $entry =~ /^(System|Network|Config|Logs|Performance)$/) {
-            my $full_path = File::Spec->catfile($output_dir, $entry);
-            remove_tree($full_path, {error => \my $err});
-            if (@$err) {
-                warn "Errors occurred while removing $full_path:\n";
-                for my $diag (@$err) {
-                    my ($file, $message) = %$diag;
-                    warn "$file: $message\n";
-                }
-            } else {
-                print "Removed $full_path\n" if $verbose;
+        next if $entry =~ /^\.\.?$/;
+
+        # Only remove mustgather folders
+        next unless $entry =~ /^mustgather_/i;
+
+        my $full_path = File::Spec->catdir($output_dir, $entry);
+
+        print "Removing previous folder: $full_path\n" if $verbose;
+
+        remove_tree($full_path, { error => \my $err });
+
+        if (@$err) {
+            warn "Errors removing $full_path:\n";
+            for my $diag (@$err) {
+                my ($file, $message) = %$diag;
+                warn "$file: $message\n";
             }
         }
     }
+
     closedir($dh);
 }
-
 # Clean previous must-gather folders
 cleanup($output_dir);
 
@@ -167,6 +219,7 @@ print "Starting must-gather for product: $product\n" if $verbose;
         'sp-server-sta' => "$FindBin::Bin/sp-server-sta/mustgather.pl",
         'sp-client-hyperv' => "$FindBin::Bin/sp-client-hyperv/mustgather.pl",
         'sp-client-sql' => "$FindBin::Bin/sp-client-sql/mustgather.pl",
+        'sp-client-oracle' => "$FindBin::Bin/sp-client-oracle/mustgather.pl",
         # Add more products as developed
     );
 
@@ -219,7 +272,7 @@ sub print_usage {
 Usage: mustgather.pl --product <name> --output-dir <path> --caseno <case_number> [options]
 
 Mandatory:
-  --product, -p      Product name (sp-client-ba, sp-client-vmware, sp-client-sql, sp-server, sp-client-hyperv, sp-client-oracle, sp-client-exchange, sp-client-domino, sp-client-erp-sap-hana)
+  --product, -p      Product name (sp-client-ba, sp-client-vmware, sp-client-sql, sp-server, sp-client-hyperv, sp-client-oracle, sp-client-exchange, sp-client-domino, sp-client-sap-hana)
   --output-dir, -o   Target folder for collected data
   --caseno, -c       IBM Support Case Number (format: TS followed by 9 digits, e.g., TS020757841)
   --adminid, -id     Storage Protect server admin ID (password prompted securely)

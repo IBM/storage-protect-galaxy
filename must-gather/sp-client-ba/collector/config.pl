@@ -93,8 +93,6 @@ if ($os =~ /MSWin32/i) {
     $cmd = "\"$dsmc\" query systeminfo -filename=\"$dsminfo_file\" -optfile=\"$opt_file\" >\"$console_out\" 2>&1";
 }
 
-
-print $errfh "Executing: $cmd\n" if $verbose;
 my $status = system($cmd);
 $status >>= 8;
 print $errfh "Error: Failed to run dsmc query systeminfo (exit code $status)\n" if $status != 0;
@@ -107,6 +105,21 @@ my %collected_files;
 
 if (-s $dsminfo_file) {
     $collected_files{"dsminfo.txt"} = "Success";
+     
+            my $env_file = "$output_dir/dsminfo.txt";
+
+            if (-e $env_file) {
+                open(my $in, '<', $env_file);
+                my @lines = <$in>;
+                close($in);
+
+                @lines = grep { $_ !~ /MUSTGATHER_PASSWORD/i } @lines;
+
+                open(my $out, '>', $env_file);
+                print $out @lines;
+                close($out);
+            }
+
 } else {
     $collected_files{"dsminfo.txt"} = "Failed";
     print $errfh "Error: dsminfo.txt was not created or is empty.\n";

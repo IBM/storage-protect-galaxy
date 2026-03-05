@@ -133,37 +133,58 @@ sub run_firewall {
 # Output   : tcpdump.txt saved in $out_dir
 ###############################################################################
 sub run_tcpdump {
-    my $os = env::_os();
-    my ($out_dir,$port) = @_;
+    my ($out_dir, $port) = @_;
+    my $os  = env::_os();
     my $cmd;
+
     if ($os =~ /MSWin32/i) {
-        # Windows: Prefer tshark if available, otherwise print instructions
-        if (`where tshark 2>nul`) {
-            $cmd = "tshark -i 1 -f \"tcp port $port\" -c 10 2>&1";
-        } else {
-            $cmd = "echo 'Wireshark GUI required. Use filter: tcp.port==$port'";
-        }
-    } elsif ($os =~ /linux/i) {
+
+        # Windows: Use pktmon (built-in, requires admin)
+        $cmd = qq{
+            pktmon filter remove >nul 2>&1 &&
+            pktmon filter add -p $port >nul 2>&1 &&
+            pktmon start --capture --pkt-size 0 --comp nics >nul 2>&1 &&
+            timeout /t 10 >nul &&
+            pktmon stop >nul 2>&1 &&
+            pktmon format pktmon.etl -o "$out_dir\\tcpdump.txt" >nul 2>&1
+        };
+
+    }
+    elsif ($os =~ /linux/i) {
+
         my $pw = _get_sudo_password();
+
         if (`which tcpdump 2>/dev/null`) {
-            $cmd = "echo '$pw' | sudo -S timeout 15 tcpdump -i any port $port -c 10 2>&1";
+            $cmd = "echo '$pw' | sudo -S timeout 15 tcpdump -i any tcp port $port -nn -v > \"$out_dir/tcpdump.txt\" 2>&1";
+
         } else {
-            $cmd = "echo 'tcpdump not found; please install tcpdump'";
+            $cmd = "echo 'tcpdump not found; please install tcpdump' > \"$out_dir/tcpdump.txt\"";
         }
-    } elsif ($os =~ /aix/i) {
+
+    }
+    elsif ($os =~ /aix/i) {
+
         my $pw = _get_sudo_password();
-        $cmd = "echo '$pw' | sudo -S tcpdump -i ent0 port $port -c 10 2>&1";
-    } elsif ($os =~ /darwin/i) {
+        $cmd = "echo '$pw' | sudo -S timeout 15 tcpdump -i ent0 tcp port $port -nn -v > \"$out_dir/tcpdump.txt\" 2>&1";
+
+    }
+    elsif ($os =~ /darwin/i) {
+
         my $pw = _get_sudo_password();
-        $cmd = "echo '$pw' | sudo -S bash -c '(tcpdump -i en0 port $port -c 50 > \"$out_dir/tcpdump.txt\" 2>&1 &) && sleep 10 && pkill tcpdump'";
-    } elsif ($os =~ /sunos/i) {
+        $cmd = "echo '$pw' | sudo -S timeout 15 tcpdump -i en0 tcp port $port -nn -v > \"$out_dir/tcpdump.txt\" 2>&1";
+
+    }
+    elsif ($os =~ /sunos/i) {
+
         my $pw = _get_sudo_password();
-        $cmd = "echo '$pw' | sudo -S snoop -d net0 tcp port $port 2>&1";
+        $cmd = "echo '$pw' | sudo -S timeout 15 snoop -d net0 tcp port $port > \"$out_dir/tcpdump.txt\" 2>&1";
+
+    }
+    else {
+        $cmd = "echo 'Unsupported OS for packet capture' > \"$out_dir/tcpdump.txt\"";
     }
 
-    utils::run_to_file($cmd, "$out_dir/tcpdump.txt");
 }
-
 ###############################################################################
 # run_netstat
 #

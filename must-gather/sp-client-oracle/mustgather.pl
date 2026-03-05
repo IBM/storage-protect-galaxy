@@ -5,7 +5,7 @@ use Getopt::Long;
 use File::Path qw(make_path);
 use Cwd 'abs_path';
 use FindBin;
-use lib "$FindBin::Bin/../common/modules";  
+use lib "$FindBin::Bin/../common/modules";
 use utils;
 use File::Spec;
 use env;
@@ -33,27 +33,77 @@ if (!$help) {
 # ----------------------------------
 # Verify product installation
 # ----------------------------------
-my $base_path = env::get_ba_base_path();
+my $os = env::_os();
 
-my $hyperv_path = env::get_hyperv_base_path();
-unless ($hyperv_path) {
-    die "Product '$product' is not installed on this machine.\n";
+my $base_path=env::get_api_base_path();
+if (!$base_path && $os !~ /MSWin32/i)  {
+     die "Product API is not installed on this machine.\n";
 }
 
-my $os = env::_os();
+my $base_oracle_path = env::get_oracle_base_path();
+unless ($base_oracle_path) {
+    die "Product '$product' is not installed on this machine.\n";
+}
+my $ba_base_path = env::get_ba_base_path();
 
 # ----------------------------------
 # Module List
 # ----------------------------------
-my @default_modules = qw(network system server);  # Always run config
-my @requested_modules = $modules ? split /,/, $modules : qw(system network config logs performance server hyperv);
+my @default_modules = qw(network system server config);  # Always run config
+my @requested_modules = $modules ? split /,/, $modules : qw(system network config logs performance server config oracle );
 
 # Combine and remove duplicates
 my %seen;
 my @selected_modules = grep { !$seen{$_}++ } (@default_modules, @requested_modules);
 
+unless ($ba_base_path) {
+
+    @selected_modules = grep {
+        $_ ne 'config' &&
+        $_ ne 'logs' &&
+        $_ ne 'performance' &&
+        $_ ne 'server'
+    } @selected_modules;
+}
+
 print "\n############## Starting Collection of $product diagnostic information ##############\n\n";
-print "Modules to be collected (" . scalar(@selected_modules) . "): @selected_modules\n\n" if $verbose;
+print "Modules to be collected (" . scalar(@selected_modules) . "): @selected_modules\n\n"
+    if $verbose;
+
+# ----------------------------------
+# Interactive RMAN (ONLY ONCE)
+# ----------------------------------
+my ($rman_script, $rman_msglog);
+
+if (grep { $_ eq "oracle" } @selected_modules) {
+    print "\nEnter RMAN backup script path (Example: /u01/scripts/rman_backup.rcv or C:\\oracle\\scripts\\rman_backup.rcv)\n";
+    print "Press Enter to skip: ";
+    $rman_script = <STDIN>;
+    chomp $rman_script;
+
+    print "\nEnter RMAN message log path (Example: /u01/logs/rman_backup.log or C:\\oracle\\logs\\rman_backup.log)\n";
+    print "Press Enter to skip: ";
+    $rman_msglog = <STDIN>;
+    chomp $rman_msglog;
+
+    for ($rman_script, $rman_msglog) {
+        next unless $_;
+        s/^\s+|\s+$//g;
+        s/^["']|["']$//g;
+    }
+}
+my $oracle_user;
+
+if (grep { $_ eq "oracle" } @selected_modules) {
+
+    print "\nEnter Oracle OS username (Example: oracle)\n";
+    print "Press Enter to skip environment capture: ";
+    $oracle_user = <STDIN>;
+    chomp $oracle_user;
+
+    $oracle_user =~ s/^\s+|\s+$//g;
+}
+
 
 # ----------------------------------
 # Detect Server Address and TCP Port
@@ -67,6 +117,10 @@ if (grep { $_ eq "network" } @selected_modules) {
 }
 
 $port = utils::get_tcp_port($opt_file, $base_path, $os);
+
+# ----------------------------------
+# Run Modules
+# ----------------------------------
 # ----------------------------------
 # Run Modules
 # ----------------------------------
@@ -76,7 +130,7 @@ my $count = 0;
 
 foreach my $module (@selected_modules) {
     $count++;
-    print "Running module ($count/$total): $module\n" if $verbose;
+    print "\nRunning module ($count/$total): $module\n" if $verbose;
 
     my $exit_code = 1; 
 
@@ -92,8 +146,8 @@ foreach my $module (@selected_modules) {
         $script = File::Spec->catfile($FindBin::Bin,"..","sp-client-ba" ,"collector", "config.pl");
     } elsif ($module eq "logs") {
         $script = File::Spec->catfile($FindBin::Bin,"..","sp-client-ba", "collector", "log.pl");
-    } elsif ($module eq "hyperv") {
-        $script = File::Spec->catfile($FindBin::Bin, "collector", "hyperv.pl");
+    } elsif ($module eq "oracle") {
+        $script = File::Spec->catfile($FindBin::Bin, "collector", "oracle.pl");
     } elsif ($module eq "server") {
         $script = File::Spec->catfile($FindBin::Bin, "..", "common", "scripts", "server_info.pl");
     }
@@ -108,6 +162,10 @@ foreach my $module (@selected_modules) {
     push @args, ("-p", $port) if $module eq "network" && $port;
     push @args, "-v" if $verbose;
     push @args, ("--optfile", $optfile) if $optfile && ($module eq "config" || $module eq "server");
+    push @args, ("--rman-script", $rman_script) if $module eq "oracle" && $rman_script;
+    push @args, ("--rman-msglog", $rman_msglog) if $module eq "oracle" && $rman_msglog;
+    push @args, ("--oracle-user", $oracle_user) if $module eq "oracle" && $oracle_user;
+
     $exit_code = system(@args);
     $exit_code >>= 8;
 
@@ -115,47 +173,66 @@ foreach my $module (@selected_modules) {
     elsif ($exit_code == 2) { $module_status{$module} = "Partial"; }
     else                    { $module_status{$module} = "Failed";  }
 }
-
-# -----------------------------
+# ----------------------------------
 # Extract Product Info
-# -----------------------------
+# ----------------------------------
 my $product_version = "Unknown";
 my $node_name       = "Unknown";
 my $server_name     = "Unknown";
 
-my $dsminfo_path = "$output_dir/config/dsminfo.txt";
-if (-e $dsminfo_path) {
-    open my $fh, '<', $dsminfo_path;
-    while (<$fh>) {
-        if (/Client\s+Version\s+(.+)/i) {
-            $product_version = $1;
-            $product_version =~ s/\s+$//;
-        }
-    }
-    close $fh;
-}
+my $oracle_env_file = "$output_dir/oracle/tdpoconf_showenv.txt";
 
-my $console_file = "$output_dir/config/systeminfo_console.txt";
-if (-e $console_file && open(my $fh, '<', $console_file)) {
-    while (<$fh>) {
-        if (/Node Name:\s*(\S+)/i) {
-            $node_name = $1;
-        } elsif (/Session established with server\s+(\S+):/i) {
+if (-e $oracle_env_file && open(my $fh, '<', $oracle_env_file)) {
+
+    my ($v, $r, $l, $s);
+
+    while (my $line = <$fh>) {
+
+        chomp $line;
+
+        # ---- Server & Node ----
+        if ($line =~ /^\s*Server Name:\s*(\S+)/i) {
             $server_name = $1;
         }
+
+        if ($line =~ /^\s*Node Name:\s*(\S+)/i) {
+            $node_name = $1;
+        }
+
+        # ---- Version Components ----
+        if ($line =~ /^\s*Version:\s*(\d+)/i) {
+            $v = $1;
+        }
+
+        if ($line =~ /^\s*Release:\s*(\d+)/i) {
+            $r = $1;
+        }
+
+        if ($line =~ /^\s*Level:\s*(\d+)/i) {
+            $l = $1;
+        }
+
+        if ($line =~ /^\s*Sublevel:\s*(\d+)/i) {
+            $s = $1;
+        }
     }
+
     close $fh;
+
+    # Build full version string
+    if (defined $v && defined $r && defined $l && defined $s) {
+        $product_version = "$v.$r.$l.$s";
+    }
 }
-unlink $console_file if -e $console_file;
 
 # ----------------------------------
-# Concise Summary
+# Summary
 # ----------------------------------
 print "\n=== Must-Gather Collection Summary ===\n";
-printf "%-20s : %s\n", "Product", $product;
-printf "%-20s : %s\n", "Version", "Version $product_version" // "N/A";
-printf "%-20s : %s\n", "Node Name", $node_name // "";
-printf "%-20s : %s\n", "Server Name", $server_name // "";
+printf "%-20s : %s\n", "Product",     $product;
+printf "%-20s : %s\n", "Version",     $product_version;
+printf "%-20s : %s\n", "Node Name",   $node_name;
+printf "%-20s : %s\n", "Server Name", $server_name;
 
 print "\n    Modules         : Status\n";
 print "-----------------------------\n";
@@ -163,49 +240,11 @@ print "-----------------------------\n";
 my $index = 1;
 foreach my $module (sort { lc($a) cmp lc($b) } @selected_modules) {
     my $status = $module_status{$module} // "Not collected";
-
-    #Check for special core status marker
-    if ($module eq "core") {
-        my $marker = "$output_dir/core/core_status.txt";
-        if (-e $marker) {
-            open my $fh, '<', $marker;
-            chomp($status = <$fh>);
-            close $fh;
-        }
-    }
-
     printf " %d. %-15s : %s\n", $index++, $module, $status;
 }
 
 print "\nCheck script.log inside each module folder for detailed failures.\n\n";
-
-# ----------------------------------
-# Compress output folder if not disabled
-# ----------------------------------
-if (!$no_compress) {
-    my $zip_name = "$output_dir.zip";
-
-    if ($os =~ /MSWin32/i) {
-        # Windows compression using PowerShell
-        my $ps_cmd = "powershell -Command \"Compress-Archive -Path '$output_dir\\*' -DestinationPath '$zip_name' -Force\"";
-        system($ps_cmd) == 0
-            or warn "Failed to compress folder on Windows: $!";
-    } else {
-        # Unix-like compression using zip
-        system("zip -r '$zip_name' '$output_dir' >/dev/null 2>&1") == 0
-            or warn "Failed to compress folder on Unix-like OS: $!";
-    }
-
-    # Remove uncompressed folder after compression
-    use File::Path qw(remove_tree);
-    remove_tree($output_dir, {error => \my $err});
-    if (@$err) {
-        warn "Errors occurred while removing $output_dir:\n";
-        for my $diag (@$err) {
-            my ($file, $message) = %$diag;
-            warn "$file: $message\n";
-        }
-    }
-}
 printf "%-5s : %s\n\n", "Output", "$output_dir.zip" unless $no_compress;
 printf "%-5s : %s\n\n", "Output", "$output_dir" if $no_compress;
+
+# 
