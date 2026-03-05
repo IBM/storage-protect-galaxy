@@ -296,7 +296,6 @@ if (!$no_compress) {
 
     my $zip_name = "$output_dir.zip";
     my $compress_success = 0;
-
     if ($^O =~ /MSWin32/i) {
         # Windows compression using PowerShell
         my $ps_cmd = "powershell -Command \"Compress-Archive -Path '$output_dir\\*' -DestinationPath '$zip_name' -Force\"";

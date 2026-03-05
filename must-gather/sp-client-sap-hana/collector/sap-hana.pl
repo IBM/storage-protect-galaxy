@@ -46,9 +46,9 @@ print $errfh "Detected OS: $os\n";
 print $errfh "Note: OS info and TSM client config collected by system/config modules\n";
 
 # -----------------------------
-# Collect TSM API Configuration Files (SAP HANA specific paths)
+# Collect TSM API Configuration Files
 # -----------------------------
-print "Collecting TSM API configuration files (SAP HANA API paths)...\n" if $verbose;
+print "Collecting TSM API configuration files...\n" if $verbose;
 
 my @api_config_paths = (
     "/opt/tivoli/tsm/client/api/bin64/dsm.sys",
@@ -58,19 +58,25 @@ my @api_config_paths = (
 );
 
 foreach my $config_file (@api_config_paths) {
-    my $filename = "api_" . basename($config_file);  # Prefix to distinguish from BA client config
+
+    my $filename = "api_" . basename($config_file);
     my $dest = "$output_dir/$filename";
-    
+
     if (-e $config_file) {
+
         if (copy($config_file, $dest)) {
             print $errfh "Collected: $config_file\n";
             $collected_files{$filename} = "Success";
-        } else {
+        }
+        else {
             print $errfh "Failed to copy $config_file: $!\n";
             $collected_files{$filename} = "Failed";
         }
-    } else {
+
+    }
+    else {
         print $errfh "Not found: $config_file\n";
+        $collected_files{$filename} = "NOT FOUND";
     }
 }
 
@@ -80,7 +86,6 @@ foreach my $config_file (@api_config_paths) {
 print "Detecting SAP HANA SID...\n" if $verbose;
 my @sids;
 
-# Method 1: Check /usr/sap directory
 if (-d "/usr/sap") {
     opendir(my $dh, "/usr/sap") or warn "Cannot open /usr/sap: $!";
     while (my $entry = readdir($dh)) {
@@ -93,7 +98,6 @@ if (-d "/usr/sap") {
     closedir($dh);
 }
 
-# Method 2: Check running HANA processes
 if (!@sids) {
     my $ps_output = `ps -ef | grep -i hdb | grep -v grep 2>/dev/null`;
     if ($ps_output =~ m{/usr/sap/([A-Z0-9]{3})/}) {
@@ -103,221 +107,235 @@ if (!@sids) {
 
 if (@sids) {
     print $errfh "Detected SAP HANA SID(s): " . join(", ", @sids) . "\n";
-    print "Found SAP HANA SID(s): " . join(", ", @sids) . "\n" if $verbose;
 } else {
-    print $errfh "Warning: No SAP HANA SID detected. Using default paths.\n";
-    print "Warning: No SAP HANA SID detected\n" if $verbose;
-    @sids = ("XXX");  # Placeholder for manual collection
+    print $errfh "Warning: No SAP HANA SID detected\n";
+    @sids = ("XXX");
 }
 
 # -----------------------------
-# Collect SAP HANA Version Information
+# Collect SAP HANA Version
 # -----------------------------
-print "Collecting SAP HANA version information...\n" if $verbose;
 my $version_file = "$output_dir/hana_version.txt";
 
 foreach my $sid (@sids) {
     next if $sid eq "XXX";
-    
-    # Try to get version from HDB command
+
     my $sid_lc = lc($sid);
-    my $hdb_cmd = "su - ${sid_lc}adm -c 'HDB version' 2>/dev/null";
-    my $version_output = `$hdb_cmd`;
-    
-    if ($version_output) {
-        open(my $vfh, '>>', $version_file) or warn "Cannot write to $version_file: $!";
-        print $vfh "=== SAP HANA Version for SID: $sid ===\n";
-        print $vfh $version_output;
-        print $vfh "\n";
-        close($vfh);
+    my $cmd = "su - ${sid_lc}adm -c 'HDB version' 2>/dev/null";
+    my $out = `$cmd`;
+
+    if ($out) {
+        open(my $fh, '>>', $version_file);
+        print $fh "=== SAP HANA Version for SID: $sid ===\n$out\n";
+        close($fh);
     }
 }
 
-$collected_files{"hana_version.txt"} = (-s $version_file) ? "Success" : "Not Available";
+$collected_files{"hana_version.txt"} = (-s $version_file) ? "Success" : "NOT FOUND";
 
 # -----------------------------
-# Collect SAP HANA Profile Files (global.ini)
+# Collect global.ini
 # -----------------------------
-print "Collecting SAP HANA profile files...\n" if $verbose;
-
 foreach my $sid (@sids) {
+
     next if $sid eq "XXX";
-    
-    my @profile_paths = (
+    my $found = 0;
+
+    my @paths = (
         "/usr/sap/$sid/SYS/global/hdb/custom/config/global.ini",
         "/hana/shared/$sid/global/hdb/custom/config/global.ini",
     );
-    
-    foreach my $profile (@profile_paths) {
-        if (-e $profile) {
+
+    foreach my $file (@paths) {
+
+        if (-e $file) {
+
             my $dest = "$output_dir/global.ini_${sid}";
-            if (copy($profile, $dest)) {
-                print $errfh "Collected: $profile\n";
+
+            if (copy($file, $dest)) {
+                print $errfh "Collected: $file\n";
                 $collected_files{"global.ini_${sid}"} = "Success";
-            } else {
-                print $errfh "Failed to copy $profile: $!\n";
+            }
+            else {
+                print $errfh "Failed to copy $file: $!\n";
                 $collected_files{"global.ini_${sid}"} = "Failed";
             }
-            last;  # Found one, move to next SID
-        }
-    }
-}
 
-# -----------------------------
-# Collect Data Protection SAP HANA Profile (init{SID}.utl)
-# -----------------------------
-print "Collecting Data Protection profile files...\n" if $verbose;
-
-foreach my $sid (@sids) {
-    next if $sid eq "XXX";
-    
-    my @dp_profile_paths = (
-        "/usr/sap/$sid/SYS/global/hdb/opt/hdbconfig/init${sid}.utl",
-        "/hana/shared/$sid/global/hdb/opt/hdbconfig/init${sid}.utl",
-    );
-    
-    foreach my $dp_profile (@dp_profile_paths) {
-        if (-e $dp_profile) {
-            my $dest = "$output_dir/init${sid}.utl";
-            if (copy($dp_profile, $dest)) {
-                print $errfh "Collected: $dp_profile\n";
-                $collected_files{"init${sid}.utl"} = "Success";
-            } else {
-                print $errfh "Failed to copy $dp_profile: $!\n";
-                $collected_files{"init${sid}.utl"} = "Failed";
-            }
+            $found = 1;
             last;
         }
     }
+
+    if (!$found) {
+        print $errfh "Warning: global.ini not found for SID $sid\n";
+        $collected_files{"global.ini_${sid}"} = "NOT FOUND";
+    }
 }
 
 # -----------------------------
-# Collect SAP HANA Backup Logs (backup.log)
+# Collect initSID.utl
 # -----------------------------
-print "Collecting SAP HANA backup logs...\n" if $verbose;
-
 foreach my $sid (@sids) {
+
     next if $sid eq "XXX";
-    
-    # Find all backup.log files in trace directories
-    my @trace_dirs;
-    
-    # Common trace directory patterns
+    my $found = 0;
+
+    my @paths = (
+        "/usr/sap/$sid/SYS/global/hdb/opt/hdbconfig/init${sid}.utl",
+        "/hana/shared/$sid/global/hdb/opt/hdbconfig/init${sid}.utl",
+    );
+
+    foreach my $file (@paths) {
+
+        if (-e $file) {
+
+            my $dest = "$output_dir/init${sid}.utl";
+
+            if (copy($file, $dest)) {
+                print $errfh "Collected: $file\n";
+                $collected_files{"init${sid}.utl"} = "Success";
+            }
+            else {
+                print $errfh "Failed to copy $file: $!\n";
+                $collected_files{"init${sid}.utl"} = "Failed";
+            }
+
+            $found = 1;
+            last;
+        }
+    }
+
+    if (!$found) {
+        print $errfh "Warning: init${sid}.utl not found\n";
+        $collected_files{"init${sid}.utl"} = "NOT FOUND";
+    }
+}
+
+# -----------------------------
+# Helper function
+# -----------------------------
+sub collect_file {
+
+    my ($src, $name) = @_;
+    my $dest = "$output_dir/$name";
+
+    if (-e $src) {
+
+        if (copy($src, $dest)) {
+            print $errfh "Collected: $src\n";
+            $collected_files{$name} = "Success";
+        }
+        else {
+            print $errfh "Failed to copy $src: $!\n";
+            $collected_files{$name} = "Failed";
+        }
+
+    }
+    else {
+        print $errfh "Warning: $src not found\n";
+        $collected_files{$name} = "NOT FOUND";
+    }
+}
+
+# -----------------------------
+# Collect Backup Logs
+# -----------------------------
+foreach my $sid (@sids) {
+
+    next if $sid eq "XXX";
+
     my @trace_patterns = (
         "/usr/sap/$sid/HDB*/*/trace",
         "/hana/shared/$sid/HDB*/*/trace",
     );
-    
+
+    my @trace_dirs;
+
     foreach my $pattern (@trace_patterns) {
-        my @matches = glob($pattern);
-        push @trace_dirs, @matches;
+        push @trace_dirs, glob($pattern);
     }
-    
-    foreach my $trace_dir (@trace_dirs) {
-        my $backup_log = "$trace_dir/backup.log";
-        if (-e $backup_log) {
-            my $hostname = basename(dirname($trace_dir));
-            my $dest = "$output_dir/backup_${sid}_${hostname}.log";
-            
-            if (copy($backup_log, $dest)) {
-                print $errfh "Collected: $backup_log\n";
-                $collected_files{"backup_${sid}_${hostname}.log"} = "Success";
-            } else {
-                print $errfh "Failed to copy $backup_log: $!\n";
-                $collected_files{"backup_${sid}_${hostname}.log"} = "Failed";
-            }
-        }
+
+    if (!@trace_dirs) {
+        print $errfh "Warning: No trace directories found for SID $sid\n";
     }
 
     foreach my $trace_dir (@trace_dirs) {
-        my $backint_log = "$trace_dir/backint.log";
-        if (-e $backint_log) {
-            my $hostname = basename(dirname($trace_dir));
-            my $dest = "$output_dir/backint_${sid}_${hostname}.log";
-            
-            if (copy($backint_log, $dest)) {
-                print $errfh "Collected: $backint_log\n";
-                $collected_files{"backint_${sid}_${hostname}.log"} = "Success";
-            } else {
-                print $errfh "Failed to copy $backint_log: $!\n";
-                $collected_files{"backint_${sid}_${hostname}.log"} = "Failed";
+
+        my $host = basename(dirname($trace_dir));
+
+        collect_file("$trace_dir/backup.log","backup_${sid}_${host}.log");
+        collect_file("$trace_dir/backint.log","backint_${sid}_${host}.log");
+        collect_file("$trace_dir/backint_version_delete.log","backint_version_delete_${sid}_${host}.log");
+
+        my $db_dir = "$trace_dir/DB_$sid";
+
+        if (-d $db_dir) {
+
+            foreach my $log ("backup.log","backint.log") {
+
+                collect_file(
+                    "$db_dir/$log",
+                    "${log}_DB_${sid}_${host}"
+                );
             }
+
+        }
+        else {
+            print $errfh "Warning: DB directory not found: $db_dir\n";
         }
     }
 }
 
 # -----------------------------
-# Collect setup.sh and installation.log
+# Collect setup and install logs
 # -----------------------------
-print "Collecting TDP HANA setup and installation logs...\n" if $verbose;
-
 my $tdp_hana_dir = "/opt/tivoli/tsm/tdp_hana";
 
 if (-d $tdp_hana_dir) {
 
-    # Collect setup.sh
-    my $setup_file = "$tdp_hana_dir/setup.sh";
-    if (-e $setup_file) {
-        my $dest = "$output_dir/setup.sh";
-        if (copy($setup_file, $dest)) {
-            print $errfh "Collected: $setup_file\n";
-            $collected_files{"setup.sh"} = "Success";
-        } else {
-            print $errfh "Failed to copy $setup_file: $!\n";
-            $collected_files{"setup.sh"} = "Failed";
-        }
-    } else {
-        print $errfh "Not found: $setup_file\n";
-    }
+    my $setup = "$tdp_hana_dir/setup.sh";
+    my $install = "$tdp_hana_dir/installation.log";
 
-    # Collect installation.log
-    my $install_log = "$tdp_hana_dir/installation.log";
-    if (-e $install_log) {
-        my $dest = "$output_dir/installation.log";
-        if (copy($install_log, $dest)) {
-            print $errfh "Collected: $install_log\n";
-            $collected_files{"installation.log"} = "Success";
-        } else {
-            print $errfh "Failed to copy $install_log: $!\n";
-            $collected_files{"installation.log"} = "Failed";
-        }
-    } else {
-        print $errfh "Not found: $install_log\n";
-    }
+    collect_file($setup,"setup.sh");
+    collect_file($install,"installation.log");
 
-} else {
+}
+else {
     print $errfh "Directory not found: $tdp_hana_dir\n";
+    $collected_files{"setup.sh"} = "NOT FOUND";
+    $collected_files{"installation.log"} = "NOT FOUND";
 }
 
-
-
 # -----------------------------
-# Summary (verbose)
+# Summary
 # -----------------------------
 if ($verbose) {
+
     print "\n=== SAP HANA Module Summary ===\n";
+
     foreach my $file (sort keys %collected_files) {
         printf "  %-40s : %s\n", $file, $collected_files{$file};
     }
+
     print "\nCollected data saved in: $output_dir\n";
-    print "Check script.log for detailed information.\n";
 }
 
 # -----------------------------
-# Determine exit code
+# Exit code
 # -----------------------------
 my $success_count = grep { $collected_files{$_} eq "Success" } keys %collected_files;
 my $total = scalar keys %collected_files;
+
 my $exit_code;
 
 if ($success_count == 0) {
-    $exit_code = 1;  # Complete failure
-} elsif ($success_count == $total) {
-    $exit_code = 0;  # Complete success
-} else {
-    $exit_code = 2;  # Partial success
+    $exit_code = 1;
+}
+elsif ($success_count == $total) {
+    $exit_code = 0;
+}
+else {
+    $exit_code = 2;
 }
 
 exit($exit_code);
-
-# Made with Bob
