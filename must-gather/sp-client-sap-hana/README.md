@@ -2,7 +2,7 @@
 
 # sp-client-sap-hana
 ## Overview
-These scripts collect system, network, configuration, logs, server, sap-hana and performance data for IBM Spectrum Protect for Virtual Environments - Data Protection for Hyper-V.
+These scripts collect system, network, configuration, logs, server, sap-hana and performance data for IBM Spectrum Protect for Enterprise Resource Planning- Data Protection for SAP HANA.
 
 ## Tested Platforms
 - Windows
