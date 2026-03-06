@@ -68,13 +68,43 @@ sub run_cmd {
     return (system($full) >> 8);
 }
 
-sub save_file_if_exists {
-    my ($src, $dest_dir) = @_;
-    return 0 unless $src && -e $src;
-    my ($vol, $dir, $file) = File::Spec->splitpath($src);
-    return copy($src, File::Spec->catfile($dest_dir, $file));
-}
 
+sub save_file_if_exists {
+    my ($src, $dest_dir, $dest_name) = @_;
+    return 0 unless $src;
+    if (-e $src) {
+        my $bn = $dest_name || (File::Spec->splitpath($src))[2];
+        my $dst = File::Spec->catfile($dest_dir, $bn);
+        if (copy($src, $dst)) {
+            print $errfh "Saved: $src -> $dst\n" if $verbose;
+            return 1;
+        } else {
+            print $errfh "Failed to copy $src to $dst: $!\n";
+            return 0;
+        }
+    } else {
+        print $errfh "Not found: $src\n" if $verbose;
+        return 0;
+    }
+}
+sub run_cmd_capture {
+    my ($cmd) = @_;
+    print $errfh "Capture Running: $cmd\n" if $verbose;
+    my $out = `$cmd 2>&1`;
+    chomp $out;
+    return $out;
+}
+sub run_db2_cmd {
+    my ($cmd, $os, $instance) = @_;
+
+    if ($os eq 'windows') {
+        # Run DB2 in silent DB2CMD environment
+        return run_cmd_capture("db2cmd /c /w /i  \"$cmd\"");
+    } else {
+        # Linux/AIX: switch to instance owner
+        return run_cmd_capture("su - $instance -c \"$cmd\"");
+    }
+}
 # --------------------------------------------------
 # Detect OS
 # --------------------------------------------------
@@ -194,7 +224,136 @@ if ($os =~ /MSWin32/i) {
 # ==================================================
 # DB2 DIAG + DB2SUPPORT (FIXED PERMISSIONS)
 # ==================================================
-sub collect_db2_diag_and_support {
+#------------------------------
+# Collect db2diag.log
+#------------------------------
+sub collect_db2_diag{
+    my ($outdir) = @_;
+    my $info = env::get_sp_instance_info();   # <-- Use your simplified instance discovery
+
+    unless ($info && $info->{instance} && $info->{directory}) {
+        print $errfh "No SP/DB2 instance discovered.\n";
+        return;
+    }
+
+    my $inst = $info->{instance};
+    my $home = $info->{directory};
+    my $os   = env::_os();
+    if ($os =~ /MSWin32/i) {
+        my $diagpath_cmd_out = run_db2_cmd('db2 get dbm cfg | findstr /i diagpath','windows');
+        my $diagpath = "";
+
+        if ($diagpath_cmd_out =~ /Diagpath\s*\=\s*(.*)/i) {
+            $diagpath = $1;
+            $diagpath =~ s/^\s+|\s+$//g;   # trim whitespace
+        }
+
+        # If diagpath is not specified, fallback to DB2INSTPROF
+        if (!$diagpath) {
+            my $db2instprof_out = run_db2_cmd('db2set db2instprof');
+            if ($db2instprof_out =~ /DB2INSTPROF=(.*)/i) {
+                $diagpath = $1;
+                $diagpath =~ s/^\s+|\s+$//g;
+            }
+        }
+
+        # Final fallback using DB2PATH + instance name
+        if (!$diagpath) {
+            my $db2path_out = run_db2_cmd('db2set db2path','windows');
+            my $db2instance_out = run_db2_cmd('db2set db2instance','windows');
+
+            if ($db2path_out =~ /DB2PATH=(.*)/i && $db2instance_out =~ /DB2INSTANCE=(.*)/i) {
+                my $db2path = $1;
+                my $instance = $2;
+                $db2path =~ s/^\s+|\s+$//g;
+                $instance =~ s/^\s+|\s+$//g;
+                $diagpath = "$db2path\\$instance";
+            }
+        }
+
+        print $errfh "Resolved DB2 diagnostic path: $diagpath\n" if $verbose;
+
+        if ($diagpath && -d $diagpath) {
+
+            # Find the newest db2diag.log file
+            my $latest_db2diag = "";
+            opendir(my $dh, $diagpath);
+            my @candidates = grep { /^db2diag/i } readdir($dh);
+            closedir($dh);
+
+            if (@candidates) {
+                @candidates = sort { 
+                    (stat("$diagpath\\$b"))[9] <=> (stat("$diagpath\\$a"))[9] 
+                } @candidates;
+
+                $latest_db2diag = "$diagpath\\$candidates[0]";
+
+                print $errfh "Latest db2diag resolved: $latest_db2diag\n" if $verbose;
+
+                save_file_if_exists($latest_db2diag, $outdir, "${inst}_db2diag.log");
+                $collected_files{"${inst}_db2diag.log"} = "Success";
+            } else {
+                $collected_files{"${inst}_db2diag.log"} = "No db2diag files found";
+            }
+
+        } else {
+            $collected_files{"${inst}_db2diag.log"} = "DB2 diag path not found";
+            print $errfh "DB2 diagnostic directory could not be determined.\n";
+        }
+    }
+    else{
+        # -----------------------------
+        # Collect DB2DIAG.LOG on Linux/AIX
+        # -----------------------------
+        # Get DIAGPATH from DB2 config output
+        my $diagpath_cmd = run_db2_cmd("db2 get dbm cfg | grep -i DIAGPATH",'unix',$inst);
+        my $diagpath_unix = "";
+
+        # Prefer Current member resolved DIAGPATH
+        if ($diagpath_cmd =~ /Current member resolved DIAGPATH\s*=\s*(.*)/i) {
+            $diagpath_unix = $1;
+        }
+        # Otherwise fallback to DIAGPATH
+        elsif ($diagpath_cmd =~ /DIAGPATH\s*=\s*(.*)/i) {
+            $diagpath_unix = $1;
+        }
+
+        # Trim whitespace and trailing slash or characters like $m
+        $diagpath_unix =~ s/^\s+|\s+$//g;
+        $diagpath_unix =~ s/[\/\s\$m]+$//g;
+
+        # Default if still empty
+        if (!$diagpath_unix) {
+            $diagpath_unix = File::Spec->catdir($home, "sqllib", "db2dump");
+        }
+
+        print $errfh "Resolved DB2 diagnostic path (UNIX): $diagpath_unix\n" if $verbose;
+
+        if (-d $diagpath_unix) {
+            opendir(my $dh, $diagpath_unix);
+            my @candidates = grep { /^db2diag/i } readdir($dh);
+            closedir($dh);
+
+            if (@candidates) {
+                @candidates = sort {
+                    (stat("$diagpath_unix/$b"))[9] <=> (stat("$diagpath_unix/$a"))[9]
+                } @candidates;
+
+                my $latest_db2diag = "$diagpath_unix/$candidates[0]";
+                print $errfh "Latest db2diag resolved: $latest_db2diag\n" if $verbose;
+
+                save_file_if_exists($latest_db2diag, $outdir, "${inst}_db2diag.log");
+                $collected_files{"${inst}_db2diag.log"} = "Success";
+            } else {
+                $collected_files{"${inst}_db2diag.log"} = "Not found";
+            }
+        } else {
+            $collected_files{"${inst}_db2diag.log"} = "Invalid diagpath";
+        }
+    }
+}
+collect_db2_diag($output_dir);
+sub collect_db2support {
 
     my ($outdir) = @_;
 
@@ -251,7 +410,7 @@ sub collect_db2_diag_and_support {
     }
 }
 
-collect_db2_diag_and_support($output_dir);
+collect_db2support($output_dir);
 
 # ==================================================
 # Final summary (framework compatible)

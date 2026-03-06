@@ -286,7 +286,6 @@ Optional:
   --no-compress      Disable compression
   --verbose, -v      Verbose logging
   --help, -h         Show this help
-
 USAGE
 }
 

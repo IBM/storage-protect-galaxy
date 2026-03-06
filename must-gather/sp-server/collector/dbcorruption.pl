@@ -2,6 +2,7 @@
 use strict;
 use warnings;
 use File::Path qw(make_path);
+use File::Copy qw(copy);          
 use FindBin;
 use Getopt::Long;
 use lib "$FindBin::Bin/../../common/modules";
@@ -39,6 +40,24 @@ sub log_msg {
     print "$msg\n" if $verbose;
 }
 
+# -----------------------------
+# Utilities
+# -----------------------------
+sub run_cmd {
+    my ($cmd, $outfile) = @_;
+    if ($outfile) {
+        my $full = qq{$cmd > "$outfile" 2>&1};
+        print $logfh "Running: $full\n" if $verbose;
+        my $rc = system($full);
+        $rc >>= 8;
+        return $rc;
+    } else {
+        print $logfh "Running capture: $cmd\n" if $verbose;
+        my $out = `$cmd 2>/dev/null`;
+        chomp $out;
+        return $out;
+    }
+}
 
 # -----------------------------
 # Detect DB2 instance
@@ -94,10 +113,64 @@ my $db_name = "TSMDB1";
 # Run db2support
 # -----------------------------
 
-my $db2support_out = "$output_dir/db2support.out";
-my $db2support_cmd = qq{su - $db2inst -c "cd $output_dir && db2support . -d $db_name -c -s"};
-$rc = system("$db2support_cmd > \"$db2support_out\" 2>&1") >> 8;
-$summary{"db2support"} = ($rc == 0) ? "Success" : "Failed";
+sub collect_db2support {
+
+    my ($outdir) = @_;
+
+    my $info = env::get_sp_instance_info();
+    return unless $info && $info->{instance} && $info->{directory};
+
+    my $inst = $info->{instance};
+    my $home = $info->{directory};
+
+    my $support_dir = File::Spec->catdir($outdir, 'db2support');
+    make_path($support_dir) unless -d $support_dir;
+
+    # -------- FIX: ownership for instance user --------
+    if ($^O !~ /MSWin32/i) {
+        system("chown -R $inst $support_dir");
+        system("chmod -R 755 $support_dir");
+    }
+
+    my $support_out = File::Spec->catfile($outdir, "${inst}_db2support.out");
+    my $target_zip  = File::Spec->catfile($outdir, "${inst}_db2support.zip");
+
+    if ($^O =~ /MSWin32/i) {
+
+        my $rc = run_cmd(
+            qq{db2cmd /i /w /c db2support "$support_dir" -d TSMDB1 -c -s},
+            $support_out
+        );
+
+        my $zip = File::Spec->catfile($support_dir, 'db2support.zip');
+        if (-e $zip && -s $zip) {
+            copy($zip, $target_zip);
+            $summary{"$inst:db2support.zip"} = 'Success';
+        } else {
+            $summary{"$inst:db2support.zip"} = ($rc == 0 ? 'ATTEMPTED' : 'Failed');
+        }
+
+    } else {
+
+        my $cmd = qq{
+            . ~$inst/sqllib/db2profile &&
+            cd "$support_dir" &&
+            db2support . -d TSMDB1 -c -s
+        };
+
+        my $rc = run_cmd(qq{su - $inst -c '$cmd'}, $support_out);
+
+        my $zip = File::Spec->catfile($support_dir, 'db2support.zip');
+        if (-e $zip && -s $zip) {
+            copy($zip, $target_zip);
+            $summary{"$inst:db2support.zip"} = 'Success';
+        } else {
+            $summary{"$inst:db2support.zip"} = ($rc == 0 ? 'ATTEMPTED' : 'Failed');
+        }
+    }
+}
+
+collect_db2support($output_dir);
 
 # -----------------------------
 # Summary
