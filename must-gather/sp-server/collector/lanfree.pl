@@ -11,7 +11,6 @@ use Getopt::Long;
 # Parse command-line arguments
 # -----------------------------
 my ($output_dir, $verbose, $options);
-
 GetOptions(
     "output-dir|o=s" => \$output_dir,
     "verbose|v"      => \$verbose,
