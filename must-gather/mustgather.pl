@@ -222,6 +222,7 @@ print "Starting must-gather for product: $product\n" if $verbose;
         'sp-client-sql' => "$FindBin::Bin/sp-client-sql/mustgather.pl",
         'sp-client-oracle' => "$FindBin::Bin/sp-client-oracle/mustgather.pl",
         'sp-client-sap-hana' => "$FindBin::Bin/sp-client-sap-hana/mustgather.pl",
+        'sp-client-domino' => "$FindBin::Bin/sp-client-domino/mustgather.pl",
         # Add more products as developed
     );
 

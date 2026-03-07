@@ -4,7 +4,7 @@ use warnings;
 use Exporter 'import';
 use File::Spec;
 
-our @EXPORT_OK = qw(_os get_ba_base_path get_server_address get_hyperv_base_path get_sql_base_path  get_oracle_base_path get_api_base_path);
+our @EXPORT_OK = qw(_os get_ba_base_path get_server_address get_hyperv_base_path get_sql_base_path  get_oracle_base_path get_api_base_path get_domino_base_path);
 
 ###############################################################################
 # _os
@@ -580,6 +580,44 @@ sub get_api_base_path {
                 $path =~ s/^\s+|\s+$//g;
                 return $path if -d $path;
             }
+        }
+    }
+
+    return undef;
+}
+
+
+
+
+sub get_domino_base_path {
+    my $os = _os();
+    if ( $os =~ /MSWin32/i ) { # Only for Windows) 
+    my @reg_keys = (
+        "HKLM\\SOFTWARE\\IBM\\ADSM\\CurrentVersion\\domclient",
+        "HKLM\\SOFTWARE\\WOW6432Node\\IBM\\ADSM\\CurrentVersion\\domclient",
+    );
+    foreach my $key (@reg_keys) {
+        my $cmd = qq{reg query "$key" /v Path 2>NUL};
+        my $out = `$cmd`;
+        if ($out =~ /Path\s+REG_\w+\s+([^\r\n]+)/i) {
+            my $path = $1;
+            $path =~ s/^\s+|\s+$//g;
+            return $path if -d $path;
+        }
+    }
+    }
+    elsif ($os =~ /linux/i) {
+        foreach my $path (
+            "/opt/tivoli/tsm/client/domino/bin",
+        ) {
+            return $path if -d $path;
+        }
+    }
+    elsif ($os =~ /aix/i) {
+        foreach my $path (
+            "/usr/tivoli/tsm/client/domino/bin64",
+        ) {
+            return $path if -d $path;
         }
     }
 
