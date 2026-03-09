@@ -159,6 +159,10 @@ if ($^O =~ /MSWin32/i) {
         $results{"vss_providers.txt"} = system::get_vss_providers($output_dir);
         utils::write_to_file("$output_dir/vss_providers.txt", $results{"vss_providers.txt"}) if $results{"vss_providers.txt"};
 
+        #VSS Shadows
+        $results{"vss_shadows.txt"} = system::get_vss_shadows($output_dir);
+        utils::write_to_file("$output_dir/vss_shadows.txt", $results{"vss_shadows.txt"}) if $results{"vss_shadows.txt"};
+
         # Event Logs
         $results{"system_eventlog.txt"}       = system::get_system_event_logs($output_dir);
         $results{"application_eventlog.txt"}  = system::get_application_event_logs($output_dir);
@@ -178,7 +182,7 @@ if ($verbose) {
     foreach my $file (sort keys %results) {
         my $path = "$output_dir/$file";
         my $status = (-e $path && -s $path) ? "Success" : "Failed";
-        printf "  %-15s : %s\n", $file, $status;
+        printf "  %-30s : %s\n", $file, $status;
     }
     print "Collected system info is in: $output_dir\n";
     print "Check script.log for any issues.\n";

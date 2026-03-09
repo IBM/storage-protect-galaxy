@@ -35,7 +35,7 @@ if (!$help) {
 # ----------------------------------
 my $base_path = env::get_ba_base_path();
 
-my $hyperv_path = env::get_hyperv_base_path();
+my $hyperv_path = env::get_vmware_base_path();
 unless ($hyperv_path) {
     die "Product '$product' is not installed on this machine.\n";
 }
@@ -45,8 +45,8 @@ my $os = env::_os();
 # ----------------------------------
 # Module List
 # ----------------------------------
-my @default_modules = qw(network system server);  # Always run config
-my @requested_modules = $modules ? split /,/, $modules : qw(system network config logs performance server hyperv);
+my @default_modules = qw(network system server config);  # Always run config
+my @requested_modules = $modules ? split /,/, $modules : qw(system network config logs performance server vmware);
 
 # Combine and remove duplicates
 my %seen;
@@ -76,7 +76,7 @@ my $count = 0;
 
 foreach my $module (@selected_modules) {
     $count++;
-    print "Running module ($count/$total): $module\n" if $verbose;
+    print "\nRunning module ($count/$total): $module\n" if $verbose;
 
     my $exit_code = 1; 
 
@@ -92,8 +92,8 @@ foreach my $module (@selected_modules) {
         $script = File::Spec->catfile($FindBin::Bin,"..","sp-client-ba" ,"collector", "config.pl");
     } elsif ($module eq "logs") {
         $script = File::Spec->catfile($FindBin::Bin,"..","sp-client-ba", "collector", "log.pl");
-    } elsif ($module eq "hyperv") {
-        $script = File::Spec->catfile($FindBin::Bin, "collector", "hyperv.pl");
+    } elsif ($module eq "vmware") {
+        $script = File::Spec->catfile($FindBin::Bin, "collector", "vmware.pl");
     } elsif ($module eq "server") {
         $script = File::Spec->catfile($FindBin::Bin, "..", "common", "scripts", "server_info.pl");
     }
