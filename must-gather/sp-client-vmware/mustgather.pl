@@ -76,7 +76,7 @@ my $count = 0;
 
 foreach my $module (@selected_modules) {
     $count++;
-    print "Running module ($count/$total): $module\n" if $verbose;
+    print "\nRunning module ($count/$total): $module\n" if $verbose;
 
     my $exit_code = 1; 
 
@@ -178,34 +178,5 @@ foreach my $module (sort { lc($a) cmp lc($b) } @selected_modules) {
 }
 
 print "\nCheck script.log inside each module folder for detailed failures.\n\n";
-
-# ----------------------------------
-# Compress output folder if not disabled
-# ----------------------------------
-if (!$no_compress) {
-    my $zip_name = "$output_dir.zip";
-
-    if ($os =~ /MSWin32/i) {
-        # Windows compression using PowerShell
-        my $ps_cmd = "powershell -Command \"Compress-Archive -Path '$output_dir\\*' -DestinationPath '$zip_name' -Force\"";
-        system($ps_cmd) == 0
-            or warn "Failed to compress folder on Windows: $!";
-    } else {
-        # Unix-like compression using zip
-        system("zip -r '$zip_name' '$output_dir' >/dev/null 2>&1") == 0
-            or warn "Failed to compress folder on Unix-like OS: $!";
-    }
-
-    # Remove uncompressed folder after compression
-    use File::Path qw(remove_tree);
-    remove_tree($output_dir, {error => \my $err});
-    if (@$err) {
-        warn "Errors occurred while removing $output_dir:\n";
-        for my $diag (@$err) {
-            my ($file, $message) = %$diag;
-            warn "$file: $message\n";
-        }
-    }
-}
 printf "%-5s : %s\n\n", "Output", "$output_dir.zip" unless $no_compress;
 printf "%-5s : %s\n\n", "Output", "$output_dir" if $no_compress;
