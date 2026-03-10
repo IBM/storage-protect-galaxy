@@ -26,7 +26,7 @@ perl mustgather.pl --product sp-server --output-dir <target_path> --adminid <id>
 
 ## Mandatory Parameters
 
-- `--product, -p` : Product name (`sp-client-ba`)  
+- `--product, -p` : Product name (`sp-server`)  
 - `--output-dir, -o` : Target folder for collected data
 - `--adminid, -id` : Storage protect server admin ID
 
@@ -79,3 +79,7 @@ perl mustgather.pl --product sp-server --output-dir /tmp/mustgather_output --adm
 - `install-upgrade` – Collects installation and upgrade history, version details, and related logs.
 
 - `server-crash` – Collects server crash diagnostics including logs, stack traces (if available), and crash-related information.
+
+- `dbcorruption` - Collects diagnostics related to database corruption.
+
+- `nas-ndmp` - Collects NAS NDMP–related diagnostics for backup or restore issues.
