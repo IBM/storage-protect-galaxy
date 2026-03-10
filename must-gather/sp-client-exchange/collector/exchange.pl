@@ -122,9 +122,7 @@ if ($exchange_path) {
     collect_text_file("$exchange_path\\tdpexc.log", "tdpexc.log", "tdpexc.log");
     
     # DSM error logs
-    collect_text_file("$exchange_path\\dsmerror.log", "dsmerror.log", "dsmerror.log");
     collect_text_file("$exchange_path\\dsierror.log", "dsierror.log", "dsierror.log");
-    collect_text_file("$exchange_path\\dsmsched.log", "dsmsched.log", "dsmsched.log");
 }
 
 # -----------------------------
@@ -155,6 +153,17 @@ run_command_to_file(
     "adsm_registry"
 );
 
+# -----------------------------
+# Collect Exchange Server Information
+# -----------------------------
+
+my $exchange_ps_cmd = 'powershell -NoProfile -ExecutionPolicy Bypass -Command "Try { Add-PSSnapin Microsoft.Exchange.Management.PowerShell.SnapIn -ErrorAction SilentlyContinue; Get-ExchangeServer | Format-List * } Catch { Write-Output \"Exchange PowerShell snap-in not available\" }"';
+
+run_command_to_file(
+    $exchange_ps_cmd,
+    "$output_dir/get_exchangeserver.txt",
+    "get_exchangeserver"
+);
 
 
 # -----------------------------
