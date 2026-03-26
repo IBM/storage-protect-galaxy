@@ -13,7 +13,7 @@ use env;
 # ----------------------------------
 # Parameters
 # ----------------------------------
-my ($product, $output_dir, $optfile, $modules, $no_compress, $verbose, $help, $adminid, $password);
+my ($product, $output_dir, $optfile, $modules, $no_compress, $verbose, $help);
 
 GetOptions(
     "product|p=s"       => \$product,
@@ -23,12 +23,12 @@ GetOptions(
     "no-compress"       => \$no_compress,
     "verbose|v"         => \$verbose,
     "help|h"            => \$help,
-    "adminid|id=s"      => \$adminid,
-    "password|pwd=s"    => \$password
 ) or die "Invalid arguments. Run with --help for usage.\n";
 
 die "Error: --product is mandatory\n" unless defined $product;
 die "Error: --output-dir is mandatory\n" unless defined $output_dir;
+
+
 
 # ----------------------------------
 # Verify product installation
@@ -38,14 +38,18 @@ my $ba_base_path = env::get_ba_base_path();
 unless ($base_path) {
     die "Product '$product' is not installed on this machine.\n";
 }
-
+unless ($ba_base_path) {
+    die "\nERROR: IBM Storage Protect BA Client is not installed or its configuration directory could not be located.\n".
+        "The BA Client is required to collect server connectivity information (dsm.opt / dsm.sys).\n".
+        "Please install the BA Client or provide a valid --optfile path and rerun the mustgather.\n\n";
+}
 my $os = env::_os();
 
 # ----------------------------------
 # Module List (ensure config runs first, no duplicates)
 # ----------------------------------
 my @default_modules = qw(config network system);  # Always run config
-my @requested_modules = $modules ? split /,/, $modules : qw(system network server tape replication stgpool);
+my @requested_modules = $modules ? split /,/, $modules : qw(system network server tape replication stgpool dbbackup tiering install-upgrade librarysharing oc dbreorganisation expiration lanfree server-crash dbcorruption nas-ndmp);
 
 # Combine and remove duplicates
 my %seen;
@@ -180,7 +184,7 @@ foreach my $module (@selected_modules) {
     my $exit_code = 1;
     my $script;
         # Check if SP server is running for modules that require it
-    if ($module =~ /^(config|tape|replication|stgpool|server)$/) {
+    if ($module =~ /^(config|tape|replication|stgpool|server|dbbackup|librarysharing|oc|tiering|dbreorganisation|expiration|lanfree|nas-ndmp|dbcorruption)$/) {
         unless (env::is_sp_server_running()) {
             warn "Storage Protect Server is NOT running. Skipping $module module...\n";
             $module_status{$module} = "SKIPPED";
@@ -210,19 +214,45 @@ foreach my $module (@selected_modules) {
     elsif ($module eq "stgpool") {
         $script = File::Spec->catfile($FindBin::Bin, "collector", "stgpool.pl");
     }
+    elsif ($module eq "dbbackup") {
+        $script = File::Spec->catfile($FindBin::Bin, "collector", "dbbackup.pl");
+    }
+    elsif ($module eq "tiering") {
+        $script = File::Spec->catfile($FindBin::Bin, "collector", "tiering.pl");
+    }
+    elsif ($module eq "install-upgrade"){
+        $script = File::Spec->catfile($FindBin::Bin, "collector", "install_manager.pl");
+    }
+    elsif ($module eq "librarysharing"){
+        $script = File::Spec->catfile($FindBin::Bin, "collector", "librarysharing.pl");
+    }
+    elsif ($module eq "oc"){
+        $script = File::Spec->catfile($FindBin::Bin, "collector", "oc.pl");
+    }
+    elsif ($module eq "dbreorganisation"){
+        $script = File::Spec->catfile($FindBin::Bin, "collector", "dbreorganisation.pl");
+    }
+    elsif ($module eq "expiration"){
+        $script = File::Spec->catfile($FindBin::Bin, "collector", "expiration.pl");
+    }
+    elsif ($module eq "lanfree"){
+        $script = File::Spec->catfile($FindBin::Bin, "collector", "lanfree.pl");
+    }
+    elsif ($module eq "server-crash"){
+        $script = File::Spec->catfile($FindBin::Bin, "collector", "server_crash.pl");
+    }
+    elsif ($module eq "dbcorruption"){
+        $script = File::Spec->catfile($FindBin::Bin, "collector", "dbcorruption.pl");
+    }
+    elsif ($module eq "nas-ndmp"){
+        $script = File::Spec->catfile($FindBin::Bin, "collector", "nas_ndmp.pl");
+    }
     else {
         warn "Warning: Unknown module '$module'. Skipping...\n";
         $module_status{$module} = "SKIPPED";
         next;
     }
 
-    # Validate credentials for modules that require them
-    if (($module eq "config" || $module eq "server" || $module eq "tape" || $module eq "replication" || $module eq "stgpool") 
-        && (!defined $adminid || !defined $password)) {
-        warn "Error: --adminid and --password required for $module module\n";
-        $module_status{$module} = "SKIPPED";
-        next;
-    }
 
     # Construct command dynamically
     my @args = ("perl", $script, "-o", $output_dir);
@@ -230,18 +260,16 @@ foreach my $module (@selected_modules) {
     # Add optional arguments
     push @args, ("-s", $server_ip) if $module eq "network" && $server_ip;
     push @args, ("-p", $port) if $module eq "network" && $port;
-    push @args, ("-id", $adminid, "-pwd", $password)
-        if ($module eq "config" || $module eq "server" || $module eq "tape" || $module eq "replication" || $module eq "stgpool") && $adminid && $password;
     push @args, "-v" if $verbose;
-    push @args, ("--optfile",$optfile) if ($module eq "config" || $module eq "server" || $module eq "tape" || $module eq "replication" ||$module eq "stgpool") && $optfile;
+    push @args, ("--optfile",$optfile) if ($module eq "config" || $module eq "server" || $module eq "tape" || $module eq "replication" ||$module eq "stgpool" ||$module eq "dbbackup" || $module eq "tiering" || $module eq "librarysharing" || $module eq "oc" || $module eq "expiration" || $module eq "lanfree"  || $module eq "dbreorganisation") && $optfile;
     # Execute the script
     $exit_code = system(@args);
     $exit_code >>= 8;  # Normalize child exit code
 
     # Update module status
-    if    ($exit_code == 0) { $module_status{$module} = "SUCCESS"; }
-    elsif ($exit_code == 2) { $module_status{$module} = "PARTIAL"; }
-    else                    { $module_status{$module} = "FAILED";  }
+    if    ($exit_code == 0) { $module_status{$module} = "Success"; }
+    elsif ($exit_code == 2) { $module_status{$module} = "Partial"; }
+    else                    { $module_status{$module} = "Failed";  }
 }
 
 
@@ -253,36 +281,57 @@ my $product_name    = "Unknown";
 my $product_version = "Unknown";
 my $os_platform     = "Unknown";
 my $server_name     = "Unknown";
-my $qstatus_found   = 0;
 
 my $qsystem_path = "$output_dir/config/system.txt";
+
+my $in_qstatus_table = 0;
+my $seen_separator   = 0;
+
 if (-e $qsystem_path) {
     open my $fh, '<', $qsystem_path or die "Cannot open $qsystem_path: $!";
-    while (<$fh>) {
-        chomp;
+    while (my $line = <$fh>) {
+        chomp $line;
 
-        # Detect product + version line
-        if (/IBM\s+Storage\s+Protect\s+Server\s+for\s+(.+?)\s+-\s+Version\s+(\d+),\s*Release\s+(\d+),\s*Level\s+([\d.]+)/i) {
+        # --------------------------------------------------
+        # Product + version
+        # --------------------------------------------------
+        if ($line =~ /IBM\s+Storage\s+Protect\s+Server\s+for\s+(.+?)\s+-\s+Version\s+(\d+),\s*Release\s+(\d+),\s*Level\s+([\d.]+)/i) {
             $product_name    = "IBM Storage Protect Server";
             $os_platform     = $1;
             $product_version = "$2.$3.$4";
-            $qstatus_found   = 1;  # we expect the table next
             next;
         }
 
-        # Skip banner or empty lines
-        next if /^\s*$/ || /^\*+/;
-
-        # 1️ Labeled field
-        if (/Server\s+Name\s*:\s*(\S+)/i) {
+        # --------------------------------------------------
+        # 1️ Preferred: Key-Value format
+        # --------------------------------------------------
+        if ($line =~ /^Server\s+Name\s*:\s*(\S+)/i) {
             $server_name = $1;
             last;
         }
 
-        # 2️ Q STATUS table row (first column)
-        if ($qstatus_found) {
-            # Take first non-space word as server name
-            if (/^\s*(\S+)/) {
+        # --------------------------------------------------
+        # Detect Q STATUS section
+        # --------------------------------------------------
+        if ($line =~ /^\*+\s*--->\s*Q\s+STATUS/i) {
+            $in_qstatus_table = 1;
+            next;
+        }
+
+        # --------------------------------------------------
+        # Separator line before data
+        # --------------------------------------------------
+        if ($in_qstatus_table && $line =~ /^-+\s+/) {
+            $seen_separator = 1;
+            next;
+        }
+
+        # --------------------------------------------------
+        # 2️ Fallback: First column of table data
+        # --------------------------------------------------
+        if ($in_qstatus_table && $seen_separator) {
+            next if $line =~ /^\s*$/;  # skip blank lines
+            if ($line =~ /^\s*(\S+)/) {
                 $server_name = $1;
                 last;
             }
@@ -290,7 +339,6 @@ if (-e $qsystem_path) {
     }
     close $fh;
 }
-
 
 
 

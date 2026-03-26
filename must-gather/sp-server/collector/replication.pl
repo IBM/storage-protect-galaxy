@@ -10,21 +10,20 @@ use env;
 use utils;
 
 # -----------------------------
-# Parameters / CLI options
+# Parameters / CLI optfile
 # -----------------------------
-my ($output_dir, $adminid, $password, $verbose, $options);
+my ($output_dir, $verbose, $optfile);
 GetOptions(
-    "output-dir|o=s" => \$output_dir,
-    "adminid|id=s"   => \$adminid,
-    "password|pwd=s" => \$password,
+    "output-dir|o=s" => \$output_dir,  
     "verbose|v"      => \$verbose,
-    "options=s"       => \$options,
+    "optfile=s"       => \$optfile,
 ) or die "Invalid arguments. Run with --help for usage.\n";
 
 die "Error: --output-dir is required\n" unless $output_dir;
-die "Error: --adminid is required\n"   unless $adminid;
-die "Error: --password is required\n"  unless $password;
 
+# SECURITY: Get credentials from ENVIRONMENT only
+my $adminid  = $ENV{MUSTGATHER_ADMINID}  || '';
+my $password = $ENV{MUSTGATHER_PASSWORD} || '';
 # -----------------------------
 # Prepare output directory
 # -----------------------------
@@ -34,7 +33,7 @@ make_path($output_dir) unless -d $output_dir;
 # -----------------------------
 # Error log
 # -----------------------------
-my $error_log = "$output_dir/error.log";
+my $error_log = "$output_dir/script.log";
 open(my $errfh, '>', $error_log) or die "Cannot open $error_log: $!";
 
 # -----------------------------
@@ -60,12 +59,12 @@ unless (-x $dsmadmc) {
 }
 
 # -----------------------------
-# Hardcoded dsm.opt for Windows
+# DSM Option File Path
 # -----------------------------
 my $opt_file;
-if ($options) {
+if ($optfile) {
     # User-specified option file
-    $opt_file = $options;
+    $opt_file = $optfile;
 } else {
     $opt_file = "$base_path/dsm.opt";
 }
@@ -172,26 +171,37 @@ if (scalar @servers >= 2) {
 
 
 # -----------------------------
-# Define static server queries
+# Define dsm administrative client queries
 # -----------------------------
 my %server_queries = (
-    "replrule.txt"       => "QUERY REPLRULE",
-    "replfailures.txt"   => "QUERY REPLFAILURES",
-    "replnodes.txt"      => "QUERY REPLNODE *",
-    "replserver.txt"     => "QUERY REPLSERVER",
-    "replication.txt"    => "QUERY REPLICATION * F=D",       
-    "replfailures_summary.txt" => "QUERY REPLFAILURES TYPE=SUMMARY",
-    "replfailures_objects.txt" => "QUERY REPLFAILURES TYPE=OBJECTS",
-    "filespace.txt"            => "QUERY FILESPACE * F=D",
-    "stgrule.txt"              => "QUERY STGRULE F=D",
+    "replrule.txt"                => "query replrule",
+    "replfailures_summary.txt"    => "query replfailures type=summary",
+    "replfailures_objects.txt"    => "query replfailures type=objects",
+    "replnodes.txt"               => "query replnode *",
+    "replserver.txt"              => "query replserver",
+    "filespace.txt"               => "query filespace * f=d",
+    "occupancy.txt"               => "query occupancy",
+    "stgrule.txt"                 => "query stgrule f=d",
+    "unresolvedchunks.txt"        => "show unresolvedchunks",
+);
 
+run_cmd(
+    qq{$quoted_dsm -id=$adminid -password=$password -optfile=$quoted_opt "query occupancy"},
+    "$output_dir/qocc.csv"
+);
+
+run_cmd(
+    qq{$quoted_dsm -id=$adminid -password=$password -optfile=$quoted_opt "query auditoccupancy"},
+    "$output_dir/qauditocc.csv"
 );
 
 # -----------------------------
 # Run QUERY REPLICATION for all nodes
 # -----------------------------
+my $qrepl="$output_dir/qrepl";
+make_path($qrepl) unless -d $qrepl;
 foreach my $node (@nodes) {
-    my $outfile = "$output_dir/replication_$node.txt";
+    my $outfile = "$qrepl/replication_$node.txt";
     my $cmd = qq{$quoted_dsm -id=$adminid -password=$password -optfile=$quoted_opt "QUERY REPLICATION $node"};
     run_cmd($cmd, $outfile);
 }
@@ -204,7 +214,7 @@ my $validate_cmd = qq{$quoted_dsm -id=$adminid -password=$password -optfile=$quo
 run_cmd($validate_cmd, $validate_file);
 
 # -----------------------------
-# Run other static queries
+# Run other Administrative BA client queries
 # -----------------------------
 foreach my $file (sort keys %server_queries) {
     my $query = $server_queries{$file};
@@ -212,80 +222,87 @@ foreach my $file (sort keys %server_queries) {
     my $cmd = qq{$quoted_dsm -id=$adminid -password=$password -optfile=$quoted_opt "$query"};
     run_cmd($cmd, $outfile);
 }
-# -----------------------------
-# Dynamic Queries (Per Storage Pool)
-# -----------------------------
+# =========================================================
+# STORAGE POOL DISCOVERY (CLOUD / DIRECTORY ONLY)
+# =========================================================
 my $stglist_file = "$output_dir/stgpool_list.txt";
-my $select_cmd = qq{$quoted_dsm -id=$adminid -password=$password -optfile=$quoted_opt "select STGPOOL_NAME, STG_TYPE from STGPOOLS"};
-run_cmd($select_cmd, $stglist_file);
+run_cmd(
+    qq{$quoted_dsm -id=$adminid -password=$password -optfile=$quoted_opt "select STGPOOL_NAME, STG_TYPE from STGPOOLS"},
+    $stglist_file
+);
+make_path("$output_dir/container") unless -d "$output_dir/container";
 
-open(my $sfh, '<', $stglist_file) or die "Cannot open $stglist_file: $!";
-my @stgpools;
+open(my $sfh, '<', $stglist_file) or die "Cannot open $stglist_file";
 while (<$sfh>) {
-    next if /^\s*$/                                  # skip blank lines
-         || /ANR/                                    # skip ANR messages
-         || /ANS/                                    # skip ANS messages
-         || /STGPOOL_NAME/i                          # skip stgpool header
-         || /-+/                                     # skip dashed lines
-         || /IBM Storage Protect/i    
-         || /Server/
-         || /Session/                                # skip product name
-         || /Command Line Administrative Interface/i # skip version info
-         || /\(c\)/ 
-         || /Copyright IBM Corp/i;                    # skip copyright  
+    next if /^\s*$/ || /ANR|ANS|STGPOOL_NAME|-+|IBM Storage Protect|Session/i;
     s/^\s+|\s+$//g;
-    my @cols = split(/\s+/, $_, 2);
-    next unless scalar @cols == 2;
-    my ($name, $type) = @cols;
-    push @stgpools, { name => $name, type => $type };
+    my ($name, $type) = split(/\s+/, $_, 2);
+    next unless $name && $type;
+
+    # ONLY CLOUD or DIRECTORY
+    next unless $type eq 'CLOUD' || $type eq 'DIRECTORY';
+
+    my %container_queries = (
+        "showsdpool_$name.txt"        => "show sdpool $name",
+        "extentupdate_$name.txt"      => "query extentupdates $name",
+    );
+
+    foreach my $file (sort keys %container_queries) {
+        run_cmd(
+            qq{$quoted_dsm -id=$adminid -password=$password -optfile=$quoted_opt "$container_queries{$file}"},
+            "$output_dir/container/$file"
+        );
+    }
 }
 close($sfh);
-
-#---------------------------
-#Extentupdates for container
-#----------------------------
-foreach my $pool (@stgpools) {
-
-    my $name = $pool->{name};
-    my $type = uc($pool->{type});
-    if ($type eq 'CLOUD' || $type eq 'DIRECTORY') {
-        my $outfile = "$output_dir/extentupdate_$name.txt";
-        my $query   = qq{q extentupdates $name};
-        my $cmd     = qq{$quoted_dsm -id=$adminid -password=$password -optfile=$quoted_opt "$query"};
-        run_cmd($cmd, $outfile);
-    }
-    
-}
 # -----------------------------
 # Collect summary for all queries
 # -----------------------------
 my %summary;
 
-# Static queries
-foreach my $file (sort keys %server_queries) {
-    my $outfile = "$output_dir/$file";
-    $summary{$file} = (-s $outfile) ? "SUCCESS" : "FAILED";
+sub mark_summary {
+    my ($key, $file) = @_;
+    $summary{$key} = (-s $file) ? "Success" : "Failed";
 }
 
-# QUERY REPLICATION per node
+# ---- Static server queries
+foreach my $file (keys %server_queries) {
+    mark_summary($file, "$output_dir/$file");
+}
+
+# ---- CSV outputs
+mark_summary("qocc.csv",       "$output_dir/qocc.csv");
+mark_summary("qauditocc.csv",  "$output_dir/qauditocc.csv");
+
+# ---- QUERY REPLICATION per node
 foreach my $node (@nodes) {
-    my $outfile = "$output_dir/replication_$node.txt";
-    $summary{"replication_$node.txt"} = (-s $outfile) ? "SUCCESS" : "FAILED";
+    my $file = "$output_dir/qrepl/replication_$node.txt";
+    mark_summary("replication_$node.txt", $file);
 }
 
-# VALIDATE REPLPOLICY
-$summary{"validate_replpolicy.txt"} = (-s $validate_file) ? "SUCCESS" : "FAILED";
+# ---- VALIDATE REPLPOLICY
+mark_summary("validate_replpolicy.txt", $validate_file)
+    if $target_server;
 
-# -----------------------------
-# Print summary if verbose
-# -----------------------------
+# ---- Container / CLOUD / DIRECTORY queries
+my $container_dir = "$output_dir/container";
+if (-d $container_dir) {
+    opendir(my $dh, $container_dir);
+    while (my $f = readdir($dh)) {
+        next if $f =~ /^\./;
+        mark_summary($f, "$container_dir/$f");
+    }
+    closedir($dh);
+}
+
+# ---- Print summary when verbose
 if ($verbose) {
     print "\n=== Replication Module Summary ===\n";
-    foreach my $file (sort keys %summary) {
-        printf "  %-15s : %s\n", $file, $summary{$file};
+    foreach my $k (sort keys %summary) {
+        printf "  %-35s : %s\n", $k, $summary{$k};
     }
-    print "Collected server info saved in: $output_dir\n";
-    print "Check error.log for any failures.\n";
+    print "\nReplication data collected in: $output_dir\n";
+    print "Check script.log for command failures.\n";
 }
 
 # -----------------------------

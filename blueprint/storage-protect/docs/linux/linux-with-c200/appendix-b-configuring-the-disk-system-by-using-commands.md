@@ -1,0 +1,3 @@
+## Appendix B. Configuring the disk system 
+
+When the FlashSystem C200 is up and connected to Tech Port, a guided setup assists you through creating the arrays and MDisks. You will be guided to configure a 24-drive array layout, which cannot be altered later. You will then be prompted to create a single storage pool (MDisk group) and assign it a name. After this, you may create the required volumes for the medium-size server configuration.

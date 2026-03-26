@@ -12,18 +12,18 @@ use utils;
 # -----------------------------
 # Parameters / CLI optfile
 # -----------------------------
-my ($output_dir, $adminid, $password, $verbose, $optfile);
+my ($output_dir, $verbose, $optfile);
 GetOptions(
     "output-dir|o=s" => \$output_dir,
-    "adminid|id=s"   => \$adminid,
-    "password|pwd=s" => \$password,
     "verbose|v"      => \$verbose,
     "optfile=s"       => \$optfile,
 ) or die "Invalid arguments. Run with --help for usage.\n";
 
 die "Error: --output-dir is required\n" unless $output_dir;
-die "Error: --adminid is required\n"   unless $adminid;
-die "Error: --password is required\n"  unless $password;
+
+# SECURITY: Get credentials from ENVIRONMENT only
+my $adminid  = $ENV{MUSTGATHER_ADMINID}  || '';
+my $password = $ENV{MUSTGATHER_PASSWORD} || '';
 
 # -----------------------------
 # Prepare output directory
@@ -201,28 +201,17 @@ my %summary;
 
 foreach my $file (keys %static_queries) {
     my $outfile = "$output_dir/$file";
-    $summary{$file} = (-s $outfile) ? "SUCCESS" : "FAILED";
+    $summary{$file} = (-s $outfile) ? "Success" : "Failed";
 }
 
-foreach my $pool (@stgpools) {
-    my $name = $pool->{name};
-    $summary{"transferstats_$name.txt"} = (-s "$output_dir/transferstats_$name.txt") ? "SUCCESS" : "FAILED";
-    my $type = uc($pool->{type});
-    if ($type eq 'CLOUD' || $type eq 'DIRECTORY') {
-        foreach my $suffix (qw(showsdpool extentupdate damaged_extent damaged_container damaged_node)) {
-            my $file = "${suffix}_${name}.txt";
-            $summary{$file} = (-s "$output_dir/$file") ? "SUCCESS" : "FAILED";
-        }
-    }
-}
 
 if ($verbose) {
     print "\n=== Storage Pool Summary ===\n";
     foreach my $file (sort keys %summary) {
-        printf "  %-15s : %s\n", $file, $summary{$file};
+        printf "  %-40s : %s\n", $file, $summary{$file};
     }
     print "\nOutput directory: $output_dir\n";
-    print "Error log: $error_log\n";
+    print "Check error.log for any failures.\n";
 }
 
 close($errfh);
