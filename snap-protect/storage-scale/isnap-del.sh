@@ -2,7 +2,7 @@
 #********************************************************************************
 # IBM Storage Protect
 #
-# (C) Copyright International Business Machines Corp. 2025
+# (C) Copyright International Business Machines Corp. 2026
 #                                                                              
 # Name: isnap-del.sh
 # Desc: Delete snapshot from file systems and filesets via the CLI or REST API
@@ -41,6 +41,8 @@
 # 08/13/25 add more debugging for job-ID query and structured output in del_apisnapshot()
 # 09/03/25 masked $apiAuth in debug message
 # 11/13/25 improve jobId query; allow script to be located in any directory; replace syntax by usage function - version 1.8
+# 02/26/26 issue #47: program reports snapshot deletion fails via API due to short check cycles - version 1.9
+
 
 #---------------------------------------
 # global parameters
@@ -57,11 +59,15 @@ snapName=""
 # determine the name of the instance user for reference
 instUser=$(id -un)
 
-# time to sleep between snapshot deletes
-sleepTime=1
+# define number of loops and sleep time between loops waiting for completion
+# - maximum total loop duration: maxLoop * sleepTime (seconds)
+# - maximum number of loops to check for completion
+maxLoops=60
+# time in seconds to sleep between loops checking for completion
+sleepTime=2
 
 # version
-ver=1.8
+ver=1.9
 
 #------------------------------------------------------------------
 # Print usage
@@ -207,14 +213,12 @@ function del_apisnapshot()
   # if jobId is empty, the curl call above failed
   if [[ ! -z $jobId && ! $jobId == "null" ]]; then
     # Check the jobId to finish
-    maxLoops=10
     loops=0
-    sleeptime=2
     jState="RUNNING"
     while [[ $jState = "RUNNING" && ! $loops = $maxLoops ]];
     do
       echo "  INFO: checking job $jobId for completion ($loops)."
-      sleep $sleeptime
+      sleep $sleepTime
 
 	    jState=$(curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/jobs/$jobId" 2>>/dev/null | jq ".jobs[] | .status" 2>>/dev/null | sed 's/"//g')
 	 
@@ -223,7 +227,7 @@ function del_apisnapshot()
 	    if [[ -z $jState ]]; then
 	      echo "  INFO: Job status is empty, performing jobID query in unfiltered format:"
         echo "  DEBUG: curl -k -X GET --header 'Accept: application/json' --header \"Authorization: Basic XXX\" \"https://$apiServer/scalemgmt/v2/jobs/$jobId\""
-        sleep $sleeptime
+        sleep $sleepTime
 
 		    curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/jobs/$jobId"
 	    fi
@@ -477,7 +481,6 @@ do
 		        del_apisnapshot $snap
 		        (( rc = rc + $? ))
 		      fi
-		      sleep $sleepTime
 	      fi
 	    done
 	  else
@@ -488,7 +491,7 @@ done
 
 # final message depending on return code
 if (( rc > 0 )); then
-  echo -e "\nERROR: $op snapshot deletion failed, check the log.\n"
+  echo -e "\nERROR: $(date) $op snapshot deletion failed, check the log.\n"
   if [[ $op = "perform" ]]; then 
     # if this path is not active, just pretend to sleep a second
 	  sleep 0
