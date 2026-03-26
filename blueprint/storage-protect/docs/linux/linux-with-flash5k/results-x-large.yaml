@@ -1,0 +1,52 @@
+blueprintSchema: sp-blueprint/v1
+kind: Result
+metadata:
+  size: x-large
+  environment: 'IBM Elastic Storage System 3000'
+specs:
+  data-intake-process:
+    max-client-sessions: '1000'
+    daily-data-load: '30 - 100 TB'
+    ingestion-rate:
+      server-side-deduplication: '18.1 TB-per-hour'
+      client-side-deduplication: '18.4 TB-per-hour'
+  protected-data:
+    total-managed-data: '1000 TB - 4000 TB'
+  data-restore-process:
+    - throughput: '813.4 GB-per-hour'
+      process-count: 1
+    - throughput: '1321.0 GB-per-hour'
+      process-count: 2
+    - throughput: '2546.9 GB-per-hour'
+      process-count: 4
+    - throughput: '4227.5 GB-per-hour'
+      process-count: 6
+    - throughput: '5525.7 GB-per-hour'
+      process-count: 8
+    - throughput: '7816.6 GB-per-hour'
+      process-count: 10
+    - throughput: '9725.8 GB-per-hour'
+      process-count: 20
+    - throughput: '10839.6 GB-per-hour'
+      process-count: 40
+status:
+  - workload: storage-pool
+    command: 'perl sp_disk_load_gen.pl workload=stgpool fslist=/gpfs/tsmp06_tsmpool/tsmdiskperf/data/spg1-INST01/test01,/gpfs/tsmp06_tsmpool/tsmdiskperf/data/spg1-INST01/test02,...,/gpfs/tsmp06_tsmpool/tsmdiskperf/data/spg1-INST01/test64'
+    output:
+      average-r-throughput : '7507649.89 KB/sec'
+      average-w-throughput : '7491784.55 KB/sec'
+      avg-combined-throughput : '14647.89 MB/sec'
+      max-combined-throughput : '17489.01 MB/sec'
+      average-iops: '57340.97'
+      peak-iops: '68414.25 at 1626266586'
+      total-elapsed-time : '80 seconds'
+  - workload: database
+    command: 'perl sp_disk_load_gen.pl workload=stgpool fslist=/gpfs/tsmp06_tsmdb/tsmdiskperf/data/spg1-INST01/test01,/gpfs/tsmp06_tsmdb/tsmdiskperf/data/spg1-INST01/test02,...,/gpfs/tsmp06_tsmdb/tsmdiskperf/data/spg1-INST01/test12'
+    output:
+      average-r-throughput : '181022.19 KB/sec'
+      average-w-throughput : '180649.21 KB/sec'
+      avg-combined-throughput : '353.19 MB/sec'
+      max-combined-throughput : '640.81 MB/sec'
+      average-iops: '44221.35'
+      peak-iops: '80289.58 at 1626267223'
+      total-elapsed-time : '186 seconds'

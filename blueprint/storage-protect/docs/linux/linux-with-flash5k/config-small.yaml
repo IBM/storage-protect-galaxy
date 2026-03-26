@@ -1,0 +1,90 @@
+blueprintSchema: sp-blueprint/v1
+kind: StorageConfiguration
+metadata:
+  size: small
+mdisk-configs:
+  - storage-requirement : 'database'
+    usage: 'Database container'
+    disk-type : '800 GB SSD'
+    disk-quantity: 4
+    hot-spare: '1 (rebuild areas=1)'
+    raid-type: 'Distributed RAID 5'
+    raid-array-count: '1 (4 DDM)'
+    usable-size: '1.45 TB'
+    mdisk-group-name: 
+      - 'db_grp0'
+    mdisk-array-name: 
+      - 'db_array0'
+  - storage-requirement : 'storage-pool'
+    usage: 'Storage pool'
+    disk-type : '4 TB 7.2k rpm NL-SAS HDD'
+    disk-quantity: 24
+    hot-spare: '(rebuild areas=1)'
+    raid-type: 'Distributed RAID 6'
+    raid-array-count: '1 (24 DDM)'
+    usable-size: '67 TB'
+    mdisk-group-name: 
+      - 'stgpool_grp0'
+    mdisk-array-name: 
+      - 'stgpool_array0'
+
+volume-configs:
+  - storage-requirement : 'database'
+    volumes:
+      - volume-name: 
+          - 'db_00'
+          - 'db_01'
+          - 'db_02'
+          - 'db_03'
+        usage: 'Database container'
+        quantity: 4
+        mdisk-group-name: 'db_grp0'
+        size-per-volume: '335.25 GB'
+        mount-point:
+          - 'tsminst1/TSMdbspace00'
+          - '/tsminst1/TSMdbspace01'
+          - '/tsminst1/TSMdbspace02'
+          - '/tsminst1/TSMdbspace03'
+      - volume-name: 
+          - 'alog'
+        usage: 'Active log'
+        quantity: 1
+        mdisk-group-name: 'db_grp0'
+        size-per-volume: '145.25 GB'
+        mount-point:
+          - '/tsminst1/TSMalog'
+      - volume-name: 
+          - 'archlog'
+        usage: 'Archive log'
+        quantity: 1
+        mdisk-group-name: 'stgpool_grp0'
+        size-per-volume: '1.19 TB'
+        mount-point:
+          - '/tsminst1/TSMarchlog'
+      - volume-name: 
+          - 'backup_0' 
+          - 'backup_1'
+        usage: 'Database backup'
+        quantity: 2
+        mdisk-group-name: 'stgpool_grp0'
+        size-per-volume: '3.15 TB'
+        mount-point:
+          - '/tsminst1/TSMbkup00'
+          - '/tsminst1/TSMbkup01'
+  - storage-requirement : 'storage-pool'
+    volumes:
+      - volume-name: 
+          - 'filepool_00'
+          - 'filepool_01'
+          - 'filepool_02'
+          - 'filepool_03'
+        usage: 'IBM Storage Protect file systems for a directory-container storage pool'
+        quantity: 4
+        mdisk-group-name: 'stgpool_grp0'
+        size-per-volume: '15.12 TB'
+        mount-point:
+          - '/tsminst1/TSMfile00'
+          - '/tsminst1/TSMfile01'
+          - '/tsminst1/TSMfile02'
+          - '/tsminst1/TSMfile03'
+

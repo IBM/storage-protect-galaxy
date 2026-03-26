@@ -1,0 +1,250 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use Getopt::Long;
+use File::Path qw(make_path);
+use Cwd 'abs_path';
+use FindBin;
+use lib "$FindBin::Bin/../common/modules";
+use utils;
+use File::Spec;
+use env;
+
+# ----------------------------------
+# Parameters
+# ----------------------------------
+my ($product, $output_dir, $optfile, $modules, $no_compress, $verbose, $help);
+
+GetOptions(
+    "product|p=s"       => \$product,
+    "output-dir|o=s"    => \$output_dir,
+    "optfile=s"         => \$optfile,
+    "modules|m=s"       => \$modules,
+    "no-compress"       => \$no_compress,
+    "verbose|v"         => \$verbose,
+    "help|h"            => \$help,
+) or die "Invalid arguments. Run with --help for usage.\n";
+
+if (!$help) {
+    die "Error: --product is mandatory\n"    unless defined $product;
+    die "Error: --output-dir is mandatory\n" unless defined $output_dir;
+}
+
+# ----------------------------------
+# Verify product installation
+# ----------------------------------
+my $os = env::_os();
+
+my $base_path=env::get_api_base_path();
+if (!$base_path && $os !~ /MSWin32/i)  {
+     die "Product API is not installed on this machine.\n";
+}
+
+my $base_oracle_path = env::get_oracle_base_path();
+unless ($base_oracle_path) {
+    die "Product '$product' is not installed on this machine.\n";
+}
+my $ba_base_path = env::get_ba_base_path();
+
+# ----------------------------------
+# Module List
+# ----------------------------------
+my @default_modules = qw(network system server config);  # Always run config
+my @requested_modules = $modules ? split /,/, $modules : qw(system network config logs performance server config oracle );
+
+# Combine and remove duplicates
+my %seen;
+my @selected_modules = grep { !$seen{$_}++ } (@default_modules, @requested_modules);
+
+unless ($ba_base_path) {
+
+    @selected_modules = grep {
+        $_ ne 'config' &&
+        $_ ne 'logs' &&
+        $_ ne 'performance' &&
+        $_ ne 'server'
+    } @selected_modules;
+}
+
+print "\n############## Starting Collection of $product diagnostic information ##############\n\n";
+print "Modules to be collected (" . scalar(@selected_modules) . "): @selected_modules\n\n"
+    if $verbose;
+
+# ----------------------------------
+# Interactive RMAN (ONLY ONCE)
+# ----------------------------------
+my ($rman_script, $rman_msglog);
+
+if (grep { $_ eq "oracle" } @selected_modules) {
+    print "\nEnter RMAN backup script path (Example: /u01/scripts/rman_backup.rcv or C:\\oracle\\scripts\\rman_backup.rcv)\n";
+    print "Press Enter to skip: ";
+    $rman_script = <STDIN>;
+    chomp $rman_script;
+
+    print "\nEnter RMAN message log path (Example: /u01/logs/rman_backup.log or C:\\oracle\\logs\\rman_backup.log)\n";
+    print "Press Enter to skip: ";
+    $rman_msglog = <STDIN>;
+    chomp $rman_msglog;
+
+    for ($rman_script, $rman_msglog) {
+        next unless $_;
+        s/^\s+|\s+$//g;
+        s/^["']|["']$//g;
+    }
+}
+my $oracle_user;
+
+if (grep { $_ eq "oracle" } @selected_modules) {
+
+    print "\nEnter Oracle OS username (Example: oracle)\n";
+    print "Press Enter to skip environment capture: ";
+    $oracle_user = <STDIN>;
+    chomp $oracle_user;
+
+    $oracle_user =~ s/^\s+|\s+$//g;
+}
+
+
+# ----------------------------------
+# Detect Server Address and TCP Port
+# ----------------------------------
+my $opt_file = $optfile ? $optfile : "$base_path/dsm.opt";
+my $server_ip;
+my $port;
+
+if (grep { $_ eq "network" } @selected_modules) {
+    $server_ip = utils::get_server_address($opt_file, $base_path, $os);
+}
+
+$port = utils::get_tcp_port($opt_file, $base_path, $os);
+
+# ----------------------------------
+# Run Modules
+# ----------------------------------
+# ----------------------------------
+# Run Modules
+# ----------------------------------
+my %module_status;   
+my $total = scalar @selected_modules;
+my $count = 0;
+
+foreach my $module (@selected_modules) {
+    $count++;
+    print "\nRunning module ($count/$total): $module\n" if $verbose;
+
+    my $exit_code = 1; 
+
+    # Run respective scripts
+    my $script;
+    if ($module eq "system") {
+        $script = File::Spec->catfile($FindBin::Bin, "..", "common", "scripts", "system_info.pl");
+    } elsif ($module eq "network") {
+        $script = File::Spec->catfile($FindBin::Bin, "..", "common", "scripts", "network_info.pl");
+    } elsif ($module eq "performance") {
+        $script = File::Spec->catfile($FindBin::Bin,"..","sp-client-ba", "collector", "performance.pl");
+    } elsif ($module eq "config") {
+        $script = File::Spec->catfile($FindBin::Bin,"..","sp-client-ba" ,"collector", "config.pl");
+    } elsif ($module eq "logs") {
+        $script = File::Spec->catfile($FindBin::Bin,"..","sp-client-ba", "collector", "log.pl");
+    } elsif ($module eq "oracle") {
+        $script = File::Spec->catfile($FindBin::Bin, "collector", "oracle.pl");
+    } elsif ($module eq "server") {
+        $script = File::Spec->catfile($FindBin::Bin, "..", "common", "scripts", "server_info.pl");
+    }
+    else {
+        warn "Warning: Unknown module '$module'. Skipping...\n";
+        $module_status{$module} = "SKIPPED";
+        next;
+    }
+
+    my @args = ("perl", $script, "-o", $output_dir);
+    push @args, ("-s", $server_ip) if $module eq "network" && $server_ip;
+    push @args, ("-p", $port) if $module eq "network" && $port;
+    push @args, "-v" if $verbose;
+    push @args, ("--optfile", $optfile) if $optfile && ($module eq "config" || $module eq "server");
+    push @args, ("--rman-script", $rman_script) if $module eq "oracle" && $rman_script;
+    push @args, ("--rman-msglog", $rman_msglog) if $module eq "oracle" && $rman_msglog;
+    push @args, ("--oracle-user", $oracle_user) if $module eq "oracle" && $oracle_user;
+
+    $exit_code = system(@args);
+    $exit_code >>= 8;
+
+    if    ($exit_code == 0) { $module_status{$module} = "Success"; }
+    elsif ($exit_code == 2) { $module_status{$module} = "Partial"; }
+    else                    { $module_status{$module} = "Failed";  }
+}
+# ----------------------------------
+# Extract Product Info
+# ----------------------------------
+my $product_version = "Unknown";
+my $node_name       = "Unknown";
+my $server_name     = "Unknown";
+
+my $oracle_env_file = "$output_dir/oracle/tdpoconf_showenv.txt";
+
+if (-e $oracle_env_file && open(my $fh, '<', $oracle_env_file)) {
+
+    my ($v, $r, $l, $s);
+
+    while (my $line = <$fh>) {
+
+        chomp $line;
+
+        # ---- Server & Node ----
+        if ($line =~ /^\s*Server Name:\s*(\S+)/i) {
+            $server_name = $1;
+        }
+
+        if ($line =~ /^\s*Node Name:\s*(\S+)/i) {
+            $node_name = $1;
+        }
+
+        # ---- Version Components ----
+        if ($line =~ /^\s*Version:\s*(\d+)/i) {
+            $v = $1;
+        }
+
+        if ($line =~ /^\s*Release:\s*(\d+)/i) {
+            $r = $1;
+        }
+
+        if ($line =~ /^\s*Level:\s*(\d+)/i) {
+            $l = $1;
+        }
+
+        if ($line =~ /^\s*Sublevel:\s*(\d+)/i) {
+            $s = $1;
+        }
+    }
+
+    close $fh;
+
+    # Build full version string
+    if (defined $v && defined $r && defined $l && defined $s) {
+        $product_version = "$v.$r.$l.$s";
+    }
+}
+
+# ----------------------------------
+# Summary
+# ----------------------------------
+print "\n=== Must-Gather Collection Summary ===\n";
+printf "%-20s : %s\n", "Product",     $product;
+printf "%-20s : %s\n", "Version",     $product_version;
+printf "%-20s : %s\n", "Node Name",   $node_name;
+printf "%-20s : %s\n", "Server Name", $server_name;
+
+print "\n    Modules         : Status\n";
+print "-----------------------------\n";
+
+my $index = 1;
+foreach my $module (sort { lc($a) cmp lc($b) } @selected_modules) {
+    my $status = $module_status{$module} // "Not collected";
+    printf " %d. %-15s : %s\n", $index++, $module, $status;
+}
+
+print "\nCheck script.log inside each module folder for detailed failures.\n\n";
+printf "%-5s : %s\n\n", "Output", "$output_dir.zip" unless $no_compress;
+printf "%-5s : %s\n\n", "Output", "$output_dir" if $no_compress;
+
+# 

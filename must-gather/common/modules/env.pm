@@ -4,7 +4,7 @@ use warnings;
 use Exporter 'import';
 use File::Spec;
 
-our @EXPORT_OK = qw(_os get_ba_base_path get_server_address);
+our @EXPORT_OK = qw(_os get_ba_base_path get_server_address get_hyperv_base_path get_sql_base_path get_oracle_base_path get_api_base_path get_domino_base_path get_vmware_base_path get_exchange_base_path);
 
 ###############################################################################
 # _os
@@ -273,6 +273,122 @@ sub _parse_server_address {
 }
 
 ###############################################################################
+# get_oracle_base_path
+#
+# Purpose  : Determine Data Protection for Oracle client base installation directory.
+# Input    : None
+# Output   : Absolute path to Oracle client bin directory, or undef if not found.
+# Behavior :
+#   1. Check DSMI_DIR environment variable (highest priority).
+#   2. Run 'tdpoconf showenvironment' to extract installation path (all platforms).
+#   3. Fallback to OS-specific default install paths.
+#   4. Return undef if product is not installed or path missing.
+###############################################################################
+sub get_oracle_base_path {
+    my $os = _os();
+
+    # 1. Environment override (DSMI_DIR is the standard variable for TDP Oracle)
+    if ($ENV{DSMI_DIR} && -d $ENV{DSMI_DIR}) {
+        return $ENV{DSMI_DIR} if -f "$ENV{DSMI_DIR}/tdpo.opt";
+    }
+
+    # 2. Use tdpoconf showenvironment (works on all platforms including Windows)
+    my $tdpoconf_path = _get_oracle_path_from_tdpoconf();
+    return $tdpoconf_path if $tdpoconf_path;
+
+    # 3. OS-specific fallback paths
+    if ($os =~ /MSWin32/i) {
+        # Windows: Search common drives
+        my @reg_keys = (    
+         "HKLM\\SOFTWARE\\IBM\\ADSM\\CurrentVersion\\AgentOBA64",
+         "HKLM\\SOFTWARE\\WOW6432Node\\IBM\\ADSM\\CurrentVersion\\AgentOBA64"
+         );
+         foreach my $key (@reg_keys) {
+            my $cmd = qq{reg query "$key" /v Path 2>NUL};
+            my $out = `$cmd`;
+            if ($out =~ /Path\s+REG_\w+\s+([^\r\n]+)/i) {
+                my $path = $1;
+                $path =~ s/^\s+|\s+$//g;
+                return $path if -d $path && -f "$path/tdpo.opt";
+            }
+        }
+    }
+    elsif ($os =~ /aix/i) {
+        # AIX paths
+        foreach my $path (
+            "/usr/tivoli/tsm/client/oracle/bin64",
+            "/usr/tivoli/tsm/client/oracle/bin"
+        ) {
+            return $path if -d $path && -f "$path/tdpo.opt";
+        }
+    }
+    elsif ($os =~ /linux|sunos|solaris/i) {
+        # Linux, Solaris paths
+        foreach my $path (
+            "/opt/tivoli/tsm/client/oracle/bin64",
+            "/opt/tivoli/tsm/client/oracle/bin"
+        ) {
+            return $path if -d $path && -f "$path/tdpo.opt";
+        }
+    }
+
+    # 4. Not found
+    return undef;
+}
+
+###############################################################################
+# _get_oracle_path_from_tdpoconf
+#
+# Purpose  : Extract TDP Oracle installation path from tdpoconf command.
+# Input    : None
+# Output   : Installation path or undef if not found.
+# Notes    : Runs 'tdpoconf showenvironment' and parses output for DSMI_DIR
+#            Works on all platforms (Unix, Linux, Windows)
+###############################################################################
+sub _get_oracle_path_from_tdpoconf {
+    my $os = _os();
+    
+    # Run tdpoconf showenvironment
+    my $cmd = ($os =~ /MSWin32/i)
+        ? 'tdpoconf showenvironment 2>NUL'
+        : 'tdpoconf showenvironment 2>/dev/null';
+    
+    my @output = `$cmd`;
+    return undef unless @output;
+
+    # Parse output for DSMI_DIR or installation path
+    foreach my $line (@output) {
+        chomp $line;
+        
+        # Look for DSMI_DIR variable
+        if ($line =~ /DSMI_DIR[=\s]+(.+)/i) {
+            my $path = $1;
+            $path =~ s/^\s+|\s+$//g;  # Trim whitespace
+            $path =~ s/^["']|["']$//g;  # Remove quotes
+            return $path if -d $path && -f "$path/tdpo.opt";
+        }
+        
+        # Look for installation directory line
+        if ($line =~ /Installation\s+(?:Directory|Path)[:\s]+(.+)/i) {
+            my $path = $1;
+            $path =~ s/^\s+|\s+$//g;
+            $path =~ s/^["']|["']$//g;
+            return $path if -d $path && -f "$path/tdpo.opt";
+        }
+        
+        # Look for TDPO_DIR (alternative variable name)
+        if ($line =~ /TDPO_OPTFILE[=\s]+(.+)/i) {
+            my $path = $1;
+            $path =~ s/^\s+|\s+$//g;
+            $path =~ s/^["']|["']$//g;
+            return $path if -d $path && -f "$path/tdpo.opt";
+        }
+    }
+
+    return undef;
+}
+
+###############################################################################
 # is_sp_server_running
 #
 # Purpose  : Detect whether the IBM Storage Protect Server is running.
@@ -347,6 +463,214 @@ sub is_sp_server_running {
     }
 
     return $process_found;
+}
+
+
+# -----------------------------
+# Get hyberv base path
+# 1. Check HKLM\SOFTWARE\IBM\SpectrumProtect\DPHyperV\Path
+# 2. Check HKLM\SOFTWARE\WOW6432Node\IBM\SpectrumProtect\DPHyperV\Path
+# -----------------------------
+sub get_hyperv_base_path {
+    my $os = _os();
+    return undef unless $os =~ /MSWin32/i;
+
+    my @reg_keys = (
+        'HKLM\\SOFTWARE\\IBM\\SpectrumProtect\\DPHyperV',
+        'HKLM\\SOFTWARE\\WOW6432Node\\IBM\\SpectrumProtect\\DPHyperV',
+    );
+
+    foreach my $key (@reg_keys) {
+        my $cmd = qq{reg query "$key" /v Path 2>NUL};
+        my $out = `$cmd`;
+
+        if ($out =~ /Path\s+REG_\w+\s+([^\r\n]+)/i) {
+            my $path = $1;
+            $path =~ s/^\s+|\s+$//g;
+            return $path if -d $path;
+        }
+    }
+
+    return undef;
+}
+
+# -----------------------------
+#Get Sql base Path
+# 1. Check HKLM\SOFTWARE\IBM\ADSM\CurrentVersion\TDPSQL
+# 2. Check HKLM\SOFTWARE\WOW6432Node\IBM\ADSM\CurrentVersion\TDPSQL
+# -----------------------------
+sub get_sql_base_path {
+    my $os = _os();
+    return undef unless $os =~ /MSWin32/i; # Only for Windows
+    my @reg_keys = (    
+         "HKLM\\SOFTWARE\\IBM\\ADSM\\CurrentVersion\\TDPSQL",
+         "HKLM\\SOFTWARE\\WOW6432Node\\IBM\\ADSM\\CurrentVersion\\TDPSQL"
+         );
+         foreach my $key (@reg_keys) {
+            my $cmd = qq{reg query "$key" /v Path 2>NUL};
+            my $out = `$cmd`;
+            if ($out =~ /Path\s+REG_\w+\s+([^\r\n]+)/i) {
+                my $path = $1;
+                $path =~ s/^\s+|\s+$//g;
+                return $path if -d $path;
+            }
+        }
+    return undef;
+    }
+
+    ###############################################################################
+# get_api_base_path
+#
+# Purpose  : Determine IBM Storage Protect API client installation directory.
+# Input    : None
+# Output   : Absolute path to API bin directory, or undef if not found.
+# Behavior :
+#   1. Check DSMI_DIR environment variable (highest priority).
+#   2. Fallback to OS-specific default install paths.
+#   3. Detect bin64 first, then bin.
+###############################################################################
+sub get_api_base_path {
+
+    my $os = _os();
+
+    # 1. Environment override
+    if ($ENV{DSMI_DIR} && -d $ENV{DSMI_DIR}) {
+
+        foreach my $subdir ("bin64", "bin") {
+
+            my $candidate = File::Spec->catdir($ENV{DSMI_DIR}, $subdir);
+
+            return $candidate if -d $candidate;
+        }
+    }
+
+    # 2. OS-specific fallback paths
+
+    if ($os =~ /linux|sunos|solaris/i) {
+
+        foreach my $path (
+            "/opt/tivoli/tsm/client/api/bin64",
+            "/opt/tivoli/tsm/client/api/bin"
+        ) {
+            return $path if -d $path;
+        }
+    }
+
+    elsif ($os =~ /aix/i) {
+
+        foreach my $path (
+            "/usr/tivoli/tsm/client/api/bin64",
+            "/usr/tivoli/tsm/client/api/bin"
+        ) {
+            return $path if -d $path;
+        }
+    }
+
+    elsif ($os =~ /MSWin32/i) {
+
+        my @reg_keys = (    
+         "HKLM\\SOFTWARE\\IBM\\ADSM\\CurrentVersion\\Api64",
+         "HKLM\\SOFTWARE\\WOW6432Node\\IBM\\ADSM\\CurrentVersion\\Api64"
+         );
+         foreach my $key (@reg_keys) {
+            my $cmd = qq{reg query "$key" /v Path 2>NUL};
+            my $out = `$cmd`;
+            if ($out =~ /Path\s+REG_\w+\s+([^\r\n]+)/i) {
+                my $path = $1;
+                $path =~ s/^\s+|\s+$//g;
+                return $path if -d $path;
+            }
+        }
+    }
+
+    return undef;
+}
+
+sub get_domino_base_path {
+    my $os = _os();
+    if ( $os =~ /MSWin32/i ) { # Only for Windows) 
+    my @reg_keys = (
+        "HKLM\\SOFTWARE\\IBM\\ADSM\\CurrentVersion\\domclient",
+        "HKLM\\SOFTWARE\\WOW6432Node\\IBM\\ADSM\\CurrentVersion\\domclient",
+    );
+    foreach my $key (@reg_keys) {
+        my $cmd = qq{reg query "$key" /v Path 2>NUL};
+        my $out = `$cmd`;
+        if ($out =~ /Path\s+REG_\w+\s+([^\r\n]+)/i) {
+            my $path = $1;
+            $path =~ s/^\s+|\s+$//g;
+            return $path if -d $path;
+        }
+    }
+    }
+    elsif ($os =~ /linux/i) {
+        foreach my $path (
+            "/opt/tivoli/tsm/client/domino/bin",
+        ) {
+            return $path if -d $path;
+        }
+    }
+    elsif ($os =~ /aix/i) {
+        foreach my $path (
+            "/usr/tivoli/tsm/client/domino/bin64",
+        ) {
+            return $path if -d $path;
+        }
+    }
+
+    return undef;
+}
+
+
+sub get_vmware_base_path {
+    my $os = _os();
+    if ( $os =~ /MSWin32/i ) { # Only for Windows) 
+    my @reg_keys = (
+        "HKLM\\SOFTWARE\\IBM\\SpectrumProtect\\DPVMware",
+        "HKLM\\SOFTWARE\\WOW6432Node\\IBM\\SpectrumProtect\\DPVMware",
+    );
+    foreach my $key (@reg_keys) {
+        my $cmd = qq{reg query "$key" /v Path 2>NUL};
+        my $out = `$cmd`;
+        if ($out =~ /Path\s+REG_\w+\s+([^\r\n]+)/i) {
+            my $path = $1;
+            $path =~ s/^\s+|\s+$//g;
+            return $path if -d $path;
+        }
+    }
+    }
+    if ($os =~ /linux/i) {
+        foreach my $path (
+            "/opt/tivoli/tsm/tdpvmware",
+        ) {
+            return $path if -d $path;
+        }
+    }
+    return undef;
+}
+
+# -----------------------------
+#Get exchange base Path
+# 1. Check HKLM\\SOFTWARE\\IBM\\ADSM\\CurrentVersion\\TDPExchange
+# 2. Check HKLM\\SOFTWARE\\WOW6432Node\\IBM\\ADSM\\CurrentVersion\\TDPExchange
+# -----------------------------
+sub get_exchange_base_path{
+     my $os = _os();
+    return undef unless $os =~ /MSWin32/i; # Only for Windows
+    my @reg_keys = (    
+         "HKLM\\SOFTWARE\\IBM\\ADSM\\CurrentVersion\\TDPExchange",
+         "HKLM\\SOFTWARE\\WOW6432Node\\IBM\\ADSM\\CurrentVersion\\TDPExchange"
+         );
+         foreach my $key (@reg_keys) {
+            my $cmd = qq{reg query "$key" /v Path 2>NUL};
+            my $out = `$cmd`;
+            if ($out =~ /Path\s+REG_\w+\s+([^\r\n]+)/i) {
+                my $path = $1;
+                $path =~ s/^\s+|\s+$//g;
+                return $path if -d $path;
+            }
+        }
+    return undef;
 }
 
 1;

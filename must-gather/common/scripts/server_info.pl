@@ -7,150 +7,207 @@ use File::Path qw(make_path);
 use lib "$FindBin::Bin/../modules";
 use env;
 use utils;
+
 # -----------------------------
-# Parameters / CLI optfile
+# Parameters
 # -----------------------------
-my ($output_dir, $adminid, $password, $verbose, $optfile);
+my ($output_dir, $verbose, $optfile);
 GetOptions(
     "output-dir|o=s" => \$output_dir,
-    "adminid|id=s"   => \$adminid,
-    "password|pwd=s" => \$password,
     "verbose|v"      => \$verbose,
     "optfile=s"      => \$optfile,
-) or die "Invalid arguments. Run with --help for usage.\n";
+) or die "Invalid arguments.\n";
+
 die "Error: --output-dir is required\n" unless $output_dir;
-die "Error: --adminid is required\n"   unless $adminid;
-die "Error: --password is required\n"  unless $password;
+
+# -----------------------------
+# Credentials (ENV only)
+# -----------------------------
+my $adminid  = $ENV{MUSTGATHER_ADMINID}  || '';
+my $password = $ENV{MUSTGATHER_PASSWORD} || '';
+
 # -----------------------------
 # Prepare output directory
 # -----------------------------
 $output_dir = "$output_dir/server";
 make_path($output_dir) unless -d $output_dir;
+
 # -----------------------------
-# Error log
+# Logging
 # -----------------------------
 my $error_log = "$output_dir/script.log";
 open(my $errfh, '>', $error_log) or die "Cannot open $error_log: $!";
+
 # -----------------------------
-# Detect BA client base path
+# Validate credentials
+# -----------------------------
+my $server_failed = 0;
+my $failure_reason = '';
+
+unless ($adminid) {
+    print $errfh "MUSTGATHER_ADMINID is required\n";
+    $server_failed = 1;
+    $failure_reason = "Missing AdminID";
+}
+
+unless ($password) {
+    print $errfh "MUSTGATHER_PASSWORD is required\n";
+    $server_failed = 1;
+    $failure_reason = "Missing Password";
+}
+
+# -----------------------------
+# Detect BA base path
 # -----------------------------
 my $base_path = env::get_ba_base_path();
 unless ($base_path) {
     print $errfh "BA client base path not found.\n";
-    close($errfh);
-    die "BA client base path not found. Exiting.\n";
+    $server_failed = 1;
+    $failure_reason = "BA base path not found";
 }
+
 # -----------------------------
-# Determine which dsm.opt to use
+# Determine opt file
 # -----------------------------
-my $opt_file;
-if ($optfile) {
-    # User-specified option file
-    $opt_file = $optfile;
-} else {
-    $opt_file = "$base_path/dsm.opt";
-}
+my $opt_file = $optfile ? $optfile : "$base_path/dsm.opt";
+
 # -----------------------------
-# Locate DSMADMC binary (platform dependent)
+# Locate dsmadmc
 # -----------------------------
 my $os = $^O;
 my $dsmadmc;
+
 if ($os =~ /MSWin32/i) {
     $dsmadmc = `where dsmadmc.exe 2>nul`;
     chomp($dsmadmc);
-    if (!$dsmadmc || !-e $dsmadmc) {
-        $dsmadmc = "$base_path\\dsmadmc.exe" if -e "$base_path\\dsmadmc.exe";
-    }
+    $dsmadmc ||= "$base_path\\dsmadmc.exe";
 } else {
     $dsmadmc = `which dsmadmc 2>/dev/null`;
     chomp($dsmadmc);
-    if (!$dsmadmc || !-x $dsmadmc) {
-        $dsmadmc = "$base_path/dsmadmc" if -x "$base_path/dsmadmc";
-    }
+    $dsmadmc ||= "$base_path/dsmadmc";
 }
-unless ($dsmadmc && -x $dsmadmc) {
-    print $errfh "dsmadmc not found at $dsmadmc\n";
-    close($errfh);
-    die "dsmadmc not found at $dsmadmc\n";
+
+unless ($dsmadmc && -e $dsmadmc) {
+    print $errfh "dsmadmc not found.\n";
+    $server_failed = 1;
+    $failure_reason = "dsmadmc not found";
 }
-# -----------------------------
-# Quote paths if they contain spaces
-# -----------------------------
+
 my $quoted_dsm = $dsmadmc =~ / / ? qq{"$dsmadmc"} : $dsmadmc;
 my $quoted_opt = $opt_file =~ / / ? qq{"$opt_file"} : $opt_file;
+
 # -----------------------------
-# Function to run a command safely
+# Safe command runner (mask password)
 # -----------------------------
 sub run_cmd {
     my ($cmd, $outfile) = @_;
-    my $full_cmd;
-    if ($outfile) {
-        $full_cmd = qq{$cmd > "$outfile"};
-        $full_cmd .= " 2>&1" if $^O !~ /MSWin32/;  # redirect stderr on Unix
-    } else {
-        $full_cmd = $cmd;
-    }
 
-    print $errfh "Running: $full_cmd\n" if $verbose;
+    my $full_cmd = qq{$cmd > "$outfile" 2>&1};
+
+    # Mask password in logs
+    my $log_cmd = $full_cmd;
+    $log_cmd =~ s/-password=\S+/-password=********/i;
+
+    print $errfh "Executing: $log_cmd\n" if $verbose;
 
     my $status = system($full_cmd);
     $status >>= 8;
+
     return $status;
 }
 
+# -----------------------------
+# Connectivity Test
+# -----------------------------
+unless ($server_failed) {
+
+    my $connect_file = "$output_dir/connect_test.txt";
+    my $connect_cmd = qq{$quoted_dsm -id=$adminid -password=$password -optfile=$quoted_opt "q status"};
+
+    my $status = run_cmd($connect_cmd, $connect_file);
+
+    if ($status != 0 || !-s $connect_file) {
+        $server_failed = 1;
+        $failure_reason = "Connectivity Failed";
+    }
+    else {
+        open(my $fh, '<', $connect_file);
+        while (<$fh>) {
+            if (/ANS1025E|Authentication failure/i) {
+                $server_failed = 1;
+                $failure_reason = "Authentication Failed";
+                last;
+            }
+        }
+        close($fh);
+    }
+}
 
 # -----------------------------
-# Define dsm administrative queries
+# Queries
 # -----------------------------
 my %server_queries = (
-    "actlog.txt"    => "query actlog begindate=today-7",
     "system.txt"    => "query system",
-    "pools.txt"     => "q stgpool f=d",
     "nodes.txt"     => "q node f=d",
     "occupancy.txt" => "q occ",
     "schedules.txt" => "q schedule f=d",
-    "events.txt"    => "q event * * begindate=today-7",
+    "events.txt"    => "q event * * begindate=-7 enddate=-0",
+    "backup_copygroups.txt"  => "q copygroup * * * standard type=backup f=d",
+    "archive_copygroups.txt" => "q copygroup * * * standard type=archive f=d",
 );
-# -----------------------------
-# Run queries and collect output
-# -----------------------------
-foreach my $file (sort keys %server_queries) {
-    my $query = $server_queries{$file};
-    my $outfile = "$output_dir/$file";
-    my $cmd = qq{$quoted_dsm -id=$adminid -password=$password -optfile=$quoted_opt "$query"};
-    run_cmd($cmd, $outfile);
+
+unless ($server_failed) {
+
+    foreach my $file (sort keys %server_queries) {
+        my $query = $server_queries{$file};
+        my $outfile = "$output_dir/$file";
+        my $cmd = qq{$quoted_dsm -id=$adminid -password=$password -optfile=$quoted_opt "$query"};
+        run_cmd($cmd, $outfile);
+    }
+
+    my $actoutfile = "$output_dir/actlog.txt";
+    my $act_cmd = qq{$quoted_dsm -comma -id=$adminid -password=$password -optfile=$quoted_opt "query actlog begindate=today-7"};
+    run_cmd($act_cmd, $actoutfile);
 }
+
+close($errfh);
 
 # -----------------------------
 # Summary
 # -----------------------------
-close($errfh);
-
 my %summary;
 
-# Static queries
 foreach my $file (sort keys %server_queries) {
-    my $outfile = "$output_dir/$file";
-    $summary{$file} = (-s $outfile) ? "Success" : "Failed";
+
+    if ($server_failed) {
+        $summary{$file} = "Failed ($failure_reason)";
+    }
+    else {
+        my $outfile = "$output_dir/$file";
+        $summary{$file} = (-s $outfile) ? "Success" : "Failed";
+    }
 }
+
 if ($verbose) {
     print "\n=== Server Module Summary ===\n";
     foreach my $file (sort keys %summary) {
-        printf "  %-15s : %s\n", $file, $summary{$file};
+        printf "  %-30s : %s\n", $file, $summary{$file};
     }
     print "Collected server info saved in: $output_dir\n";
-    print "Check script.log for any failures.\n";
 }
+
 # -----------------------------
-# Determine module-level status for framework
+# Exit Code
 # -----------------------------
 my $Success_count = 0;
 my $fail_count = 0;
 my $total = scalar keys %summary;
+
 foreach my $status (values %summary) {
-    $Success_count++ if $status eq "Success";
-    $fail_count++    if $status eq "Failed";
+    $Success_count++ if $status =~ /^Success/;
+    $fail_count++    if $status =~ /^Failed/;
 }
+
 my $module_status;
 if ($Success_count == $total) {
     $module_status = "Success";
@@ -159,5 +216,5 @@ if ($Success_count == $total) {
 } else {
     $module_status = "Partial";
 }
-# Exit code mapping for framework (optional: 0=Success, 1=failure, 2=Partial)
+
 exit($module_status eq "Success" ? 0 : $module_status eq "Partial" ? 2 : 1);
