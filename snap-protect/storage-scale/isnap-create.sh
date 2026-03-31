@@ -34,7 +34,8 @@
 # 08/13/25 add more debugging for job-ID query and structured output in create_apisnapshot()
 # 09/03/25 masked $apiAuth in debug message
 # 11/13/25 improve jobId query; allow script to be located in any directory, add usage function - version 2.0
-# 02/26/26 issue #47: program reports snapshot creation fails via API due to short check cycles - version 2.1
+# 02/26/26 fix issue #47: adjust checking cycles for snapshot creation (parameter maxLoop and sleepTime) - version 2.1
+# 03/31/26 improved output formatting for error message - version 2.1
 
 #---------------------------------------
 # Global parameters
@@ -390,7 +391,7 @@ echo "INFO: $(date) Suspending the data base for instance $instUser"
 db2 connect to $dbName
 rc=$?
 if (( rc > 0 )); then
-  echo "ERROR: failed to connect to instance Db, exiting."
+  echo -e "\nERROR: failed to connect to instance Db, exiting.\n"
   # $sudoCmd $gpfsPath/mmsysmonc event custom snap_fail "$instUser,Failed to connect to database."
   exit 3
 fi
@@ -401,12 +402,12 @@ i=0
 while (( rc > 0 && i < maxSuspendRetry )); do
   (( i= i + 1 ))
   sleep $suspendWait
-  echo "INFO: $i. retry to suspend the database."
+  echo "  INFO: Loop $i. retry to suspend the database."
   db2 set write suspend for db
   rc=$?
 done
 if (( rc > 0 )); then
-  echo "ERROR: failed to suspend the instance Db, exiting."
+  echo -e "\nERROR: failed to suspend the instance Db, exiting.\n"
   # $sudoCmd $gpfsPath/mmsysmonc event custom snap_fail "$instUser,Failed to suspend the database."
   db2 commit
   db2 disconnect $dbName
@@ -489,7 +490,7 @@ echo -e "\n---------------------------------------------------------------------
 echo "INFO: $(date) resuming Db for instance $instUser"
 db2 set write resume for db
 if (( $? > 0 )); then
-  echo "ERROR: failed to resume the instance Db. This is a critical error. Stop the instance or Db and run 'db2 restart db $dbName write resume'."
+  echo -e "\nERROR: failed to resume the instance Db. This is a critical error. Stop the instance or Db and run 'db2 restart db $dbName write resume'."
   # $sudoCmd $gpfsPath/mmsysmonc event custom snap_fail "$instUser,Failed to resume the database. The database must be resumed manually"
 fi
 db2 commit
