@@ -2,7 +2,7 @@
 #********************************************************************************
 # IBM Storage Protect
 #
-# (C) Copyright International Business Machines Corp. 2025
+# (C) Copyright International Business Machines Corp. 2026
 #                                                                              
 # Name: isnap-create.sh
 # Desc: Create snapshots for instance in scale using CLI or REST API
@@ -34,6 +34,8 @@
 # 08/13/25 add more debugging for job-ID query and structured output in create_apisnapshot()
 # 09/03/25 masked $apiAuth in debug message
 # 11/13/25 improve jobId query; allow script to be located in any directory, add usage function - version 2.0
+# 02/26/26 fix issue #47: adjust checking cycles for snapshot creation (parameter maxLoop and sleepTime) - version 2.1
+# 03/31/26 improved output formatting for error message - version 2.1
 
 #---------------------------------------
 # Global parameters
@@ -59,11 +61,18 @@ instUser=$(id -un)
 # instUser=tsminst1
 ########################
 
+# define number of loops and sleep time between loops waiting for completion
+# - maximum total loop duration: maxLoop * sleepTime (seconds)
+# - maximum number of loops to check for completion
+maxLoops=60
+# time in seconds to sleep between loops checking for completion
+sleepTime=2
+
 # temporary file for json constructs used with API call to create snapshot
 tmpFile="$HOME/$instUser-crsnap.json"
 
 # version of the program
-ver=2.0
+ver=2.1
 
 
 
@@ -194,7 +203,7 @@ calc_expDate()
 # -----------------------------------------------------------------
 function create_apisnapshot()
 {
-  echo -e "\nINFO: Creating snapshot $snapPrefix-$snapPostfix for  fileset $fsetName in file system $fsName, expiration $expClause."
+  echo -e "\nINFO: Creating snapshot $snapPrefix-$snapPostfix for fileset $fsetName in file system $fsName retained for $snapRet days"
   # $fsName $snapPrefix-$snapPostfix -j $fsetName $expClause
   
   jobId=""
@@ -222,23 +231,21 @@ function create_apisnapshot()
   # if jobId is empty, the curl call above failed
   if [[ ! -z $jobId && ! $jobId == "null" ]]; then
     # Check the jobId to finish
-    maxLoops=10
     loops=0
-    sleeptime=2
     jState="RUNNING"
     while [[ $jState = "RUNNING" && ! $loops = $maxLoops ]];
     do
       echo "  INFO: checking job $jobId for completion (Loop: $loops)."
-      sleep $sleeptime
+      sleep $sleepTime
 
 	    jState=$(curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/jobs/$jobId" 2>>/dev/null | jq ".jobs[] | .status" 2>>/dev/null | sed 's/"//g')
-	 
+      	 
 	    echo "  DEBUG: job $jobId status: $jState"
 	    # if jState is empty, then perform the jobID query without parsing
 	    if [[ -z $jState ]]; then
 	      echo "  INFO: Job status is empty, performing jobID query in unfiltered format:"
         echo "  DEBUG: command: curl -k -X GET --header 'Accept: application/json' --header \"Authorization: Basic XXX\" \"https://$apiServer/scalemgmt/v2/jobs/$jobId\""
-        sleep $sleeptime
+        sleep $sleepTime
 		    curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/jobs/$jobId"
 	    fi
 	 
@@ -372,6 +379,9 @@ if (( $snapRet > 0 )); then
     #expClause="\"expirationTime\": \"$(date +%Y-%m-%d-%H:%M:%S -d "$DATE + $snapRet day")\","
     expClause="\"expirationTime\": \"$expDate\","
   fi
+else
+  # set expDate if snapRet=0, just for logging purposes in create_apisnapshot()
+  expDate=$(date +%Y-%m-%d-%H:%M:%S)
 fi
 # echo "DEBUG: expiration clause: $expClause"
 
@@ -381,7 +391,7 @@ echo "INFO: $(date) Suspending the data base for instance $instUser"
 db2 connect to $dbName
 rc=$?
 if (( rc > 0 )); then
-  echo "ERROR: failed to connect to instance Db, exiting."
+  echo -e "\nERROR: failed to connect to instance Db, exiting.\n"
   # $sudoCmd $gpfsPath/mmsysmonc event custom snap_fail "$instUser,Failed to connect to database."
   exit 3
 fi
@@ -392,12 +402,12 @@ i=0
 while (( rc > 0 && i < maxSuspendRetry )); do
   (( i= i + 1 ))
   sleep $suspendWait
-  echo "INFO: $i. retry to suspend the database."
+  echo "  INFO: Loop $i. retry to suspend the database."
   db2 set write suspend for db
   rc=$?
 done
 if (( rc > 0 )); then
-  echo "ERROR: failed to suspend the instance Db, exiting."
+  echo -e "\nERROR: failed to suspend the instance Db, exiting.\n"
   # $sudoCmd $gpfsPath/mmsysmonc event custom snap_fail "$instUser,Failed to suspend the database."
   db2 commit
   db2 disconnect $dbName
@@ -470,7 +480,7 @@ do
   fi
 done
 if (( rc > 0 )); then
-  echo "ERROR: snapshot create failed for some entities, check the output above. The snapshot is NOT GOOD."
+  echo -e "\nERROR: snapshot create failed for some entities, check the output above. The snapshot may not be good."
   # $sudoCmd $gpfsPath/mmsysmonc event custom snap_fail "$instUser,Snapshot creation failed for one or more file systems. Check the snapshots and ensure that all file systems have one snapshot for a given point in time."
 fi
 
@@ -479,15 +489,18 @@ fi
 echo -e "\n-----------------------------------------------------------------------------"
 echo "INFO: $(date) resuming Db for instance $instUser"
 db2 set write resume for db
-rc=$?
-if (( rc > 0 )); then
-  echo "ERROR: failed to resume the instance Db. This is a critical error. Stop the instance or Db and run db2 restart db $dbName write resume."
+if (( $? > 0 )); then
+  echo -e "\nERROR: failed to resume the instance Db. This is a critical error. Stop the instance or Db and run 'db2 restart db $dbName write resume'."
   # $sudoCmd $gpfsPath/mmsysmonc event custom snap_fail "$instUser,Failed to resume the database. The database must be resumed manually"
 fi
 db2 commit
 db2 disconnect $dbName
 
 ### end program
-echo -e "\nINFO: $(date) program $0 completed successfully.\n"
+if (( rc == 0 )); then
+  echo -e "\nINFO: $(date) program $0 completed successfully.\n"
+else
+  echo -e "\nERROR: $(date) program $0 completed with errors.\n"
+fi
 
 exit 0

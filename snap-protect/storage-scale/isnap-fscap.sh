@@ -29,6 +29,8 @@
 # 04/30/25 added sudoCmd to snapconfig.json - version 1.3.1
 # 09/10/25 summarize the capacity and calculate factor, remove syntax function - Version 1.4
 # 11/13/25 allow script to be located in any directory
+# 02/03/26 Fix (AIX): replace , by . for numbers fed into convert_capacity() (bc) - version 1.4.1
+
 
 #---------------------------------------
 # global parameters
@@ -46,7 +48,7 @@ snapshotDir=".snapshots"
 instUser=$(id -un)
 
 # version
-ver=1.4
+ver=1.4.1
 
 
 # -----------------------------------------------------------------
@@ -326,10 +328,12 @@ do
 	    # echo "DEBUG: fsPath=$fsPath"
       fsCap=""
       fsCapNum=0
-      fsCap=$(/usr/bin/du "$duOpt" "$fsPath" | awk '{print $1}')
+      # Fix: replace , by . in $fsCap
+      fsCap=$(/usr/bin/du "$duOpt" "$fsPath" | awk '{print $1}' | sed 's/,/\./g')
       snapCap=""
       snapCapNum=0
-      snapCap=$(/usr/bin/du "$duOpt" "$fsPath"/$snapshotDir | awk '{print $1}')
+      # Fix: replace , by . in $snapCap
+      snapCap=$(/usr/bin/du "$duOpt" "$fsPath"/$snapshotDir | awk '{print $1}' | sed 's/,/\./g')
       if [[ ! -z $fsCap && ! -z $snapCap ]]; then
         # add unit G to fsCap on AIX, assuming we do du -gs
         if [[ $os == "AIX" ]]; then
