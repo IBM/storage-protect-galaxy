@@ -30,13 +30,14 @@
 # 09/10/25 summarize the capacity and calculate factor, remove syntax function - Version 1.4
 # 11/13/25 allow script to be located in any directory
 # 02/03/26 Fix (AIX): replace , by . for numbers fed into convert_capacity() (bc) - version 1.4.1
+# 04/28/26 adopt global functions isnapfunctions.sh with new configuration file format - version 1.5
 
 
 #---------------------------------------
 # global parameters
 #---------------------------------------
-# name of the config file
-configFile=snapconfig.json
+# common functions file name
+funcFile="isnapfunctions.sh"
 
 # path of GPFS commands
 gpfsPath="/usr/lpp/mmfs/bin"
@@ -44,68 +45,9 @@ gpfsPath="/usr/lpp/mmfs/bin"
 # name of the snapshot directory, default is .snapshots
 snapshotDir=".snapshots"
 
-# determine the name of the instance user for reference
-instUser=$(id -un)
-
 # version
-ver=1.4.1
+ver=1.5
 
-
-# -----------------------------------------------------------------
-# function parse_config to parse the config file
-#
-# Requires $configFile
-# sets the instance specific parameters: dbName, snapPrefix, dirsToSnap 
-#
-# -----------------------------------------------------------------
-function parse_config()
-{
-  # read the config file and assign the values based on the instance user name
-  found=0
-  while read -r line;
-  do
-    if [[ $line =~ ^#.* ]]; then
-      continue
-    else
-      name=$(echo $line | cut -d':' -f1 -s | sed 's/"//g' | sed 's/^ *//g')
-      val=$(echo $line | cut -d':' -f2 -s | sed 's/"//g' | sed 's/\[//g' | sed 's/\]//g' | sed 's/,*$//g' | sed 's/^ *//g')
-	  # echo "DEBUG: name=$name, val=$val"
-	  if [[ -z $name || -z $val ]]; then
-        continue
-      else
-        if [[ "$name" = "instName" ]]; then
-          if [[ "$val" = "$instUser" ]]; then
-            found=1
-          else 
-            found=0
-          fi
-        else 
-          if (( found == 1 )); then
-            if [[ "$name" = "snapPrefix" ]]; then
-              snapPrefix=$val
-            fi
-            if [[ "$name" = "dirsToSnap" ]]; then
-              dirsToSnap=$val
-            fi
-            if [[ "$name" = "sudoCommand" ]]; then
-              sudoCmd=$val
-            fi
-			      if [[ "$name" = "apiServerIP" ]]; then
-              apiServer=$val
-            fi
-			      if [[ "$name" = "apiServerPort" ]]; then
-              apiPort=$val
-            fi
-			      if [[ "$name" = "apiCredentials" ]]; then
-              apiAuth=$val
-            fi
-          fi
-        fi
-      fi
-    fi
-  done < $configFile
-  return 0
-}
 
 #------------------------------------------------------------------
 # Function: usage
@@ -195,23 +137,38 @@ function convert_capacity()
 # Main
 #---------------------------------------
 
+### determine directory where the script is started from and source the function file
+# this will set the $instUser (may be overwritten with parameter -i)
+basePath=$(dirname $0)
+if [[ $basePath = "." ]]; then
+  basePath=$PWD
+fi
+#echo "DEBUG: base path for $0: $basePath"
+
+### source common functions
+if [[ -a $basePath/$funcFile ]]; then
+  . $basePath/$funcFile
+else
+  echo "  ERROR: common functions in file $funcFile not found in $PWD."
+  exit 1 
+fi
+
 ### present banner
 echo -e "\n============================================================================================="
-echo "INFO: $(date) program $0 version $ver started by $instUser"
+echo "INFO: $(date) program $0 version $ver started by $instUser (global function $globFuncVer)"
 
 ### parse arguments from the command line
 verbose=0
 while [[ ! -z "$*" ]];
 do
   case "$1" in
-  "-i") # shift because we need the next arg in $1
-        shift 1
+  "-i") shift 1
         if [[ -z $1 ]]; then 
-		  usage "Instance user name is not specified."
-		  exit 1
-		else
-		  instUser=$1
-		fi;;
+		      usage "Instance user name is not specified."
+		      exit 1
+		    else
+		      instUser=$1
+		    fi;;
   "-h" | "--help")
         usage
         exit 1;;
@@ -221,52 +178,19 @@ do
   shift 1
 done
 
-### determine directory where the script is started from
-basePath=$(dirname $0)
-if [[ $basePath = "." ]]; then
-  basePath=$PWD
-fi
-# echo "DEBUG: base path for $0: $basePath"
-
-configFile="$basePath/$configFile"
-echo -e "DEBUG: Using config file: $configFile\n"
-### Initialize the instance specific parameters and parse the config
-if [[ ! -a $configFile ]]; then
-  echo "ERROR: config file $configFile not found. Please provide this file first."
-  exit 1
-fi
-dirsToSnap=""
-snapPrefix=""
-sudoCmd="/usr/bin/sudo"
-apiServer=""
-apiPort=""
-apiAuth=""
-parse_config
-#echo -e "DEBUG: Snapshot configuration from $configFile:\n  dbName=$dbName\n  dirsToSnap=$dirsToSnap\n  snapPrefix=$snapPrefix\n  snapRet=$snapRet\n  serverInstDir=$serverInstDir\n  sudoCommand=$sudoCmd\n  apiServer=$apiServer\n  apiPort=$apiPort\n  apiAuth=$apiAuth\n"
-
-
-### Check required parameters
-# check that dirsToSnap exists, if not then exit
-if [[ -z $dirsToSnap ]]; then
-  echo "ERROR: parameter dirsToSnap is emtpy. Instance user name is $instUser."
-  echo "       The user name $instUser may not be configured in $configFile."
-  usage "Specify the instance user with parameter -i"
+### get the parameters for this instance user from the config_file
+echo "INFO: Parsing configuration parameters from config file $configFile for instance user $instUser."
+if ! parse_config; then
   exit 2
 fi
 
-# if API server was specified and no credentials then exit, set API port to default 443 if not set
-if [[ ! -z $apiServer ]]; then
-  if [[ -z $apiAuth ]]; then
-    echo "ERROR: REST API credentials not defined in configuration file"
-    # $sudoCmd $gpfsPath/mmsysmonc event custom snap_fail "$instUser, No apiAuthentication defined for API server $apiServer in configuration file."
-    exit 2
-  fi
-  if [[ ! -z $apiPort ]]; then
-    apiServer="$apiServer:$apiPort"
-  else
-    apiServer="$apiServer:443"
-  fi
+### check config parameters and apply default values where possible
+# echo "INFO: Checking configuration parameters."
+if ! check_config; then
+  exit 2
 fi
+#print_config
+
 
 ### Print method for gathering facts
 if [[ -z $apiServer ]]; then
@@ -319,7 +243,7 @@ do
 	  if [[ -z $apiServer ]]; then
 	    fsPath=$($sudoCmd $gpfsPath/mmlsfileset $fsName | grep $fsetName  | awk '{print $3}')
 	  else
-	    fsPath=$(curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/filesystems/$fsName/filesets/$fsetName" 2>>/dev/null | jq ".filesets[] | .config.path" 2>>/dev/null | sed 's/\"//g')
+	    fsPath=$(curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiCredential" "https://$apiServer/scalemgmt/v2/filesystems/$fsName/filesets/$fsetName" 2>>/dev/null | jq ".filesets[] | .config.path" 2>>/dev/null | sed 's/\"//g')
 	  fi
     
     # if there is a fileset path then get capacities
