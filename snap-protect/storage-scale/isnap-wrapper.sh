@@ -34,6 +34,8 @@
 # 04/30/25 add logPath and log command output into logfile
 # 04/30/25 add instance name as command line option, along with operation codes - version 0.91
 # 11/13/25 allow script to be located in any directory, replace syntax by usage function - version 1.0
+# 04/28/26 pass through apiCredential, source instance user profile for create operation - version 1.1
+
 
 # Global variables
 #------------------
@@ -48,7 +50,7 @@ logPath="/var/log/isnap"
 os=$(uname -s)
 
 # version
-ver=1.0
+ver=1.1
 
 
 #------------------------------------------------------------------
@@ -137,11 +139,17 @@ do
   shift 1
 done
 
-# check arguments
+### check arguments
+# instName exist, then check the home path
 if [[ -z $instName ]]; then
    usage "Instance name not specified. Specify the instance name."
+else
+  instPath=$(cat /etc/passwd | grep -w $instName | cut -d: -f 6)
+  if [[ -z $instPath ]]; then
+     echo "WRAPPER ERROR: unable to determine instance home path. Make sure the instance user $instName is configured on the system."
+     exit 8
+  fi
 fi
-
 if [[ -z $op ]]; then
    usage "Operation not specified. Specify the operation to be executed."
 fi
@@ -174,6 +182,11 @@ do
    fi
 done
 
+# if apiCredential is provided as environment variable, then pass it through
+if [[ ! -z $apiCredential ]]; then
+  echo "WRAPPER INFO: passing apiCredential from environment."
+fi
+
 # perform operation
 logF="$logPath/$instName-$op.log"
 echo "WRAPPER DEBUG: writing to logfile $logF"
@@ -181,28 +194,29 @@ echo -e "WRAPPER INFO: $(date) starting operation $op ($age) for instance $instN
 rc=0
 case "$op" in
 create)
-  su - $instName -c "$isnapPath/isnap-create.sh -r" >> $logF 2>&1
+  # for interacting with db2 we must source the .profile for the instance user (AIX)
+  su - $instName -c ". $instPath/.profile; apiCredential=$apiCredential $isnapPath/isnap-create.sh -r" >> $logF 2>&1
   rc=$?
   if (( rc > 0 )); then
     rc=8
   fi;;
 
 delete) 
-  su - $instName -c "$isnapPath/isnap-del.sh -g $age" >> $logF 2>&1
+  su - $instName -c "apiCredential=$apiCredential $isnapPath/isnap-del.sh -g $age" >> $logF 2>&1
   rc=$?
   if (( rc > 0 )); then
     rc=8
   fi;;
 
 list)
-  su - $instName -c "$isnapPath/isnap-list.sh" >> $logF 2>&1
+  su - $instName -c "apiCredential=$apiCredential $isnapPath/isnap-list.sh" >> $logF 2>&1
   rc=$?
   if (( rc > 0 )); then
     rc=8
   fi;;
 
 fscap)
-  su - $instName -c "$isnapPath/isnap-fscap.sh" >> $logF 2>&1
+  su - $instName -c "apiCredential=$apiCredential $isnapPath/isnap-fscap.sh" >> $logF 2>&1
   rc=$?
   if (( rc > 0 )); then
     rc=8
