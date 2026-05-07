@@ -30,22 +30,19 @@
 # History
 # 04/30/25 added sudoCmd to snapconfig.json - version 1.2.1
 # 11/13/25 allow script to be located in any directory; replace syntax by usage function - version 1.3
+# 04/28/26 adopt global functions isnapfunctions.sh with new configuration file format - version 1.4
 
 #---------------------------------------
 # global parameters
 #---------------------------------------
-# name of the config file
-configFile=snapconfig.json
-#configFile=snapconfig.json
+# common functions file name
+funcFile="isnapfunctions.sh"
 
 # path of GPFS commands
 gpfsPath="/usr/lpp/mmfs/bin"
 
-# determine the name of the instance user for reference
-instUser=$(id -un)
-
 # version of the program
-ver="1.3"
+ver="1.4"
 
 
 #------------------------------------------------------------------
@@ -69,63 +66,6 @@ function usage()
 
 
 # -----------------------------------------------------------------
-# function parse_config to parse the config file
-#
-# Requires $configFile
-# sets the instance specific parameters: dbName, snapPrefix, dirsToSnap 
-#
-# -----------------------------------------------------------------
-function parse_config()
-{
-  # read the config file and assign the values based on the instance user name
-  found=0
-  while read -r line;
-  do
-    if [[ $line =~ ^#.* ]]; then
-      continue
-    else
-      name=$(echo $line | cut -d':' -f1 -s | sed 's/"//g' | sed 's/^ *//g')
-      val=$(echo $line | cut -d':' -f2 -s | sed 's/"//g' | sed 's/\[//g' | sed 's/\]//g' | sed 's/,*$//g' | sed 's/^ *//g')
-	  # echo "DEBUG: name=$name, val=$val"
-	  if [[ -z $name || -z $val ]]; then
-        continue
-      else
-        if [[ "$name" = "instName" ]]; then
-          if [[ "$val" = "$instUser" ]]; then
-            found=1
-          else 
-            found=0
-          fi
-        else 
-          if (( found == 1 )); then
-            if [[ "$name" = "snapPrefix" ]]; then
-              snapPrefix=$val
-            fi
-            if [[ "$name" = "dirsToSnap" ]]; then
-              dirsToSnap=$val
-            fi
-            if [[ "$name" = "sudoCommand" ]]; then
-              sudoCmd=$val
-            fi
-			      if [[ "$name" = "apiServerIP" ]]; then
-              apiServer=$val
-            fi
-			      if [[ "$name" = "apiServerPort" ]]; then
-              apiPort=$val
-            fi
-			      if [[ "$name" = "apiCredentials" ]]; then
-              apiAuth=$val
-            fi
-          fi
-        fi
-      fi
-    fi
-  done < $configFile
-  return 0
-}
-
-
-# -----------------------------------------------------------------
 # function list_apisnapshot to list snapshots for filesystem and fileset
 #
 # Requires $configFile
@@ -140,27 +80,27 @@ function list_apisnapshot()
   frc=0
   # list snapshots
   if [[ ! -z $fsetName ]]; then
-    # echo "DEBUG: curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/filesystems/$fsName/filesets/$fsetName/snapshots$snapSuffix?fields=snapshotName%2Cstatus%2CsnapID%2Ccreated%2CexpirationTime%2CfilesetName""
+    # echo "DEBUG: curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiCredential" "https://$apiServer/scalemgmt/v2/filesystems/$fsName/filesets/$fsetName/snapshots$snapSuffix?fields=snapshotName%2Cstatus%2CsnapID%2Ccreated%2CexpirationTime%2CfilesetName""
 	
 	echo -e "\nSnapshots in file system $fsName and fileset $fsetName (via REST API):"
 	if [[ -a $jqPath ]]; then
 	  printf "%-23s %-7s %-7s %-23s %-31s %-10s %s\n" "SnapshotName" "Id" "State" "CreationTime" "ExpirationTime" "Fileset"
-	  curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/filesystems/$fsName/filesets/$fsetName/snapshots$snapSuffix?fields=snapshotName%2Cstatus%2CsnapID%2Ccreated%2CexpirationTime%2CfilesetName"  2>/dev/null | jq -r '.snapshots[] | [.snapshotName, .snapID, .status, .created, .expirationTime, .filesetName] |  @csv' 2>/dev/null | sed 's/",/\t/g' | sed 's/,"/\t/g' |sed 's/\"//g'
+	  curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiCredential" "https://$apiServer/scalemgmt/v2/filesystems/$fsName/filesets/$fsetName/snapshots$snapSuffix?fields=snapshotName%2Cstatus%2CsnapID%2Ccreated%2CexpirationTime%2CfilesetName"  2>/dev/null | jq -r '.snapshots[] | [.snapshotName, .snapID, .status, .created, .expirationTime, .filesetName] |  @csv' 2>/dev/null | sed 's/",/\t/g' | sed 's/,"/\t/g' |sed 's/\"//g'
 	  frc=$?
 	else
-	  curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/filesystems/$fsName/filesets/$fsetName/snapshots$snapSuffix?fields=snapshotName%2Cstatus%2CsnapID%2Ccreated%2CexpirationTime%2CfilesetName" 2>/dev/null
+	  curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiCredential" "https://$apiServer/scalemgmt/v2/filesystems/$fsName/filesets/$fsetName/snapshots$snapSuffix?fields=snapshotName%2Cstatus%2CsnapID%2Ccreated%2CexpirationTime%2CfilesetName" 2>/dev/null
 	  frc=$?
 	fi
   else
-    # echo "DEBUG: curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/filesystems/$fsName/snapshots$snapSuffix?fields=snapshotName%2Cstatus%2CsnapID%2Ccreated%2CexpirationTime%2CfilesetName""
+    # echo "DEBUG: curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiCredential" "https://$apiServer/scalemgmt/v2/filesystems/$fsName/snapshots$snapSuffix?fields=snapshotName%2Cstatus%2CsnapID%2Ccreated%2CexpirationTime%2CfilesetName""
 	
 	echo -e "\nGlobal snapshots in filesystem $fsName: (via REST API)"
 	if [[ -a $jqPath ]]; then
 	  printf "%-23s %-7s %-7s %-23s %-31s %-10s %s\n" "SnapshotName" "Id" "State" "CreationTime" "ExpirationTime" "Fileset"
-	  curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/filesystems/$fsName/snapshots$snapSuffix?fields=snapshotName%2Cstatus%2CsnapID%2Ccreated%2CexpirationTime%2CfilesetName"  2>/dev/null | jq -r '.snapshots[] | [.snapshotName, .snapID, .status, .created, .expirationTime, .filesetName] | @csv' | 2>/dev/null sed 's/",/\t/g' | sed 's/,"/\t/g' |sed 's/\"//g'
+	  curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiCredential" "https://$apiServer/scalemgmt/v2/filesystems/$fsName/snapshots$snapSuffix?fields=snapshotName%2Cstatus%2CsnapID%2Ccreated%2CexpirationTime%2CfilesetName"  2>/dev/null | jq -r '.snapshots[] | [.snapshotName, .snapID, .status, .created, .expirationTime, .filesetName] | @csv' | 2>/dev/null sed 's/",/\t/g' | sed 's/,"/\t/g' |sed 's/\"//g'
 	  frc=$?
 	else
-	  curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiAuth" "https://$apiServer/scalemgmt/v2/filesystems/$fsName/snapshots$snapSuffix?fields=snapshotName%2Cstatus%2CsnapID%2Ccreated%2CexpirationTime%2CfilesetName" 2>/dev/null
+	  curl -k -X GET --header 'Accept: application/json' --header "Authorization: Basic $apiCredential" "https://$apiServer/scalemgmt/v2/filesystems/$fsName/snapshots$snapSuffix?fields=snapshotName%2Cstatus%2CsnapID%2Ccreated%2CexpirationTime%2CfilesetName" 2>/dev/null
 	  frc=$?
 	fi
   fi
@@ -173,11 +113,27 @@ function list_apisnapshot()
 # Main
 #---------------------------------------
 
-# present banner
-echo -e "\n============================================================================================="
-echo -e "INFO: $(date) program $0 version $ver started by $instUser"
+### determine directory where the script is started from and source the function file
+# this will set the $instUser (may be overwritten with parameter -i)
+basePath=$(dirname $0)
+if [[ $basePath = "." ]]; then
+  basePath=$PWD
+fi
+#echo "DEBUG: base path for $0: $basePath"
 
-# parse arguments from the command line
+### source common functions
+if [[ -a $basePath/$funcFile ]]; then
+  . $basePath/$funcFile
+else
+  echo "  ERROR: common functions in file $funcFile not found in $PWD."
+  exit 1 
+fi
+
+### present banner
+echo -e "\n============================================================================================="
+echo -e "INFO: $(date) program $0 version $ver started by $instUser (global function $globFuncVer)"
+
+### parse arguments from the command line
 verbose=0
 snapName=""
 while [[ ! -z "$*" ]];
@@ -186,19 +142,19 @@ do
   "-i") # shift because we need the next arg in $1
         shift 1
         if [[ -z $1 ]]; then 
-		  usage "Instance user name is not specified."
-		  exit 1
-		else
-		  instUser=$1
-		fi;;
+		      usage "Instance user name is not specified."
+		      exit 1
+		    else
+		      instUser=$1
+	 	    fi;;
   "-v") verbose=1;;
   "-s") shift 1
         if [[ -z $1 ]]; then 
-		  usage "Snapshot name is not specified."
-		  exit 1
-		else
-		  snapName=$1
-		fi;;
+		      usage "Snapshot name is not specified."
+		      exit 1
+		    else
+		      snapName=$1
+		    fi;;
   "-h" | "--help")
         usage
         exit 1;;
@@ -207,55 +163,22 @@ do
   esac
   shift 1
 done
-
-### determine directory where the script is started from
-basePath=$(dirname $0)
-if [[ $basePath = "." ]]; then
-  basePath=$PWD
-fi
-#echo "DEBUG: base path for $0: $basePath"
-
-configFile="$basePath/$configFile"
-echo -e "DEBUG: Using config file: $configFile\n"
-# echo "DEBUG: configfile: $configFile"
-# Initialize the instance specific parameters and parse the config
-if [[ ! -a $configFile ]]; then
-  echo "ERROR: config file $configFile not found. Please provide this file first."
-  exit 1
-fi
-dirsToSnap=""
-snapPrefix=""
-sudoCmd="/usr/bin/sudo"
-apiServer=""
-apiPort=""
-apiAuth=""
-parse_config
-#echo -e "DEBUG: Snapshot configuration from $configFile:\n  dbName=$dbName\n  dirsToSnap=$dirsToSnap\n  snapPrefix=$snapPrefix\n  snapRet=$snapRet\n  serverInstDir=$serverInstDir\n  sudoCommand=$sudoCmd\n  apiServer=$apiServer\n  apiPort=$apiPort\n  apiAuth=$apiAuth\n"
-
-
-
-### Check required parameters
-# check that dirsToSnap exists, if not then exit
-if [[ -z $dirsToSnap ]]; then
-  echo "ERROR: parameter dirsToSnap is emtpy. Instance user name is $instUser."
-  echo "       The user name $instUser may not be configured in $configFile."
+ 
+### get the parameters for this instance user from the config_file
+echo "INFO: Parsing configuration parameters from config file $configFile for instance user $instUser."
+if ! parse_config; then
   exit 2
 fi
-# if API server was specified and no credentials then exit, set API port to default 443 if not set
-if [[ ! -z $apiServer ]]; then
-  if [[ -z $apiAuth ]]; then
-    echo "ERROR: REST API credentials not defined in configuration file"
-    # $sudoCmd $gpfsPath/mmsysmonc event custom snap_fail "$instUser, No apiAuthentication defined for API server $apiServer in configuration file."
-    exit 2
-  fi
-  if [[ ! -z $apiPort ]]; then
-    apiServer="$apiServer:$apiPort"
-  else
-    apiServer="$apiServer:443"
-  fi
-fi
 
-# compose dParam
+### check config parameters and apply default values where possible
+# echo "INFO: Checking configuration parameters."
+if ! check_config; then
+  exit 2
+fi
+#print_config
+
+
+### compose snap list parameter
 if [[ $verbose = 1 ]]; then
   dParam="-d --block-size auto"
 else
