@@ -2,6 +2,21 @@
 
 -------------------------
 
+## Important information for customers upgrading the scripts
+
+The following changes were published in May 2026 and require actions when upgrading the `isnap` scripts. 
+
+| Change | Required action | Reason & benefit |
+|--------|-----------------|------------------|
+| The configuration file `snapconfig.json` was renamed to `isnapconfig.json` | rename `snapconfig.json` to `isnapconfig.json` | Consistent file naming |
+| The configuration parameter `apiCredentials` was renamed to `apiCredential` | rename `apiCredentials` to `apiCredential` in configuration file `isnapconfig.json` | Consistent parameter naming |
+| The configuration parameter `apiCredential` can be ommitted from the configuration file `isnapconfig.json` and provided as environment variable. This also works with the `isnap-wrapper.sh` script | to provide `apiCredential` as environment variable use: `apiCredential=<base64-encoded user:password> isnap-script [parameters]` | Improved security allowing to eliminate static credentials in config files |
+| The configuration file `isnapconfig.json` is parsed using `jq` | ensure the tool `jq` is installed in `/usr/bin/jq` and test the syntax of the configuration file using: `jq . isnapconfig.json` | Consistent format of configuration file | 
+| New global functions and parameter file `isnapfunctions.sh` | install `isnapfunctions.sh` in the same directory of the `isnap` scripts with the same permissions| Consolidate code for parsing configuration file in one script instead of parsing configuration files in each `isnap` script. This makes implementation of changes to configuration file easier | 
+
+
+To install the new versions of `isnap` scripts follow the guidance in section [Installation and configuration](#Installation-and-configuration).
+
 
 ## Introduction
 
@@ -257,6 +272,8 @@ When using the REST API, then a REST API user with the role `snapAdmin` must be 
 - REST API user name in the `snapAdmin` role
 - REST API user password
 
+The REST API user name and password must be encoded in base64. The resulting encoded credentail can either be provided as configuration parameter `apiCredential` in the configuration file or as environment variable `apiCredential`. See section [Obtain REST API credentials](#Obtain-REST-API-credentials) for more details. 
+
 
 **Note:** When using the REST API, then the restore is always performed in manual mode. 
 
@@ -293,7 +310,7 @@ If there are multiple Storage Protect instance, then the required permissin can 
 
 The command `/usr/lpp/mmfs/bin/mmsysmonc` is required, when using event notifications (see [Event notification](#Event-notification). 
 
-If a different command than `/usr/bin/sudo` is used for privilege escalation, then the configuration parameter `sudoCommand` can be set to the command that is used in the configuration file `snapconfig.json` (see [Adjust configuration files](#Adjust-configuration-files)).
+If a different command than `/usr/bin/sudo` is used for privilege escalation, then the configuration parameter `sudoCommand` can be set to the command that is used in the configuration file `isnapconfig.json` (see [Adjust configuration files](#Adjust-configuration-files)).
 
 
 ------------------------------
@@ -323,10 +340,11 @@ After cloning the repo, the `isnap-scripts` reside in `/tmp/storage-protect-gala
 | isnap-list.sh    | Lists all consistent immutable snapshots for the Storage Protect instance | [List safeguarded copy](#List-safeguarded-copy) |
 | isnap-restore.sh | Restores consistent immutable snapshots for the Storage Protect instance | [Restore safeguarded copy](#Restore-safeguarded-copy) |
 | isnap-wrapper.sh | Wraps the other `isnap-scripts`, can be used with schedulers | [Wrapper script](#Wrapper-script) |
-| snapconfig.json | Configuration file describing the Storage Protect instance configuration and REST API connection | [Adjust configuration files](#Adjust-configuration-files) |
+| isnapfunctions.sh| Provides common functions and parameters for all `isnap-scripts` |
+| isnapconfig.json | Configuration file describing the Storage Protect instance configuration and REST API connection | [Adjust configuration files](#Adjust-configuration-files) |
 
 
-The script files (`*.sh`) are further described in sectio [Workflows and scripts](#Workflows-and-scripts). The configuration file (`snapconfig.json`) is described in the next section [Adjust configuration files](#Adjust-configuration-files).
+The script files (`*.sh`) are further described in sectio [Workflows and scripts](#Workflows-and-scripts). The configuration file (`isnapconfig.json`) is described in the next section [Adjust configuration files](#Adjust-configuration-files).
 
 
 ### Copy files to common directory
@@ -339,7 +357,7 @@ Copy the `isnap-scripts` to a directory with read and execute permissions for th
 # cd /usr/local/bin
 # chmod +x isnap-*.sh
 # chown instUser:instUserGroup isnap*.sh
-# chown instUser:instUserGroup snapconfig.json
+# chown instUser:instUserGroup isnapconfig.json
 # chown root:root isnap-wrapper.sh
 ```
 
@@ -347,7 +365,8 @@ Copy the `isnap-scripts` to a directory with read and execute permissions for th
 Replace  `instUser` and `instUserGroup` with the user and group name of the instance users. Find below an example of the permission and ownership for the `isnap-scripts` whereby the instance user name is `tsminst1` and the instance user group is `tsmsrvrs`:
 
 ```
--rw-r--r--. 1 tsminst1 tsmsrvrs  snapconfig.json
+-rw-r--r--. 1 tsminst1 tsmsrvrs  isnapconfig.json
+-rwxr-xr-x. 1 tsminst1 tsmsrvrs  isnapfunctions.sh
 -rwxr-xr-x. 1 tsminst1 tsmsrvrs  isnap-create.sh
 -rwxr-xr-x. 1 tsminst1 tsmsrvrs  isnap-delete.sh
 -rwxr-xr-x. 1 tsminst1 tsmsrvrs  isnap-fscap.sh
@@ -360,7 +379,7 @@ Replace  `instUser` and `instUserGroup` with the user and group name of the inst
 Add the script path (e.g. `/usr/local/bin`) to the `$PATH` variable of the instance user.
 
 
-**Note:** all `isnap-scripts` including the configuration file `snapconfig.json` must be copied into the same directory on all Storage Protect instances.
+**Note:** all `isnap-scripts` including the configuration file `isnapconfig.json` must be copied into the same directory on all Storage Protect instances.
 
 **Do not copy the files to the Storage Protect instance user home directory, because this directory will be overwritten upon restore.**
 
@@ -369,7 +388,7 @@ Add the script path (e.g. `/usr/local/bin`) to the `$PATH` variable of the insta
 
 ### Adjust configuration files
 
-The configuration of each Storage Protect instance is described in the configuration file `snapconfig.json`. For each Storage Protect instance a set of configuration parameters is required. Find below the configuration parameters for each instance. The column `Required` indicates if this parameter is required (`yes`) or not. Optional configuration parameters have default values that can be overwritten in the configuration file.
+The configuration of each Storage Protect instance is described in the configuration file `isnapconfig.json`. For each Storage Protect instance a set of configuration parameters is required. Find below the configuration parameters for each instance. The column `Required` indicates if this parameter is required (`yes`) or not. Optional configuration parameters have default values that can be overwritten in the configuration file.
 
 
 | Parameter | Description | Required | Example |
@@ -384,13 +403,13 @@ The configuration of each Storage Protect instance is described in the configura
 | autoRestore | Controls if restore is done automatically or manually when using the CLI. When REST API is used, then restore is always done manually, regardless of the setting of `autoRestore`. Default is `false` (manual restore) | no | true or false (lower case) |
 | apiServerIP | IP address or host name of the REST API server. If this parameter is set, then the REST API is used instead of the CLI. | when API is used | x.x.x.x |
 | apiServerPort | IP port of the REST API server. Required if `apiServerIP` is set. Default is 443 | when API is used | 443 |
-| apiCredentials | REST API user and password encoded in base64 as User:Password. Required if `apiServerIP` is set.  | when API is used | YWRtaW46VGVzdDEyMzRhIQ== |
+| apiCredential | Base64 encoded user and password for Storage Scale REST API, for details see section [Planning and Preparation](#Storage-Scale-REST-API). Parameter `apiCredential` is optional in the configuration file and can instead be provided as an environment variable `apiCredential` (see section [Obtain REST API credentials](#Obtain-REST-API-credentials))  | when API is used | xxxxx |
 
 
-When the parameters `apiServerIP`, `apiServerPort` and `apiCredentials` are defined in the configuration file, then the Storage Scale REST API is used instead of the command line. When the REST API is used, then the restore of immutable snapshots is always done manually (see section [Restore safeguarded copy](#Restore-safeguarded-copy) for more details).
+When the parameters `apiServerIP`, `apiServerPort` and `apiCredential` are defined in the configuration file, then the Storage Scale REST API is used instead of the command line. Parameter `apiCredential` can also be provided as environment variable. When the REST API is used, then the restore of immutable snapshots is always done manually (see section [Restore safeguarded copy](#Restore-safeguarded-copy) for more details).
 
 
-The configuration parameter for each Storage Protect instance is described as a JSON-formatted objects in the configuration file `snapconfig.json`. Here is an example for the configuration file for two instances (`tsminst1` and `tsminst2`). The instance `tsminst1` is configured to use the REST API, while instance `tsminst2` is configured to use the CLI in automatic restore mode. The parameter `dirsToSnap` includes the file system and fileset name for each instance individually in the form: `fsName+fsetName`:
+The configuration parameter for each Storage Protect instance is described as a JSON-formatted objects in the configuration file `isnapconfig.json`. Here is an example for the configuration file for two instances (`tsminst1` and `tsminst2`). The instance `tsminst1` is configured to use the REST API, while instance `tsminst2` is configured to use the CLI in automatic restore mode. The parameter `dirsToSnap` includes the file system and fileset name for each instance individually in the form: `fsName+fsetName`:
 
 ```
 [
@@ -403,7 +422,7 @@ The configuration parameter for each Storage Protect instance is described as a 
 		"sudoCommand": "/usr/bin/sudo",
 		"apiServerIP": "REST API server IP",
 		"apiServerPort": "REST API server IP, default is 443",
-		"apiCredentials": "base64 encoded API user User:Password",
+		"apiCredential": "base64 encoded API user User:Password",
 		"dirsToSnap": ["tsmdb+inst01", "tsmlog+inst01", "tsmalog+inst01", "tsmstg+inst01", "tsminst+inst01", "tsmbackup+inst01"]
 	},
 	{
@@ -431,12 +450,19 @@ When the Storage Scale REST API is used for managing consistent immutable copies
 /usr/lpp/mmfs/gui/cli/mkuser snapadmin -p <password> -g SnapAdmin
 ```
 
-To use the API user credentials, the username and password must be base64 encoded. The following command encodes the username `user` and password `secret` in base64, the resulting string can be used as value for the parameter `apiCredentials` in the configuration file:
+To use the API user credentials, the username and password must be base64 encoded. The following command encodes the username `user` and password `secret` in base64, the resulting string can be used as value for the parameter `apiCredential` in the configuration file or as environment variable:
 
 ```
 echo -n user:secret | base64
 dXNlcjpzZWNyZXQ=
 ```
+
+The following example shows how to invoke the script `isnap-list.sh` with the REST API credentials provided as environment variable:
+
+```
+# apiCredential_Arr="Zmxhc2gxOnBhc3N3b3JkMQo=" isnap-list.sh 
+```
+
 
 It is recommended to test the API connection from the servers where the scripts are installed. The following example gets the cluster configuration using the REST API. The base64 encoded credential is following the string `Authorization: Basic`:
 
@@ -472,7 +498,7 @@ Defaults    secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/lpp/mmfs/bin
 
 **Note:** To leverage event notification (see [Event notification](#Event-notification)), the command `/usr/lpp/mmfs/bin/mmsysmonc` must also be allowed for the instance user.  
 
-**Note:** If a different command than `/usr/bin/sudo` is used for privilege escalation, then the configuration parameter `sudoCommand` can be set to the command that is used in the configuration file `snapconfig.json` (see [Adjust configuration files](#Adjust-configuration-files)).
+**Note:** If a different command than `/usr/bin/sudo` is used for privilege escalation, then the configuration parameter `sudoCommand` can be set to the command that is used in the configuration file `isnapconfig.json` (see [Adjust configuration files](#Adjust-configuration-files)).
 
 If the snapshots are managed via the REST API, then the instance user does not need the sudo-privileges for the CLI based snapshot commands. 
 
@@ -701,7 +727,7 @@ Test and monitor the client schedules. The `isnap-wrapper.sh` scripts stores log
 
 ## Workflows and scripts
 
-This section describes the workflows and scripts implementing these workflows. All scripts require a valid configuration file `snapconfig.json`, see section [Adjust configuration files](#Adjust-configuration-files) for more details. 
+This section describes the workflows and scripts implementing these workflows. All scripts require a valid configuration file `iisnapconfig.json`, see section [Adjust configuration files](#Adjust-configuration-files) for more details. 
 
 All scripts and the configuration file are stored in a common directory that has read and execute permissions for the instance users or group (e.g., `/usr/local/bin`). 
 
@@ -717,7 +743,7 @@ The creation of safeguarded copies runs in three phases:
 - **Phase 3:** Unfreeze file sysetms and resume the Db2 of the instances. 
 
 
-The `isnap-create.sh` script requires the configuration file `snapconfig.json` to be stored the same directory with read and execute permission for the instance users or group.  
+The `isnap-create.sh` script requires the configuration file `iisnapconfig.json` to be stored the same directory with read and execute permission for the instance users or group.  
 
 The Storage Protect instance must be running. 
 
@@ -731,7 +757,7 @@ isnap-create.sh -r | --run
 ```
 
 
-This script creates SGC for all relevant filesets defined as parameter `dirsToSnap` in the configuration file `snapconfig.json`. The name of the SGC created at a given point in time is composed from the `snapPrefix` parameter and the current time stamp. The retention time configured in parameter `snapRetention` is applied for all SGC.
+This script creates SGC for all relevant filesets defined as parameter `dirsToSnap` in the configuration file `iisnapconfig.json`. The name of the SGC created at a given point in time is composed from the `snapPrefix` parameter and the current time stamp. The retention time configured in parameter `snapRetention` is applied for all SGC.
 
 If the Storage Protect server instance is not running, or the script is executed on a node where the Storage Protect instance does not run, then no safeguarded copy is created. 
 
@@ -767,7 +793,7 @@ The script does not perform the restore under the following conditions
 - Snapshot to be restored does not exist on all filesets
 
 
-Depending on the parameter configure in `snapconfig.json` the snapshot restore in performed in automated or in manual mode. In general, if the REST API is configured in the configuration file, then the restore in performed in manual mode, regardless of the setting of parameter `autoRestore` (see [Restore in automated mode](#Restore-in-automated-mode)). If the command line (CLI) is used, then the setting of parameter `autoRestore` is considered. If the parameter `autoRestore` is set to `true` then the restore in done in automated mode (see [Restore in manual mode](#Restore-in-manual-mode)). If the parameter is set to `false` then the restore is done in manual mode. For more information about configuration parameters see [Adjust configuration files](#Adjust-configuration-files).
+Depending on the parameter configure in `iisnapconfig.json` the snapshot restore in performed in automated or in manual mode. In general, if the REST API is configured in the configuration file, then the restore in performed in manual mode, regardless of the setting of parameter `autoRestore` (see [Restore in automated mode](#Restore-in-automated-mode)). If the command line (CLI) is used, then the setting of parameter `autoRestore` is considered. If the parameter `autoRestore` is set to `true` then the restore in done in automated mode (see [Restore in manual mode](#Restore-in-manual-mode)). If the parameter is set to `false` then the restore is done in manual mode. For more information about configuration parameters see [Adjust configuration files](#Adjust-configuration-files).
 
 
 #### Restore in automated mode
@@ -800,7 +826,7 @@ If the server instance directory is different than the instance user home direct
 
 When using the Storage Scale REST API, then the API user must have the role `snapshot administrator`. 
 
-The `isnap-restore.sh` script requires the configuration file `snapconfig.json` to be stored the same directory with read and execute permission for the instance users or group. 
+The `isnap-restore.sh` script requires the configuration file `isnapconfig.json` to be stored the same directory with read and execute permission for the instance users or group. 
 
 The Storage Protect instance must not be running when running the scripts.
 
@@ -827,7 +853,7 @@ Safeguarded copies are listed by Storage Protect instance using the script [isna
 
 The script uses the command `mmlssnapshot`. If the configuration parameter `apiServerIP` is specified, then the Storage Scale REST API is used. 
 
-The `isnap-list.sh` script requires the configuration file `snapconfig.json` to be stored the same directory with read and execute permission for the instance users or group. 
+The `isnap-list.sh` script requires the configuration file `isnapconfig.json` to be stored the same directory with read and execute permission for the instance users or group. 
 
 
 **Syntax:**
@@ -886,7 +912,7 @@ Safeguarded copies can be deleted for a Storage Protect instance using the scrip
 
 The script uses the command `mmdelsnapshot`. If the configuration parameter `apiServerIP` is specified, then the Storage Scale REST API is used. 
 
-The `isnap-del.sh` script requires the configuration file `snapconfig.json` to be stored the same directory with read and execute permission for the instance users or group. 
+The `isnap-del.sh` script requires the configuration file `isnapconfig.json` to be stored the same directory with read and execute permission for the instance users or group. 
 
 **Syntax:**
 
@@ -909,7 +935,7 @@ The scripts writes runtime information to standard out.
 
 File system usage information can be displayed using the script [isnap-fscap.sh](isnap-fscap.sh). The script can be executed by any user who has permissions to execute it. When not executed by the instance user, then the command line parameter `-i instance-name` must be provided. 
 
-The `isnap-fscap.sh` script requires the configuration file `snapconfig.json` to be stored the same directory with read and execute permission for the instance users or group. 
+The `isnap-fscap.sh` script requires the configuration file `isnapconfig.json` to be stored the same directory with read and execute permission for the instance users or group. 
 
 
 **Syntax:**
@@ -954,6 +980,8 @@ Note, the scipt uses the configuration file (see [Adjust configuration files](#A
 ### Wrapper script
 
 The wrapper script `isnap-wrapper.sh` can be used to schedule SGC operations such as creation, deletion, list and file system capacity statistics. The wrapper script is launched by the root user and executes the specified SGC operations as instance user (via `su instanceUser -c "SGC operation command"`). The `isnap-wrapper.sh` script is placed on the Storage Protect server and can be invoked by a scheduler running either local on the server or remotely. 
+
+If the environmental variable `apiCredential` is set, then this variable is passed to the appropriate `isnap` script. The environmental variable `apiCredential` can be used to pass Storage Scale REST API credentials to the `isnap` script. See section [Obtain REST API credentials](#Obtain-REST-API-credentials) for more details. 
 
 
 **Syntax:**
