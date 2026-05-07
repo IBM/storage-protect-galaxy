@@ -18,7 +18,7 @@
 
 # History
 #----------
-# 04/28/26 first implemenation: parse config with new configuration file name and format - version 1.0
+# 04/28/26 first implemenation: parse config with new configuration file name, pass through apiCredential_Arr from environment - version 1.0
 
 
 #==================================================================
