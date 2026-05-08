@@ -25,9 +25,9 @@ Provides a comprehensive view of the total Front-End Terabytes (FETB) capacity a
 ## 3. SQL Query
 
 ```sql
-SELECT 
-  SUM(COALESCE(f.fecapacity, 0)) / 1024 / 1024 / 1024 AS total_fetb_gb
-FROM filespaces f;
+SELECT
+    SUM(COALESCE(f.fecapacity, 0)) / 1024 / 1024 / 1024 AS total_fetb_gb
+FROM FILESPACES f
 ```
 
 ---
