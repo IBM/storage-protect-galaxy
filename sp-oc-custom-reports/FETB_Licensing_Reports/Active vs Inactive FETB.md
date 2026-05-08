@@ -25,19 +25,22 @@ Provides a summary of Front-End Terabytes (FETB) capacity categorized by node ac
 ## 3. SQL Query
 
 ```sql
-SELECT 
-  CASE 
-    WHEN DAYS(CURRENT DATE) - DAYS(n.lastacc_time) < 90 THEN 'ACTIVE'
+SELECT
+  CASE
+    WHEN DAYS(CURRENT_DATE) - DAYS(DATE(n.lastacc_time)) < 90
+      THEN 'ACTIVE'
     ELSE 'INACTIVE'
   END AS activity_status,
-  SUM(COALESCE(f.fecapacity, 0)) / 1024 / 1024 / 1024 AS fetb_gb
-FROM nodes n
-JOIN filespaces f ON n.node_name = f.node_name
-GROUP BY 
-  CASE 
-    WHEN DAYS(CURRENT DATE) - DAYS(n.lastacc_time) < 90 THEN 'ACTIVE'
+  SUM(COALESCE(f.fecapacity,0)) / 1024 / 1024 / 1024 AS fetb_gb
+FROM NODES n
+JOIN FILESPACES f
+  ON n.node_name = f.node_name
+GROUP BY
+  CASE
+    WHEN DAYS(CURRENT_DATE) - DAYS(DATE(n.lastacc_time)) < 90
+      THEN 'ACTIVE'
     ELSE 'INACTIVE'
-  END;
+  END
 ```
 
 ---
