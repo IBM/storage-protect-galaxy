@@ -44,7 +44,7 @@ FROM (
   GROUP BY n.node_name, platform_name, client_os_name, hypervisor, filespace_type
 ) t
 WHERE fe_mb > 0
-GROUP BY platform_name, client_os_name, hypervisor, sp4ve;
+GROUP BY platform_name, client_os_name, hypervisor, sp4ve
 ```
 
 ---
