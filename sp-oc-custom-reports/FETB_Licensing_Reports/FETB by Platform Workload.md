@@ -32,7 +32,7 @@ SELECT
 FROM nodes n
 JOIN filespaces f ON n.node_name = f.node_name
 GROUP BY n.platform_name, n.client_os_name
-ORDER BY fetb_gb DESC;
+ORDER BY fetb_gb DESC
 ```
 
 ---
