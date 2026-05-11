@@ -30,7 +30,7 @@ SELECT
   SUM(COALESCE(f.fecapacity, 0)) / 1024 / 1024 / 1024 AS fetb_gb
 FROM filespaces f
 WHERE f.filespace_type = 'API:TSMVM'
-GROUP BY f.filespace_type;
+GROUP BY f.filespace_type
 ```
 
 ---
