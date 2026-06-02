@@ -5,6 +5,8 @@ These scripts collect system, network, configuration, logs, server, sql  and per
 
 ## Tested Platforms
 - Windows
+- Linux
+- AIX
 
 ## Prerequisites
 - Perl 5.x installed
