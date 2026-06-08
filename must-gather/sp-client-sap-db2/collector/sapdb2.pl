@@ -96,6 +96,35 @@ if ($vfh) {
     $collected{"version_info.txt"} = "Success";
 }
 
+sub collect_db2_file {
+
+    my ($src, $dest_name) = @_;
+
+    my $dest = "$output_dir/$dest_name";
+
+    if (-e $src) {
+
+        if (copy($src, $dest)) {
+
+            $collected{$dest_name} = "Success";
+
+            print $errfh "Collected: $src\n";
+        }
+        else {
+
+            $collected{$dest_name} = "Failed";
+
+            print $errfh "Failed to copy $src: $!\n";
+        }
+    }
+    else {
+
+        $collected{$dest_name} = "Not Found";
+
+        print $errfh "Not found: $src\n";
+    }
+}
+
 # -----------------------------
 # Collect SAP-specific configuration files
 # -----------------------------
@@ -576,6 +605,213 @@ if (@utl_files) {
     }
 }
 
+# # -----------------------------
+# Collect SAP DB2 Logs
+# -----------------------------
+print "Collecting SAP DB2 logs...\n" if $verbose;
+
+my @db2_instances;
+
+# ----------------------------------
+# Discover DB2 instances
+# ----------------------------------
+if ($os =~ /MSWin32/i) {
+
+    if (-d "C:\\db2") {
+
+        opendir(my $dh, "C:\\db2");
+
+        @db2_instances = grep {
+            !/^\./ &&
+            -d "C:\\db2\\$_"
+        } readdir($dh);
+
+        closedir($dh);
+    }
+
+} else {
+
+    if (-d "/db2") {
+
+        opendir(my $dh, "/db2");
+
+        @db2_instances = grep {
+            !/^\./ &&
+            -d "/db2/$_"
+        } readdir($dh);
+
+        closedir($dh);
+    }
+}
+
+if (!@db2_instances) {
+
+    print $errfh "No DB2 instances found\n";
+    $collected{"sap_db2_logs"} = "Not Found";
+
+} else {
+
+    foreach my $sid (@db2_instances) {
+
+        my $sap_dir;
+
+        if ($os =~ /MSWin32/i) {
+            $sap_dir = "C:\\db2\\$sid";
+        } else {
+            $sap_dir = "/db2/$sid";
+        }
+
+        make_path("$output_dir/$sid");
+
+        # ----------------------------------
+        # tdp_r3 logs
+        # ----------------------------------
+
+        collect_db2_file(
+            "$sap_dir" .
+            ($os =~ /MSWin32/i ? "\\tdp_r3\\backom.log" : "/tdp_r3/backom.log"),
+            "$sid/backom.log"
+        );
+
+        collect_db2_file(
+            "$sap_dir" .
+            ($os =~ /MSWin32/i ? "\\tdp_r3\\dsierror.log" : "/tdp_r3/dsierror.log"),
+            "$sid/dsierror.log"
+        );
+
+        collect_db2_file(
+            "$sap_dir" .
+            ($os =~ /MSWin32/i ? "\\tdp_r3\\dsminstr.log" : "/tdp_r3/dsminstr.log"),
+            "$sid/dsminstr.log"
+        );
+
+        collect_db2_file(
+            "$sap_dir" .
+            ($os =~ /MSWin32/i ? "\\tdp_r3\\vendor.env" : "/tdp_r3/vendor.env"),
+            "$sid/vendor.env"
+        );
+
+        collect_db2_file(
+            "$sap_dir" .
+            ($os =~ /MSWin32/i ? "\\tdp_r3\\init${sid}.utl" : "/tdp_r3/init${sid}.utl"),
+            "$sid/init${sid}.utl"
+        );
+
+        # ----------------------------------
+        # tdplog directory
+        # ----------------------------------
+
+        collect_db2_file(
+            "$sap_dir" .
+            ($os =~ /MSWin32/i ? "\\tdp_r3\\tdplog\\backom.log" : "/tdp_r3/tdplog/backom.log"),
+            "$sid/tdplog_backom.log"
+        );
+
+        # ----------------------------------
+        # Find NODE directories
+        # ----------------------------------
+
+        my @nodes;
+
+        my $instance_dir =
+            $sap_dir .
+            ($os =~ /MSWin32/i ? "\\db2" . lc($sid)
+                               : "/db2" . lc($sid));
+
+        if (-d $instance_dir) {
+
+            opendir(my $ndh, $instance_dir);
+
+            @nodes = grep {
+
+                /^NODE/i &&
+                -d (
+                    $instance_dir .
+                    ($os =~ /MSWin32/i ? "\\$_" : "/$_")
+                )
+
+            } readdir($ndh);
+
+            closedir($ndh);
+        }
+
+        foreach my $node (@nodes) {
+
+            collect_db2_file(
+                "$sap_dir" .
+                ($os =~ /MSWin32/i
+                    ? "\\tdp_r3\\tdplog\\tdpdb2.$sid.$node.log"
+                    : "/tdp_r3/tdplog/tdpdb2.$sid.$node.log"),
+                "$sid/tdpdb2.$sid.$node.log"
+            );
+
+            collect_db2_file(
+                "$sap_dir" .
+                ($os =~ /MSWin32/i
+                    ? "\\tdp_r3\\tdplog\\tdprlf.$sid.$node.log"
+                    : "/tdp_r3/tdplog/tdprlf.$sid.$node.log"),
+                "$sid/tdprlf.$sid.$node.log"
+            );
+
+            collect_db2_file(
+                "$sap_dir" .
+                ($os =~ /MSWin32/i
+                    ? "\\tdp_r3\\tdpdb2.$sid.$node.log"
+                    : "/tdp_r3/tdpdb2.$sid.$node.log"),
+                "$sid/tdpdb2_root.$sid.$node.log"
+            );
+
+            collect_db2_file(
+                "$sap_dir" .
+                ($os =~ /MSWin32/i
+                    ? "\\tdp_r3\\tdprlf.$sid.$node.log"
+                    : "/tdp_r3/tdprlf.$sid.$node.log"),
+                "$sid/tdprlf_root.$sid.$node.log"
+            );
+        }
+
+        # ----------------------------------
+        # db2diag.log
+        # ----------------------------------
+
+        my $diag_root =
+            $sap_dir .
+            ($os =~ /MSWin32/i
+                ? "\\sqllib\\db2dump"
+                : "/sqllib/db2dump");
+
+        if (-d $diag_root) {
+
+            opendir(my $ddh, $diag_root);
+
+            my @diag_dirs = grep {
+
+                /^DIAG/i &&
+                -d (
+                    $diag_root .
+                    ($os =~ /MSWin32/i ? "\\$_" : "/$_")
+                )
+
+            } readdir($ddh);
+
+            closedir($ddh);
+
+            foreach my $diag (@diag_dirs) {
+
+                my $db2diag =
+                    $diag_root .
+                    ($os =~ /MSWin32/i
+                        ? "\\$diag\\db2diag.log"
+                        : "/$diag/db2diag.log");
+
+                collect_db2_file(
+                    $db2diag,
+                    "$sid/db2diag.log"
+                );
+            }
+        }
+    }
+}
 # -----------------------------
 # Summary
 # -----------------------------
