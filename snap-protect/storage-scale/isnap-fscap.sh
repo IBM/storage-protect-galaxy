@@ -31,7 +31,8 @@
 # 11/13/25 allow script to be located in any directory
 # 02/03/26 Fix (AIX): replace , by . for numbers fed into convert_capacity() (bc) - version 1.4.1
 # 04/28/26 adopt global functions isnapfunctions.sh with new configuration file format - version 1.5
-
+# 06/02/26 add $sudoCmd to du command, if fsCapOnly = 0, then factor = snapCapNum - version 1.6
+# 06/05/26 move variables gpfsPath, os to isnapfunctions.sh 
 
 #---------------------------------------
 # global parameters
@@ -39,14 +40,11 @@
 # common functions file name
 funcFile="isnapfunctions.sh"
 
-# path of GPFS commands
-gpfsPath="/usr/lpp/mmfs/bin"
-
 # name of the snapshot directory, default is .snapshots
 snapshotDir=".snapshots"
 
 # version
-ver=1.5
+ver=1.6
 
 
 #------------------------------------------------------------------
@@ -179,7 +177,7 @@ do
 done
 
 ### get the parameters for this instance user from the config_file
-echo "INFO: Parsing configuration parameters from config file $configFile for instance user $instUser."
+#echo "INFO: Parsing configuration parameters from config file $configFile for instance user $instUser."
 if ! parse_config; then
   exit 2
 fi
@@ -200,7 +198,7 @@ else
 fi
 
 ### set du that is platform specific, -h is not available in AIX
-os=$(uname -s)
+#os=$(uname -s)
 duOpt=""
 dfOpt=""
 case "$os" in
@@ -253,11 +251,11 @@ do
       fsCap=""
       fsCapNum=0
       # Fix: replace , by . in $fsCap
-      fsCap=$(/usr/bin/du "$duOpt" "$fsPath" | awk '{print $1}' | sed 's/,/\./g')
+      fsCap=$($sudoCmd /usr/bin/du "$duOpt" "$fsPath" | awk '{print $1}' | sed 's/,/\./g')
       snapCap=""
       snapCapNum=0
       # Fix: replace , by . in $snapCap
-      snapCap=$(/usr/bin/du "$duOpt" "$fsPath"/$snapshotDir | awk '{print $1}' | sed 's/,/\./g')
+      snapCap=$($sudoCmd /usr/bin/du "$duOpt" "$fsPath"/$snapshotDir | awk '{print $1}' | sed 's/,/\./g')
       if [[ ! -z $fsCap && ! -z $snapCap ]]; then
         # add unit G to fsCap on AIX, assuming we do du -gs
         if [[ $os == "AIX" ]]; then
@@ -282,7 +280,8 @@ do
         if [[ $(echo $fsCapOnly 0 | awk '{if ($1 > $2) print 0; else print 1}') == 0 ]]; then
           fsSnapFactor=$(echo "scale=2; $snapCapNum / $fsCapOnly" | bc | sed 's/^\./0./')
         else
-          fsSnapFactor=0.0
+          # if fsCapOnly = 0, then factor is snapCapNum
+          fsSnapFactor=$snapCapNum
         fi
 
         # print statistic 
