@@ -4,10 +4,11 @@
 
 ## Important information for customers upgrading the scripts
 
-The following changes were published in May 2026 and require actions when upgrading the `isnap` scripts. 
+The following changes were published in May and June 2026 and require actions when upgrading the `isnap` scripts. 
 
 | Change | Required action | Reason & benefit |
 |--------|-----------------|------------------|
+| Added `$sudoCmd` for `/usr/bin/du` command in `isnap-fscap.sh` | add `/usr/bin/du` to the sudoer-file for the SP instance user | Allow running `isnap-fscap.sh` as instance user |
 | The configuration file `snapconfig.json` was renamed to `isnapconfig.json` | rename `snapconfig.json` to `isnapconfig.json` | Consistent file naming |
 | The configuration parameter `apiCredentials` was renamed to `apiCredential` | rename `apiCredentials` to `apiCredential` in configuration file `isnapconfig.json` | Consistent parameter naming |
 | The configuration parameter `apiCredential` can be ommitted from the configuration file `isnapconfig.json` and provided as environment variable. This also works with the `isnap-wrapper.sh` script | to provide `apiCredential` as environment variable use: `apiCredential=<base64-encoded user:password> isnap-script [parameters]` | Improved security allowing to eliminate static credentials in config files |
@@ -126,19 +127,21 @@ This section describes known issues:
 
 | Issue | Mitigation |
 |-------|------------|
+| When creating consistent SGC using an external scheduler, there is no message in the activity log of the Storage Protect server. | This is normal. If messages in the activity log are desired, then consider scheduling the creation of consistent SGC using the Storage Protect scheduler as described in section [ Scheduling with Storage Protect client schedules](#Scheduling-with-Storage-Protect-client-schedules) |
 | The Storage Scale REST API does not allow to restore snapshots | There is no mitigation because current implementation of the Storage Scale REST API (version 2) does not provide an endpoint to restore snapshots. Restore must be conducted in a manual way. |
 | The creating of consistent immutable snapshots during Storage Protect database backup fails. | This is because both operations cannot be run simultaneously. Define schedules where Storage Protect database backup and creation of snapshots to not overlap |
 | ANR9999D occurs intermittently when creating snapshots | There is no mitigation. This issue is related to the `servermon` process that collects statistics from the Storage Protect database. If the database is suspended because a snapshot is created, then the statistic cannot be collected and the ANR9999D occurs. A typical entry in the activity log may look like this: `ANR9999D_2395808121 dbiDbSpaceStats(rdbdb.c:3806) Thread<294>: Unexpected rc 1114 from RdbExecuteSQLToStrings.` |
 | Restore of immutable snapshot fails | Examine the message on the console and solve the problem. Re-run the restore script. The restore script can be re-run at any time |
 | Snapshots may temporarily be shown after deletion when using the REST API | The REST API has some latency. Wait 2 minutes and list the snapshots again. |
 | On AIX, restore of immutable snapshots fails for the Storage Protect instance fileset. A socket file (`tsmdbauth`) cannot be restored. | Ensure that Storage Scale version 5.2.3.1 or above is installed |
+| In a Storage Protect environment with node replication, the restore of consistent SGC can cause subsequent replication errors. | After restoring consistent SGC on the primary SP server, disable replication while in maintenance mode (`disable replication`). Afterwards perform the procedure  [Replicating client node data after a database restore](https://www.ibm.com/docs/en/storage-protect/8.2.1?topic=replication-replicating-client-node-data-after-database-restore) to re-synchronize the source and the target server. |
 
 
 ------------------------------
 
-## Planning
+## Planning and preparation
 
-This section describes planning aspects before implementing the solution.
+This section describes the planning and prerequisites for the installation and configuration of the `isnap-scripts`.
 
 
 ### Storage capacity planning
@@ -280,37 +283,61 @@ The REST API user name and password must be encoded in base64. The resulting enc
 **Note:** The Storage Scale REST API service is not available on AIX. Therefore, the remote cluster architecture where Storage Protect instance run in a remote cluster can only be implemented when the storage cluster provides a GUI node for the REST API service. 
 
 
-### Sudo configuration
+### Adjust sudo configuration
 
-When **not using the REST API** to manage manage immutable snapshots, the Storage Protect instance user requires elevated permissions to:
+When **not using the REST API** to manage immutable snapshots, the Storage Protect instance user requires elevated privileges to:
 - create immutable snapshots
 - list immutable snapshots
 - delete immutable snapshots
 - restore immutable snapshots
 - list filesets in a file system
-- send event notifications (optional)
+- list storage occupation in file systems and filesets (also required with REST API)
+- send event notifications (optional, also required with REST API)
 
-The elevated permissions should be implemented prior to the configuration of the ` isnap-scripts`.
 
-For example, to grant a single instance user (`tsminst1`) the required permission using `sudo`: 
+The default command to manage privileges is `/usr/bin/sudo`. If a different command for privilege elevation is used, then the configuration parameter `sudoCommand` can be set to this different command in the configuration file `isnapconfig.json` (see [Adjust configuration files](#Adjust-configuration-files)). The required commands must be executable without password. 
+
+
+The following example shows the sudo-configuration granting the instance user `tsminst1` elevated privileges listed above:
 
 ``` 
 ### Allow a specifig instance user to run snapshot commands and mmsysmonc without password
-tsminst1 ALL=(ALL)       NOPASSWD: /usr/lpp/mmfs/bin/mmcrsnapshot,/usr/lpp/mmfs/bin/mmlssnapshot,/usr/lpp/mmfs/bin/mmdelsnapshot,/usr/lpp/mmfs/bin/mmrestorefs,/usr/lpp/mmfs/bin/mmsysmonc,/usr/lpp/mmfs/bin/mmlsfileset
+tsminst1 ALL=(ALL)       NOPASSWD: /usr/lpp/mmfs/bin/mmcrsnapshot,/usr/lpp/mmfs/bin/mmlssnapshot,/usr/lpp/mmfs/bin/mmdelsnapshot,/usr/lpp/mmfs/bin/mmrestorefs,/usr/lpp/mmfs/bin/mmsysmonc,/usr/lpp/mmfs/bin/mmlsfileset,/usr/bin/du
+```
 
+If there are multiple Storage Protect instance, then the required privileges can be granted for the group of users (`tsmsrvrs`) as shown in the example below:
+
+``` 
+### Allow all users in group tsmsrvrs to run snapshot commands and mmsysmonc without password
+%tsmsrvrs ALL=(ALL)       NOPASSWD: /usr/lpp/mmfs/bin/mmcrsnapshot,/usr/lpp/mmfs/bin/mmlssnapshot,/usr/lpp/mmfs/bin/mmdelsnapshot,/usr/lpp/mmfs/bin/mmrestorefs,/usr/lpp/mmfs/bin/mmsysmonc,/usr/lpp/mmfs/bin/mmlsfileset,/usr/bin/df
 ``` 
 
 
-If there are multiple Storage Protect instance, then the required permissin can be granted for the group of users (`tsmsrvrs`) as shown in the example below:
+When using `sudo`, then it is recommended to provide the path of the Storage Scale commands in the `secure_path` parameter. This eliminates the need to spell out the path for each command:
 
 ``` 
-### Alternatively allow all users in group tsmsrvrs to run snapshot commands and mmsysmonc without password
-%tsmsrvrs ALL=(ALL)       NOPASSWD: /usr/lpp/mmfs/bin/mmcrsnapshot,/usr/lpp/mmfs/bin/mmlssnapshot,/usr/lpp/mmfs/bin/mmdelsnapshot,/usr/lpp/mmfs/bin/mmrestorefs,/usr/lpp/mmfs/bin/mmsysmonc,/usr/lpp/mmfs/bin/mmlsfileset
-``` 
+### add /usr/lpp/mmfs/bin to secure_path
+Defaults    secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/lpp/mmfs/bin
+```
 
-The command `/usr/lpp/mmfs/bin/mmsysmonc` is required, when using event notifications (see [Event notification](#Event-notification). 
 
-If a different command than `/usr/bin/sudo` is used for privilege escalation, then the configuration parameter `sudoCommand` can be set to the command that is used in the configuration file `isnapconfig.json` (see [Adjust configuration files](#Adjust-configuration-files)).
+When **using the REST API**, then the following eleveated privileges are required for the instance user:
+- list storage occupation in file systems and filesets
+- send event notifications (optional)
+
+
+Here is an example of the sudo-configuration granting these two privileges to the instance user group `tsmsrvrs`:
+
+```
+### Allow all users in group tsmsrvrs to run du and mmsysmonc without password
+%tsmsrvrs ALL=(ALL)       NOPASSWD: /usr/lpp/mmfs/bin/mmsysmonc,/usr/bin/df
+```
+
+
+**Note:** To use IBM Storage Scale event notification (see [Event notification](#Event-notification)), the command `/usr/lpp/mmfs/bin/mmsysmonc` must also be allowed for the instance user.  
+
+**Note:** If a different command than `/usr/bin/sudo` is used for privilege elevation, then the configuration parameter `sudoCommand` can be set to this different command that is used in the configuration file `isnapconfig.json` (see [Adjust configuration files](#Adjust-configuration-files)).
+
 
 
 ------------------------------
@@ -469,38 +496,6 @@ It is recommended to test the API connection from the servers where the scripts 
 ```
 curl -k -X GET --header 'Accept: application/json' --header 'Authorization: Basic [base64-encoded-user:secret]' 'https://GUI-Server:GUI-Port/scalemgmt/v2/cluster'
 ```
-
-
-### Adjust sudo configuration
-
-To create consistent immutable snapshots for a Storage Protect instance, the Storage Protect Db2 of the instance must be suspended and resumed. For the restoration of snapshots the Storage Protect instance Db2 must be restarted and resumed. These steps require authorization to perform Db2 commands. By default, the instance user is authorized to connect to the instance Db2 and perform Db2 commands. Therefore, the instance user can create and restore snapshots for its instance.
-
-The creation and restoration of immutable snapshots in Storage Scale via command line requires elevated privileges for the instance user. Elevated privileges are not required when using the Storage Scale REST API to manage snapshots. To provide the instance user with elevated privileges to manage snapshots in Storage Scale the sudo-configuration can be used. Adjusting the sudo-configuration requires root-privileges. The following example provides the instance user `tsminst1` the required privileges:
-
-``` 
-### Allow a specifig instance user to run snapshot commands and mmsysmonc without password
-tsminst1 ALL=(ALL)       NOPASSWD: /usr/lpp/mmfs/bin/mmcrsnapshot,/usr/lpp/mmfs/bin/mmlssnapshot,/usr/lpp/mmfs/bin/mmdelsnapshot,/usr/lpp/mmfs/bin/mmrestorefs,/usr/lpp/mmfs/bin/mmsysmonc,/usr/lpp/mmfs/bin/mmlsfileset
-```
-
-Alternatively, the user group of all instance users can be allowed to manage snapshots:
-
-```
-### Alternatively allow all users in group tsmsrvrs to run snapshot commands and mmsysmonc without password
-%tsmsrvrs ALL=(ALL)       NOPASSWD: /usr/lpp/mmfs/bin/mmcrsnapshot,/usr/lpp/mmfs/bin/mmlssnapshot,/usr/lpp/mmfs/bin/mmdelsnapshot,/usr/lpp/mmfs/bin/mmrestorefs,/usr/lpp/mmfs/bin/mmsysmonc,/usr/lpp/mmfs/bin/mmlsfileset
-``` 
-
-In addition consider to provide the path of the Storage Scale commands as `secure_path` in the sudo configuration. This eliminates the need to spell out the path for each command:
-
-``` 
-### add /usr/lpp/mmfs/bin to secure_path
-Defaults    secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/usr/lpp/mmfs/bin
-```
-
-**Note:** To leverage event notification (see [Event notification](#Event-notification)), the command `/usr/lpp/mmfs/bin/mmsysmonc` must also be allowed for the instance user.  
-
-**Note:** If a different command than `/usr/bin/sudo` is used for privilege escalation, then the configuration parameter `sudoCommand` can be set to the command that is used in the configuration file `isnapconfig.json` (see [Adjust configuration files](#Adjust-configuration-files)).
-
-If the snapshots are managed via the REST API, then the instance user does not need the sudo-privileges for the CLI based snapshot commands. 
 
 
 ### Configure custom event notification
@@ -775,7 +770,16 @@ The restoration of safeguarded copies runs in three phases:
 - **Phase 3:** Start the Storage Protect instance in foreground and in maintenance mode.
 
 
-**Attention:** The script must be exectured as instance user on the server where the instance was running. The script requires that the instance is stopped. When running the script on one server while the instance is running on another server, the script does not detect this and performs the restore operation while the instance may be running on another server. This will cause the instance to become unavailable and potentially corrupted.
+**Attention:** If node replication is enabled on the Storage Protect server instance that was restored, then disable replication after the restore completed using the command:
+
+```
+> disable replication
+```
+
+Afterwards perform the procedure [Replicating client node data after a database restore](https://www.ibm.com/docs/en/storage-protect/8.2.1?topic=replication-replicating-client-node-data-after-database-restore) to re-synchronize the source and the target server.
+
+
+**Note:** The script must be exectured as instance user on the server where the instance was running. The script requires that the instance is stopped. When running the script on one server while the instance is running on another server, the script does not detect this and performs the restore operation while the instance may be running on another server. This will cause the instance to become unavailable and potentially corrupted.
 
 **Syntax:**
 
@@ -793,12 +797,25 @@ The script does not perform the restore under the following conditions
 - Snapshot to be restored does not exist on all filesets
 
 
-Depending on the parameter configure in `iisnapconfig.json` the snapshot restore in performed in automated or in manual mode. In general, if the REST API is configured in the configuration file, then the restore in performed in manual mode, regardless of the setting of parameter `autoRestore` (see [Restore in automated mode](#Restore-in-automated-mode)). If the command line (CLI) is used, then the setting of parameter `autoRestore` is considered. If the parameter `autoRestore` is set to `true` then the restore in done in automated mode (see [Restore in manual mode](#Restore-in-manual-mode)). If the parameter is set to `false` then the restore is done in manual mode. For more information about configuration parameters see [Adjust configuration files](#Adjust-configuration-files).
+Depending on the parameter configure in `isnapconfig.json` the snapshot restore in performed in automated or in manual mode. In general, if the REST API is configured in the configuration file, then the restore in performed in manual mode, regardless of the setting of parameter `autoRestore` (see [Restore in automated mode](#Restore-in-automated-mode)). If the command line (CLI) is used, then the setting of parameter `autoRestore` is considered. 
+
+If the parameter `autoRestore` is set to `true` then the restore in done in automated mode (see [Restore in manual mode](#Restore-in-manual-mode)). If the parameter is set to `false` then the restore is done in manual mode. For more information about configuration parameters see [Adjust configuration files](#Adjust-configuration-files).
 
 
 #### Restore in automated mode
 
 Automated restore can only be done when the REST API is not configured in the configuration file and the parameter `autoRestore` is set to `true`. In automated mode all three phases are executed automatically. Command output is written to the console. 
+
+At the end of the restore in automated mode, the Storage Protect instance is started in maintenance mode. In this mode the SP server is started in the foreground on the console. It is important to observe the messages when the server starts to ensure that the restoration was successful. 
+
+If node replication was configured on the Storage Protect instance that was restored, then it must be disabled immediatelly after the restore operation finished. While the restored Storage Protect instance is in maintenance mode, disable replication using the command:
+
+```
+> disable replication
+```
+
+Afterwards the resynchronization between source and target can be configured as described in IBM Documentation [Replicating client node data after a database restore](https://www.ibm.com/docs/en/storage-protect/8.2.1?topic=replication-replicating-client-node-data-after-database-restore).
+
 
 If the restore in automated mode fails, then check the command outputs on the console, correct the problem and run the restore again. 
 
@@ -813,8 +830,16 @@ If the REST API configured in the configuration file or if the REST API is not c
 - instruct the user to restore the snapshots by providing the necessary commands. The user must executed these commands with a privileged user and confirm the successful execution in the console.
 - show information about mounted filesystems and fileset and instruct the user to check if the required filesystems are mounted and filesets are linked. The user must confirm the checks on the console.
 - show information about the instance configuration
-- instruct the user to start the database manager, resume the database and start the instance in maintenance mode
-- once the instance was successfully started in maintenance mode, the user can perform necessary checks such as audit storage pools and devices. Once these checks are successfull, the user can `halt` the instance in maintenance mode and start the instance in normal mode. 
+- instruct the user to start the database manager, resume the database and start the SP server instance in maintenance mode
+- once the instance was successfully started in maintenance mode, the user can perform necessary checks such as audit storage pools and devices.
+- if node replication was configured on the Storage Protect instance that was restored, then it must be disabled immediatelly after the restore operation finished. While the restored Storage Protect instance is in maintenance mode, disable replication using the command:
+
+	```
+	> disable replication
+	```
+	Afterwards the resynchronization between source and target can be configured as described in IBM Documentation [Replicating client node data after a database restore](https://www.ibm.com/docs/en/storage-protect/8.2.1?topic=replication-replicating-client-node-data-after-database-restore).
+
+- Once all checks are successfull, the user can `halt` the instance in maintenance mode and start the instance in normal mode. 
 
 
 If the restore in manual mode fails, then check the command outputs on the console, correct the problem and run the restore again. 
@@ -830,6 +855,8 @@ The `isnap-restore.sh` script requires the configuration file `isnapconfig.json`
 
 The Storage Protect instance must not be running when running the scripts.
 
+
+**Note:** If node replication was configured on the Storage Protect instance that was restored, then it must be disabled immediatelly after the restore operation finished. Afterwards the resynchronization between source and target can be configured as described in IBM Documentation [Replicating client node data after a database restore](https://www.ibm.com/docs/en/storage-protect/8.2.1?topic=replication-replicating-client-node-data-after-database-restore).
 
 **Note:** If there are nested independent filesets within the independent fileset to be snapped, then these nested independent are not included in the snapshot. Therefore, it is not supported to use nested independent fileset. 
 
