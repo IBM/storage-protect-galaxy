@@ -43,6 +43,7 @@
 # 11/13/25 improve jobId query; allow script to be located in any directory; replace syntax by usage function - version 1.8
 # 02/26/26 fix issue #47: adjust checking cycles for snapshot deletion (parameter maxLoop and sleepTime) - version 1.9
 # 04/28/26 adopt global functions isnapfunctions.sh with new configuration file format - version 2.0
+# 06/05/26 move variables gpfsPath, os, maxLoops and sleepTime to insapfunctions.sh 
 
 
 #---------------------------------------
@@ -51,18 +52,8 @@
 # common functions file name
 funcFile="isnapfunctions.sh"
 
-# path of GPFS commands
-gpfsPath="/usr/lpp/mmfs/bin"
-
 # initialized snapName to be given as argument
 snapName=""
-
-# define number of loops and sleep time between loops waiting for completion
-# - maximum total loop duration: maxLoop * sleepTime (seconds)
-# - maximum number of loops to check for completion
-maxLoops=60
-# time in seconds to sleep between loops checking for completion
-sleepTime=2
 
 # version
 ver=2.0
@@ -103,7 +94,7 @@ function usage()
 # -----------------------------------------------------------------
 calc_expDate()
 {
-   os=$(uname -s)
+   # os=$(uname -s)
    echo "DEBUG: calculating deletion date on platform $os"   
 
    case "$os" in
