@@ -18,7 +18,8 @@
 
 # History
 #----------
-# 04/28/26 first implemenation: parse config with new configuration file name, pass through apiCredential_Arr from environment - version 1.0
+# 04/28/26 first implemenation: parse config with new configuration file name and format - version 1.0
+# 06/05/26 define variables gpfsPath, os, maxLoops and sleepTime from script - version 1.1
 
 
 #==================================================================
@@ -43,9 +44,6 @@ if [[ -z $apiCredential ]]; then
   apiCredential=""
 fi
 
-# name of the config file
-configFile="$basePath/isnapconfig.json"
-
 # defaults configuration parameter
 defDbName="TSMDB1"
 defServerInstDir="$HOME"
@@ -54,8 +52,14 @@ defSnapRet=0
 defAutoRestore="false"
 defApiPort="443"
 
+# name of the config file
+configFile="$basePath/isnapconfig.json"
+
 # path to jq is required
 jqPath=/usr/bin/jq
+
+# path for GPFS commands
+gpfsPath="/usr/lpp/mmfs/bin"
 
 # determine operating system
 os=$(uname -s)
@@ -68,8 +72,16 @@ fi
 #instUser=tsminst1
 ########################
 
+# define number of loops and sleep time between loops waiting for completion
+# - maximum total loop duration: maxLoop * sleepTime (seconds)
+# - maximum number of loops to check for completion
+maxLoops=60
+# time in seconds to sleep between loops checking for completion
+sleepTime=2
+
+
 # version of the global functions
-globFuncVer=1.0
+globFuncVer=1.1
 
 
 #==================================================================
