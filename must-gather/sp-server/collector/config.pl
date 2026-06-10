@@ -111,15 +111,17 @@ sub run_cmd {
 }
 
 # -----------------------------
-# Define dsm administrative client queries
+# Define dsm administrative  nmclient queries
 # -----------------------------
 my %server_queries = (
-    "actlog.txt"    => "query actlog begindate=today-7",
     "system.txt"    => "query system",
     "policies.txt"  => "q policy f=d",
     "nodes.txt"     => "q node f=d",
     "occupancy.txt" => "q occ",
     "policyset.txt" => "q policyset",
+    "backup_copygroups.txt"  => "q copygroup * * * standard type=backup f=d",
+    "archive_copygroups.txt" => "q copygroup * * * standard type=archive f=d",
+    "events.txt"    => "q event * * begindate=-7 enddate=-0",
 );
 
 # -----------------------------
@@ -131,6 +133,10 @@ foreach my $file (sort keys %server_queries) {
     my $cmd = qq{$quoted_dsm -id=$adminid -password=$password -optfile=$quoted_opt "$query"};
     run_cmd($cmd, $outfile);
 }
+
+my $actoutfile = "$output_dir/actlog.txt";
+my $act_cmd = qq{$quoted_dsm -comma -id=$adminid -password=$password -optfile=$quoted_opt "query actlog begindate=today-7"};
+run_cmd($act_cmd, $actoutfile);
 
 # -----------------------------
 # Collect server instance-specific files
