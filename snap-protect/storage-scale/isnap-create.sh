@@ -37,6 +37,7 @@
 # 02/26/26 fix issue #47: adjust checking cycles for snapshot creation (parameter maxLoop and sleepTime) - version 2.1
 # 03/31/26 improved output formatting for error message - version 2.1
 # 04/28/26 adopt global functions isnapfunctions.sh with new configuration file format - version 2.2
+# 06/05/26 move variables gpfsPath, os, maxLoops and sleepTime to insapfunctions.sh
 
 #---------------------------------------
 # Global parameters
@@ -44,24 +45,11 @@
 # common functions file name
 funcFile="isnapfunctions.sh"
 
-# path of GPFS commands
-gpfsPath="/usr/lpp/mmfs/bin"
-
 # maximum number of retries to suspend the Db
 maxSuspendRetry=5
 
 # number of second to sleep inbetween of suspend retries
 suspendWait=50
-
-# determine operating system
-os=$(uname -s)
-
-# define number of loops and sleep time between loops waiting for completion
-# - maximum total loop duration: maxLoop * sleepTime (seconds)
-# - maximum number of loops to check for completion
-maxLoops=60
-# time in seconds to sleep between loops checking for completion
-sleepTime=2
 
 # temporary file for json constructs used with API call to create snapshot
 tmpFile="$HOME/$instUser-crsnap.json"
