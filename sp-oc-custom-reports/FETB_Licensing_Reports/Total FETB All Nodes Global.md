@@ -26,8 +26,11 @@ Provides a comprehensive view of the total Front-End Terabytes (FETB) capacity a
 
 ```sql
 SELECT
-    SUM(COALESCE(f.fecapacity, 0)) / 1024 / 1024 / 1024 AS total_fetb_gb
-FROM FILESPACES f
+    NAME AS SERVER,
+    FE_CAPACITY_TB AS TOTAL_FETB_GB
+FROM
+    TSMGUI_ALLSRV_GRID
+
 ```
 
 ---
@@ -36,4 +39,5 @@ FROM FILESPACES f
 
 | Output Field | Data Type | Description |
 |--------------|-----------|-------------|
+| `server` | String | Name of server |
 | `total_fetb_gb` | Decimal | Total front-end capacity in gigabytes (GB) across all nodes |
