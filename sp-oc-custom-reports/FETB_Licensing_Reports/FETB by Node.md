@@ -25,14 +25,36 @@ Provides a detailed breakdown of Front-End Terabytes (FETB) capacity for each in
 ## 3. SQL Query
 
 ```sql
-SELECT 
-  n.node_name,
-  n.platform_name,
-  SUM(COALESCE(f.fecapacity, 0)) / 1024 / 1024 / 1024 AS fetb_gb
-FROM nodes n
-JOIN filespaces f ON n.node_name = f.node_name
-GROUP BY n.node_name, n.platform_name
-ORDER BY fetb_gb DESC
+SELECT
+    cli.server,
+    cli.name AS node_name,
+    CASE
+        WHEN TRIM(COALESCE(cli.vm_owner, '')) <> ''
+            THEN owner.platform
+        ELSE cli.platform
+    END AS platform,
+    CAST(
+        SUM(COALESCE(cli.fe_capacity, 0)) * 1024
+        AS DECIMAL(18, 2)
+    ) AS fetb_gb
+FROM
+    tsmgui_allcli_grid cli
+LEFT JOIN
+    tsmgui_allcli_grid owner
+        ON TRIM(owner.name) = TRIM(cli.vm_owner)
+WHERE
+    cli.has_fecap = 1
+GROUP BY
+    cli.server,
+    cli.name,
+    CASE
+        WHEN TRIM(COALESCE(cli.vm_owner, '')) <> ''
+            THEN owner.platform
+        ELSE cli.platform
+    END
+ORDER BY
+    cli.server,
+    cli.name
 ```
 
 ---
@@ -41,6 +63,7 @@ ORDER BY fetb_gb DESC
 
 | Output Field | Data Type | Description |
 |--------------|-----------|-------------|
+| `server` | String | Name of the server |
 | `node_name` | String | Name of the node |
-| `platform_name` | String | Platform/operating system of the node |
+| `platform` | String | Platform/operating system of the node |
 | `fetb_gb` | Decimal | Front-end capacity in gigabytes (GB) for the node |
