@@ -26,21 +26,24 @@ Provides a summary of Front-End Terabytes (FETB) capacity categorized by node ac
 
 ```sql
 SELECT
-  CASE
-    WHEN DAYS(CURRENT_DATE) - DAYS(DATE(n.lastacc_time)) < 90
-      THEN 'ACTIVE'
-    ELSE 'INACTIVE'
-  END AS activity_status,
-  SUM(COALESCE(f.fecapacity,0)) / 1024 / 1024 / 1024 AS fetb_gb
-FROM NODES n
-JOIN FILESPACES f
-  ON n.node_name = f.node_name
+    c.server,
+    CASE
+        WHEN c.sec_last_access < 7776000
+            THEN 'ACTIVE'
+        ELSE 'INACTIVE'
+    END AS activity_status,
+    ROUND(SUM(c.fe_capacity) / 1024, 2) AS fetb_gb
+FROM TSMGUI_ALLCLI_GRID c
 GROUP BY
-  CASE
-    WHEN DAYS(CURRENT_DATE) - DAYS(DATE(n.lastacc_time)) < 90
-      THEN 'ACTIVE'
-    ELSE 'INACTIVE'
-  END
+    c.server,
+    CASE
+        WHEN c.sec_last_access < 7776000
+            THEN 'ACTIVE'
+        ELSE 'INACTIVE'
+    END
+ORDER BY
+    c.server,
+    activity_status;
 ```
 
 ---
