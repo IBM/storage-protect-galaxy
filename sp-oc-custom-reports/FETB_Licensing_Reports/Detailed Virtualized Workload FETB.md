@@ -25,52 +25,7 @@ Provides a comprehensive breakdown of Front-End Terabytes (FETB) capacity for vi
 ## 3. SQL Query
 
 ```sql
-SELECT
-    cli.server,
 
-    COALESCE(
-        NULLIF(NULLIF(TRIM(cli.platform), ''), '?'),
-        NULLIF(NULLIF(TRIM(owner.platform), ''), '?'),
-        'UNKNOWN'
-    ) AS platform,
-
-    CASE
-        WHEN cli.vm_type = 2 THEN 'TRUE'
-        ELSE ''
-    END AS hypervisor,
-
-    CASE
-        WHEN cli.vm_type = 1 THEN 'TRUE'
-        ELSE ''
-    END AS sp4ve,
-
-    CAST(
-        SUM(cli.fe_capacity) AS DECIMAL(12, 2)
-    ) AS fe_mb
-
-FROM
-    tsmgui_allcli_grid cli
-
-LEFT JOIN
-    tsmgui_allcli_grid owner
-        ON TRIM(owner.name) = TRIM(cli.vm_owner)
-
-WHERE
-    cli.has_fecap = 1
-    AND cli.fe_capacity > 0
-
-GROUP BY
-    cli.server,
-    COALESCE(
-        NULLIF(NULLIF(TRIM(cli.platform), ''), '?'),
-        NULLIF(NULLIF(TRIM(owner.platform), ''), '?'),
-        'UNKNOWN'
-    ),
-    cli.vm_type
-
-ORDER BY
-    cli.server,
-    platform
 ```
 
 ---
