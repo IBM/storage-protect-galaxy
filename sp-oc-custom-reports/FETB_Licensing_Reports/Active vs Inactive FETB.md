@@ -43,7 +43,7 @@ GROUP BY
     END
 ORDER BY
     c.server,
-    activity_status;
+    activity_status
 ```
 
 ---
