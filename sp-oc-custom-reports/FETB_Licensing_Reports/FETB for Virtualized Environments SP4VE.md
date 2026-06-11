@@ -25,12 +25,28 @@ Provides a focused view of Front-End Terabytes (FETB) capacity specifically for 
 ## 3. SQL Query
 
 ```sql
-SELECT 
-  f.filespace_type,
-  SUM(COALESCE(f.fecapacity, 0)) / 1024 / 1024 / 1024 AS fetb_gb
-FROM filespaces f
-WHERE f.filespace_type = 'API:TSMVM'
-GROUP BY f.filespace_type
+SELECT
+    server,
+
+    CASE
+        WHEN vm_type = 1 THEN 'VMWare'
+        ELSE ''
+    END AS vm_type,
+
+    SUM(COALESCE(fe_capacity, 0)) / 1024 AS fetb_gb
+
+FROM
+    tsmgui_allcli_grid
+
+WHERE
+    vm_type = 1
+
+GROUP BY
+    server,
+    vm_type
+
+ORDER BY
+    server
 ```
 
 ---
@@ -39,5 +55,6 @@ GROUP BY f.filespace_type
 
 | Output Field | Data Type | Description |
 |--------------|-----------|-------------|
-| `filespace_type` | String | Type of filespace (API:TSMVM for virtualized environments) |
+| `server` | String | Name of Server |
+| `vm_tyoe` | String | Type of VM |
 | `fetb_gb` | Decimal | Total front-end capacity in gigabytes (GB) for virtualized workloads |
