@@ -83,34 +83,6 @@ sub run_command {
     }
 }
 
-sub collect_latest_file {
-    my ($dir, $sid) = @_;
-
-    return unless -d $dir;
-
-    opendir(my $dh, $dir) or return;
-
-    my @files = grep {
-        -f "$dir/$_"
-        && $_ !~ /\.log$/i
-    } readdir($dh);
-
-    closedir($dh);
-
-    return unless @files;
-
-    my @sorted =
-        sort {
-            (stat("$dir/$b"))[9] <=>
-            (stat("$dir/$a"))[9]
-        } @files;
-
-    my $latest = "$dir/$sorted[0]";
-    my $original_filename = "$sorted[0]_$sid";
-
-    collect_file($latest, $original_filename);
-}
-
 sub collect_if_exists {
     my ($src, $dest) = @_;
 
@@ -120,6 +92,44 @@ sub collect_if_exists {
     }
 
     return 0;
+}
+
+sub collect_latest_by_extension {
+    my ($dir, $ext, $dest_prefix) = @_;
+
+    return unless -d $dir;
+
+    opendir(my $dh, $dir) or return;
+
+    my @files = grep {
+        -f "$dir/$_"
+        && /\.$ext$/i
+    } readdir($dh);
+
+    closedir($dh);
+
+    return unless @files;
+
+    @files = sort {
+        (stat("$dir/$b"))[9] <=>
+        (stat("$dir/$a"))[9]
+    } @files;
+
+    collect_file(
+        "$dir/$files[0]",
+        "$dest_prefix/$files[0]"
+    );
+}
+
+sub find_file_by_name {
+    my ($filename) = @_;
+
+    my $cmd = "find /oracle -iname '$filename' 2>/dev/null";
+
+    my $result = `$cmd`;
+    chomp($result);
+
+    return (split /\n/, $result)[0];
 }
 
 # =============================
@@ -306,20 +316,78 @@ foreach my $sid (@sids) {
             last;
         }
     }
+    
+
+    my $found_ora = 0;
 
     foreach my $file (@init_ora_paths) {
         if (-e $file) {
             collect_file($file, "init${sid}.ora");
+            $found_ora = 1;
             last;
         }
     }
 
+    if (!$found_ora && $os !~ /MSWin32/i) {
+
+        my $path = find_file_by_name("init${sid}.ora");
+
+        if ($path) {
+            collect_file($path, "init${sid}.ora");
+            $found_ora = 1;
+        }
+    }
+
+$collected_files{"init${sid}.ora"} = "NOT FOUND"
+    unless $found_ora;
+
+    my $found_utl = 0;
+
     foreach my $file (@init_utl_paths) {
         if (-e $file) {
             collect_file($file, "init${sid}.utl");
+            $found_utl = 1;
             last;
         }
     }
+
+    # fallback search
+    if (!$found_utl && $os !~ /MSWin32/i) {
+
+        my $path = find_file_by_name("init${sid}.utl");
+
+        if ($path) {
+            collect_file($path, "init${sid}.utl");
+            $found_utl = 1;
+        }
+    }
+
+$collected_files{"init${sid}.sap"} = "NOT FOUND"
+    unless $found_utl;
+
+     my $found_sap = 0;
+
+    foreach my $file (@init_sap_paths) {
+        if (-e $file) {
+            collect_file($file, "init${sid}.sap");
+            $found_utl = 1;
+            last;
+        }
+    }
+
+    # fallback search
+    if (!$found_sap && $os !~ /MSWin32/i) {
+
+        my $path = find_file_by_name("init${sid}.sap");
+
+        if ($path) {
+            collect_file($path, "init${sid}.sap");
+            $found_sap = 1;
+        }
+    }
+
+$collected_files{"init${sid}.utl"} = "NOT FOUND"
+    unless $found_utl;
 
     my @init_bki_paths = (
         "/oracle/$sid/sapbackup/init${sid}.bki",
@@ -435,70 +503,57 @@ foreach my $sid (@sids) {
         "sapreorg/space${sid}.log"
     );
 
-    collect_if_exists(
-        "$sapreorg/CNTRL${sid}.DBF",
-        "sapreorg/CNTRL${sid}.DBF"
+   opendir(my $dh, $sapreorg);
+
+my @dbf_files = grep {
+    -f "$sapreorg/$_"
+    && /^CNTRL${sid}\.DBF$/i
+} readdir($dh);
+
+closedir($dh);
+
+if (@dbf_files) {
+
+    collect_file(
+        "$sapreorg/$dbf_files[0]",
+        "sapreorg/$dbf_files[0]"
     );
+}
 
     # ----------------------------------
     # Latest generated file from sapbackup
     # (.fnr .crv .rsb etc)
     # ----------------------------------
 
-    if (-d $sapbackup) {
+    # BRBACKUP
+collect_latest_by_extension(
+    $sapbackup,
+    'fnr',
+    'sapbackup'
+);
 
-        opendir(my $dh, $sapbackup);
+# BRRECOVER
+collect_latest_by_extension(
+    $sapbackup,
+    'crv',
+    'sapbackup'
+);
 
-        my @files = grep {
-            -f "$sapbackup/$_"
-            && $_ !~ /\.log$/i
-        } readdir($dh);
+# RESTORE
+collect_latest_by_extension(
+    $sapbackup,
+    'rsb',
+    'sapbackup'
+);
 
-        closedir($dh);
+# BRARCHIVE
+collect_latest_by_extension(
+    $saparch,
+    'svd',
+    'saparch'
+);
 
-        if (@files) {
-
-            my @sorted = sort {
-                (stat("$sapbackup/$b"))[9] <=>
-                (stat("$sapbackup/$a"))[9]
-            } @files;
-
-            collect_file(
-                "$sapbackup/$sorted[0]",
-                "sapbackup/$sorted[0]"
-            );
-        }
-    }
-
-    # ----------------------------------
-    # Latest generated file from saparch
-    # (.svd etc)
-    # ----------------------------------
-
-    if (-d $saparch) {
-
-        opendir(my $dh, $saparch);
-
-        my @files = grep {
-            -f "$saparch/$_"
-            && $_ !~ /\.log$/i
-        } readdir($dh);
-
-        closedir($dh);
-
-        if (@files) {
-
-            my @sorted = sort {
-                (stat("$saparch/$b"))[9] <=>
-                (stat("$saparch/$a"))[9]
-            } @files;
-
-            collect_file(
-                "$saparch/$sorted[0]",
-                "saparch/$sorted[0]"
-            );
-        }
-    }
+   
 
     # ----------------------------------
     # backint.log
