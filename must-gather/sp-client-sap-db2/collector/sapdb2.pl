@@ -53,7 +53,6 @@ unless ($base_path) {
 # -----------------------------
 # Collect Version Information
 # -----------------------------
-print "Collecting version information...\n" if $verbose;
 my $version_file = "$output_dir/version_info.txt";
 open(my $vfh, '>', $version_file) or do {
     print $errfh "Error: Cannot create version_info.txt: $!\n";
@@ -125,86 +124,6 @@ sub collect_db2_file {
     }
 }
 
-# -----------------------------
-# Collect SAP-specific configuration files
-# -----------------------------
-print "Collecting SAP-specific configuration...\n" if $verbose;
-
-# Look for init<SID>.sap and init<SID>.utl files
-my @sap_config_patterns = ("init*.sap", "init*.utl");
-foreach my $pattern (@sap_config_patterns) {
-    # Quote the path for Windows compatibility with spaces
-    my $search_path = $os =~ /MSWin32/i ? "\"$base_path\\$pattern\"" : "$base_path/$pattern";
-    my @files = glob($search_path);
-    
-    foreach my $file (@files) {
-        my ($filename) = $file =~ /([^\/\\]+)$/;
-        my $dest = "$output_dir/$filename";
-        
-        if (-e $file) {
-            if (copy($file, $dest)) {
-                print "Collected: $filename\n" if $verbose;
-                $collected{$filename} = "Success";
-            } else {
-                print $errfh "Failed to copy $file: $!\n";
-                $collected{$filename} = "Failed";
-            }
-        }
-    }
-}
-
-# -----------------------------
-# Collect DB2 Configuration
-# -----------------------------
-print "Collecting DB2 configuration...\n" if $verbose;
-
-my $db2_config_file = "$output_dir/db2_config.txt";
-open(my $db2fh, '>', $db2_config_file) or do {
-    print $errfh "Error: Cannot create db2_config.txt: $!\n";
-    $collected{"db2_config.txt"} = "Failed";
-};
-
-if ($db2fh) {
-    print $db2fh "=== DB2 Database Configuration ===\n";
-    my $db2_output = `db2 get db cfg 2>&1`;
-    if ($db2_output) {
-        print $db2fh $db2_output;
-    } else {
-        print $db2fh "DB2 command not available or failed to execute\n";
-        print $errfh "Warning: 'db2 get db cfg' command failed or returned no output\n";
-    }
-    print $db2fh "\n";
-    
-    print $db2fh "=== DB2 Database Manager Configuration ===\n";
-    my $dbm_output = `db2 get dbm cfg 2>&1`;
-    if ($dbm_output) {
-        print $db2fh $dbm_output;
-    } else {
-        print $db2fh "DB2 command not available or failed to execute\n";
-        print $errfh "Warning: 'db2 get dbm cfg' command failed or returned no output\n";
-    }
-    print $db2fh "\n";
-    
-    print $db2fh "=== Environment Variables (Filtered) ===\n";
-    if ($os =~ /MSWin32/i) {
-        my $env_output = `set 2>&1`;
-        # Filter out sensitive info
-        foreach my $line (split /\n/, $env_output) {
-            next if $line =~ /PASSWORD|SECRET|KEY/i;
-            print $db2fh "$line\n";
-        }
-    } else {
-        my $env_output = `env 2>&1`;
-        # Filter out sensitive info
-        foreach my $line (split /\n/, $env_output) {
-            next if $line =~ /PASSWORD|SECRET|KEY/i;
-            print $db2fh "$line\n";
-        }
-    }
-    
-    close($db2fh);
-    $collected{"db2_config.txt"} = "Success";
-}
 
 # -----------------------------
 # Collect vendor.env file (if DB2_VENDOR_INI is set)
@@ -215,7 +134,6 @@ if ($ENV{DB2_VENDOR_INI} && -e $ENV{DB2_VENDOR_INI}) {
     my $dest = "$output_dir/$filename";
     
     if (copy($vendor_env, $dest)) {
-        print "Collected: $filename\n" if $verbose;
         $collected{$filename} = "Success";
     } else {
         print $errfh "Failed to copy $vendor_env: $!\n";
@@ -224,53 +142,14 @@ if ($ENV{DB2_VENDOR_INI} && -e $ENV{DB2_VENDOR_INI}) {
 }
 
 # -----------------------------
-# Collect DB2 diagnostic log (db2diag.log)
-# -----------------------------
-my @db2_diag_paths;
-if ($os =~ /MSWin32/i) {
-    @db2_diag_paths = (
-        "C:/ProgramData/IBM/DB2/db2diag.log",
-    );
-    push @db2_diag_paths, "$ENV{DB2PATH}/db2diag.log" if $ENV{DB2PATH};
-} else {
-    @db2_diag_paths = (
-        "$ENV{HOME}/sqllib/db2dump/db2diag.log",
-        "/home/db2inst1/sqllib/db2dump/db2diag.log",
-    );
-}
-
-my $db2diag_collected = 0;
-foreach my $diag_path (@db2_diag_paths) {
-    next unless $diag_path && -e $diag_path;
-    
-    my $dest = "$output_dir/db2diag.log";
-    if (copy($diag_path, $dest)) {
-        print "Collected: db2diag.log\n" if $verbose;
-        print $errfh "Collected db2diag.log from: $diag_path\n";
-        $collected{"db2diag.log"} = "Success";
-        $db2diag_collected = 1;
-        last;
-    } else {
-        print $errfh "Failed to copy db2diag.log from $diag_path: $!\n";
-        $collected{"db2diag.log"} = "Failed";
-    }
-}
-
-# Mark as not found if db2diag.log was not collected
-if (!$db2diag_collected) {
-    $collected{"db2diag.log"} = "Not Found";
-    print $errfh "db2diag.log not found in expected locations\n";
-}
-
 # Collect TDP DB2 specific log files (tdpdb2.<SID>.<NODE>.log)
 # -----------------------------
-my @tdp_logs = glob("$base_path/tdpdb2.*.log");
+my @tdp_logs = glob(qq{"$base_path/tdpdb2.*.log"});
 foreach my $log (@tdp_logs) {
     my ($filename) = $log =~ /([^\/\\]+)$/;
     my $dest = "$output_dir/$filename";
     
     if (copy($log, $dest)) {
-        print "Collected: $filename\n" if $verbose;
         $collected{$filename} = "Success";
     } else {
         print $errfh "Failed to copy $log: $!\n";
@@ -281,7 +160,6 @@ foreach my $log (@tdp_logs) {
 # -----------------------------
 # Collect API Client Configuration Files
 # -----------------------------
-print "Collecting API client configuration...\n" if $verbose;
 
 # Create API subdirectory for organization
 my $api_dir = "$output_dir/api";
@@ -311,7 +189,6 @@ foreach my $api_path (@api_dsm_paths) {
         my $dest = "$api_dir/api_$filename";
         
         if (copy($api_path, $dest)) {
-            print "Collected: API $filename from $api_path\n" if $verbose;
             print $errfh "Collected API config from: $api_path\n";
             $collected{"api/$filename"} = "Success";
             $api_dsm_collected = 1;
@@ -330,7 +207,6 @@ if ($ENV{DSMI_CONFIG}) {
         my $dest = "$api_dir/dsmi_config_$filename";
         
         if (copy($ENV{DSMI_CONFIG}, $dest)) {
-            print "Collected: DSMI_CONFIG file ($filename)\n" if $verbose;
             print $errfh "Collected DSMI_CONFIG from: $ENV{DSMI_CONFIG}\n";
             $collected{"api/dsmi_config_$filename"} = "Success";
             
@@ -338,14 +214,13 @@ if ($ENV{DSMI_CONFIG}) {
             if ($os =~ /MSWin32/i) {
                 my ($dir) = $ENV{DSMI_CONFIG} =~ /^(.+)[\/\\][^\/\\]+$/;
                 if ($dir) {
-                    my @opt_files = glob("$dir/*.opt");
+                    my @opt_files = glob(qq{"$dir/*.opt"});
                     foreach my $opt_file (@opt_files) {
                         next if $opt_file eq $ENV{DSMI_CONFIG};
                         my ($opt_name) = $opt_file =~ /([^\/\\]+)$/;
                         my $opt_dest = "$api_dir/$opt_name";
                         
                         if (copy($opt_file, $opt_dest)) {
-                            print "Collected: $opt_name\n" if $verbose;
                             $collected{"api/$opt_name"} = "Success";
                         }
                     }
@@ -370,7 +245,6 @@ if ($ENV{DSMI_DIR}) {
         my $dest = "$api_dir/dsmi_dir_$filename";
         
         if (copy($dsmi_dir_config, $dest)) {
-            print "Collected: DSMI_DIR config ($filename)\n" if $verbose;
             print $errfh "Collected DSMI_DIR config from: $dsmi_dir_config\n";
             $collected{"api/dsmi_dir_$filename"} = "Success";
         } else {
@@ -382,7 +256,6 @@ if ($ENV{DSMI_DIR}) {
 # -----------------------------
 # Collect API Error Logs (dsierror.log and ERRORLOGNAME)
 # -----------------------------
-print "Collecting API error logs...\n" if $verbose;
 
 # Helper function to parse ERRORLOGNAME from config file
 sub parse_errorlogname {
@@ -447,7 +320,6 @@ foreach my $errorlog (keys %errorlog_paths) {
         my $dest = "$api_dir/api_$filename";
         
         if (copy($errorlog, $dest)) {
-            print "Collected: API error log ($filename) from ERRORLOGNAME\n" if $verbose;
             print $errfh "Collected API ERRORLOGNAME log from: $errorlog\n";
             $collected{"api/errorlogname_$filename"} = "Success";
             $errorlogname_collected++;
@@ -464,48 +336,6 @@ if (!$errorlogname_collected && keys %errorlog_paths) {
     print $errfh "ERRORLOGNAME logs not found in expected locations\n";
 }
 
-# Collect dsierror.log from default locations
-my @api_log_paths;
-if ($os =~ /MSWin32/i) {
-    @api_log_paths = (
-        "C:/Program Files/Tivoli/TSM/api/dsierror.log",
-        "C:/Program Files/Tivoli/TSM/api/bin/dsierror.log",
-        "C:/Program Files/Tivoli/TSM/api/bin64/dsierror.log",
-    );
-    push @api_log_paths, "$ENV{DSMI_DIR}/dsierror.log" if $ENV{DSMI_DIR};
-} else {
-    @api_log_paths = (
-        "/opt/tivoli/tsm/client/api/bin/dsierror.log",
-        "/opt/tivoli/tsm/client/api/bin64/dsierror.log",
-        "/usr/tivoli/tsm/client/api/bin/dsierror.log",
-        "/usr/tivoli/tsm/client/api/bin64/dsierror.log",
-    );
-    push @api_log_paths, "$ENV{DSMI_DIR}/dsierror.log" if $ENV{DSMI_DIR};
-}
-
-my $dsierror_collected = 0;
-foreach my $log_path (@api_log_paths) {
-    if (-e $log_path) {
-        my $dest = "$api_dir/dsierror.log";
-        
-        if (copy($log_path, $dest)) {
-            print "Collected: API error log (dsierror.log)\n" if $verbose;
-            print $errfh "Collected API error log from: $log_path\n";
-            $collected{"api/dsierror.log"} = "Success";
-            $dsierror_collected = 1;
-            last;
-        } else {
-            print $errfh "Failed to copy API error log from $log_path: $!\n";
-            $collected{"api/dsierror.log"} = "Failed";
-        }
-    }
-}
-
-# Mark as not found if dsierror.log was not collected
-if (!$dsierror_collected) {
-    $collected{"api/dsierror.log"} = "Not Found";
-    print $errfh "dsierror.log not found in default API locations\n";
-}
 
 # Collect dsmerror.log with priority logic:
 # 1. First try from ERRORLOGNAME directory (if ERRORLOGNAME was found)
@@ -521,7 +351,6 @@ if (keys %errorlog_dirs) {
             my $dest = "$api_dir/api_dsmerror.log";
             
             if (copy($dsmerror, $dest)) {
-                print "Collected: API dsmerror.log from ERRORLOGNAME directory\n" if $verbose;
                 print $errfh "Collected API dsmerror.log from ERRORLOGNAME directory: $dsmerror\n";
                 $collected{"api/api_dsmerror.log"} = "Success";
                 $api_dsmerror_collected = 1;
@@ -559,7 +388,6 @@ if (!$api_dsmerror_collected) {
             my $dest = "$api_dir/api_dsmerror.log";
             
             if (copy($log_path, $dest)) {
-                print "Collected: API dsmerror.log from default directory\n" if $verbose;
                 print $errfh "Collected API dsmerror.log from default directory: $log_path\n";
                 $collected{"api/api_dsmerror.log"} = "Success";
                 $api_dsmerror_collected = 1;
@@ -578,43 +406,15 @@ if (!$api_dsmerror_collected) {
     print $errfh "API dsmerror.log not found in ERRORLOGNAME directory or default API locations\n";
 }
 
-# Document init<SID>.utl location if found
-my @utl_files = glob("$base_path/init*.utl");
-if (@utl_files) {
-    my $location_file = "$output_dir/init_utl_locations.txt";
-    if (open(my $locfh, '>', $location_file)) {
-        print $locfh "=== init<SID>.utl File Locations ===\n\n";
-        foreach my $utl (@utl_files) {
-            print $locfh "$utl\n";
-            
-            # Check if referenced in vendor.env
-            if ($ENV{DB2_VENDOR_INI} && -e $ENV{DB2_VENDOR_INI}) {
-                if (open(my $vfh, '<', $ENV{DB2_VENDOR_INI})) {
-                    while (<$vfh>) {
-                        if (/XINT_PROFILE.*$utl/i) {
-                            print $locfh "  Referenced by XINT_PROFILE in vendor.env\n";
-                            last;
-                        }
-                    }
-                    close($vfh);
-                }
-            }
-        }
-        close($locfh);
-        $collected{"init_utl_locations.txt"} = "Success";
-    }
-}
 
 # # -----------------------------
 # Collect SAP DB2 Logs
 # -----------------------------
-print "Collecting SAP DB2 logs...\n" if $verbose;
-
-my @db2_instances;
 
 # ----------------------------------
 # Discover DB2 instances
 # ----------------------------------
+my @db2_instances;
 if ($os =~ /MSWin32/i) {
 
     if (-d "C:\\db2") {
@@ -623,11 +423,10 @@ if ($os =~ /MSWin32/i) {
 
         @db2_instances = grep {
             !/^\./ &&
-            -d "C:\\db2\\$_"
+            -d "C:\\db2\\$_\\tdp_r3"
         } readdir($dh);
-
         closedir($dh);
-    }
+}
 
 } else {
 
@@ -637,7 +436,7 @@ if ($os =~ /MSWin32/i) {
 
         @db2_instances = grep {
             !/^\./ &&
-            -d "/db2/$_"
+            -d "/db2/$_/tdp_r3"
         } readdir($dh);
 
         closedir($dh);
@@ -651,167 +450,186 @@ if (!@db2_instances) {
 
 } else {
 
-    foreach my $sid (@db2_instances) {
+        foreach my $sid (@db2_instances) {
 
-        my $sap_dir;
+            my $sap_dir;
 
-        if ($os =~ /MSWin32/i) {
-            $sap_dir = "C:\\db2\\$sid";
-        } else {
-            $sap_dir = "/db2/$sid";
-        }
+            if ($os =~ /MSWin32/i) {
+                $sap_dir = "C:\\db2\\$sid";
+            } else {
+                $sap_dir = "/db2/$sid";
+            }
 
-        make_path("$output_dir/$sid");
+            make_path("$output_dir/$sid");
+        
 
-        # ----------------------------------
-        # tdp_r3 logs
-        # ----------------------------------
-
-        collect_db2_file(
-            "$sap_dir" .
-            ($os =~ /MSWin32/i ? "\\tdp_r3\\backom.log" : "/tdp_r3/backom.log"),
-            "$sid/backom.log"
-        );
-
-        collect_db2_file(
-            "$sap_dir" .
-            ($os =~ /MSWin32/i ? "\\tdp_r3\\dsierror.log" : "/tdp_r3/dsierror.log"),
-            "$sid/dsierror.log"
-        );
-
-        collect_db2_file(
-            "$sap_dir" .
-            ($os =~ /MSWin32/i ? "\\tdp_r3\\dsminstr.log" : "/tdp_r3/dsminstr.log"),
-            "$sid/dsminstr.log"
-        );
-
-        collect_db2_file(
-            "$sap_dir" .
-            ($os =~ /MSWin32/i ? "\\tdp_r3\\vendor.env" : "/tdp_r3/vendor.env"),
-            "$sid/vendor.env"
-        );
-
-        collect_db2_file(
-            "$sap_dir" .
-            ($os =~ /MSWin32/i ? "\\tdp_r3\\init${sid}.utl" : "/tdp_r3/init${sid}.utl"),
-            "$sid/init${sid}.utl"
-        );
-
-        # ----------------------------------
-        # tdplog directory
-        # ----------------------------------
-
-        collect_db2_file(
-            "$sap_dir" .
-            ($os =~ /MSWin32/i ? "\\tdp_r3\\tdplog\\backom.log" : "/tdp_r3/tdplog/backom.log"),
-            "$sid/tdplog_backom.log"
-        );
-
-        # ----------------------------------
-        # Find NODE directories
-        # ----------------------------------
-
-        my @nodes;
-
-        my $instance_dir =
-            $sap_dir .
-            ($os =~ /MSWin32/i ? "\\db2" . lc($sid)
-                               : "/db2" . lc($sid));
-
-        if (-d $instance_dir) {
-
-            opendir(my $ndh, $instance_dir);
-
-            @nodes = grep {
-
-                /^NODE/i &&
-                -d (
-                    $instance_dir .
-                    ($os =~ /MSWin32/i ? "\\$_" : "/$_")
-                )
-
-            } readdir($ndh);
-
-            closedir($ndh);
-        }
-
-        foreach my $node (@nodes) {
+            # ----------------------------------
+            # tdp_r3 logs
+            # ----------------------------------
 
             collect_db2_file(
                 "$sap_dir" .
-                ($os =~ /MSWin32/i
-                    ? "\\tdp_r3\\tdplog\\tdpdb2.$sid.$node.log"
-                    : "/tdp_r3/tdplog/tdpdb2.$sid.$node.log"),
-                "$sid/tdpdb2.$sid.$node.log"
+                ($os =~ /MSWin32/i ? "\\tdp_r3\\backom.log" : "/tdp_r3/backom.log"),
+                "$sid/backom.log"
             );
 
             collect_db2_file(
                 "$sap_dir" .
-                ($os =~ /MSWin32/i
-                    ? "\\tdp_r3\\tdplog\\tdprlf.$sid.$node.log"
-                    : "/tdp_r3/tdplog/tdprlf.$sid.$node.log"),
-                "$sid/tdprlf.$sid.$node.log"
+                ($os =~ /MSWin32/i ? "\\tdp_r3\\dsierror.log" : "/dsierror.log"),
+                "$sid/dsierror.log"
             );
 
             collect_db2_file(
                 "$sap_dir" .
-                ($os =~ /MSWin32/i
-                    ? "\\tdp_r3\\tdpdb2.$sid.$node.log"
-                    : "/tdp_r3/tdpdb2.$sid.$node.log"),
-                "$sid/tdpdb2_root.$sid.$node.log"
+                ($os =~ /MSWin32/i ? "\\tdp_r3\\dsminstr.log" : "/tdp_r3/dsminstr.log"),
+                "$sid/dsminstr.log"
             );
 
             collect_db2_file(
                 "$sap_dir" .
-                ($os =~ /MSWin32/i
-                    ? "\\tdp_r3\\tdprlf.$sid.$node.log"
-                    : "/tdp_r3/tdprlf.$sid.$node.log"),
-                "$sid/tdprlf_root.$sid.$node.log"
+                ($os =~ /MSWin32/i ? "\\tdp_r3\\vendor.env" : "/tdp_r3/vendor.env"),
+                "$sid/vendor.env"
             );
-        }
 
-        # ----------------------------------
-        # db2diag.log
-        # ----------------------------------
+            collect_db2_file(
+                "$sap_dir" .
+                ($os =~ /MSWin32/i ? "\\tdp_r3\\init${sid}.utl" : "/tdp_r3/init${sid}.utl"),
+                "$sid/init${sid}.utl"
+            );
 
-        my $diag_root =
-            $sap_dir .
-            ($os =~ /MSWin32/i
-                ? "\\sqllib\\db2dump"
-                : "/sqllib/db2dump");
+        
+                # ----------------------------------
+            # Collect everything from tdplog
+            # ----------------------------------
 
-        if (-d $diag_root) {
+            my $tdplog_dir =
+                $sap_dir .
+                ($os =~ /MSWin32/i
+                    ? "\\tdp_r3\\tdplog"
+                    : "/tdp_r3/tdplog");
 
-            opendir(my $ddh, $diag_root);
+            if (-d $tdplog_dir) {
 
-            my @diag_dirs = grep {
+                make_path("$output_dir/$sid/tdplog");
 
-                /^DIAG/i &&
-                -d (
-                    $diag_root .
-                    ($os =~ /MSWin32/i ? "\\$_" : "/$_")
-                )
+                opendir(my $tdh, $tdplog_dir);
 
-            } readdir($ddh);
+                my @files = grep {
 
-            closedir($ddh);
+                    !/^\./ &&
+                    -f (
+                        $tdplog_dir .
+                        ($os =~ /MSWin32/i ? "\\$_" : "/$_")
+                    )
 
-            foreach my $diag (@diag_dirs) {
+                } readdir($tdh);
 
-                my $db2diag =
-                    $diag_root .
-                    ($os =~ /MSWin32/i
-                        ? "\\$diag\\db2diag.log"
-                        : "/$diag/db2diag.log");
+                closedir($tdh);
+
+                foreach my $file (@files) {
+
+                    collect_db2_file(
+                        $tdplog_dir .
+                        ($os =~ /MSWin32/i ? "\\$file" : "/$file"),
+                        "$sid/tdplog/$file"
+                    );
+                }
+            }
+                    # ----------------------------------
+            # db2diag.log
+            # ----------------------------------
+
+            my @diag_logs;
+
+            if ($os =~ /MSWin32/i) {
+
+                @diag_logs =
+                    glob("$sap_dir\\sqllib\\db2dump\\*\\db2diag.log");
+
+            } else {
+
+                @diag_logs =
+                    glob("$sap_dir/sqllib/db2dump/*/db2diag.log");
+            }
+
+            foreach my $diag (@diag_logs) {
 
                 collect_db2_file(
-                    $db2diag,
+                    $diag,
                     "$sid/db2diag.log"
                 );
+
+                last;
             }
         }
     }
+
+
+    # -----------------------------
+# Collect DB2 Configuration
+# -----------------------------
+my $db2_config_file = "$output_dir/db2_config.txt";
+  open(my $db2fh, '>', $db2_config_file) or do {
+    print $errfh "Error: Cannot create db2_config.txt: $!\n";
+    $collected{"db2_config.txt"} = "Failed";
+    };
+
+if ($db2fh) {
+
+    print $db2fh "=== DB2 Database Configuration ===\n";
+
+
+        foreach my $sid (@db2_instances) {
+
+            print $db2fh "\n===== Database: $sid =====\n";
+
+            my $output;
+
+            if ($os =~ /MSWin32/i) {
+
+                $output =
+                    `db2 connect to $sid 2>&1 && db2 get db cfg 2>&1`;
+
+            } else {
+
+                my $instance_user = "db2" . lc($sid);
+
+                 my $cmd = qq{
+                    su - $instance_user <<EOF
+                    db2 connect to $sid
+                    db2 get db cfg
+                    EOF
+                    };
+
+                $output = `$cmd 2>&1`;
+
+            }
+
+            print $db2fh $output;
+        }  
+
+    print $db2fh "=== Environment Variables (Filtered) ===\n";
+    if ($os =~ /MSWin32/i) {
+        my $env_output = `set 2>&1`;
+        # Filter out sensitive info
+        foreach my $line (split /\n/, $env_output) {
+            next if $line =~ /PASSWORD|SECRET|KEY/i;
+            print $db2fh "$line\n";
+        }
+    } else {
+        my $env_output = `env 2>&1`;
+        # Filter out sensitive info
+        foreach my $line (split /\n/, $env_output) {
+            next if $line =~ /PASSWORD|SECRET|KEY/i;
+            print $db2fh "$line\n";
+        }
+    }
+    
+    close($db2fh);
+    $collected{"db2_config.txt"} = "Success";
 }
+
+
 # -----------------------------
 # Summary
 # -----------------------------
@@ -841,7 +659,6 @@ if ($total == 0) {
     $exit_code = 1;
 }
 
-close($errfh);
 exit($exit_code);
 
-# Made with Bob
+
