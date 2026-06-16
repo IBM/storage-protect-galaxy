@@ -111,6 +111,17 @@ sub collect_latest_file {
     collect_file($latest, $original_filename);
 }
 
+sub collect_if_exists {
+    my ($src, $dest) = @_;
+
+    if (-f $src) {
+        collect_file($src, $dest);
+        return 1;
+    }
+
+    return 0;
+}
+
 # =============================
 # SECTION 1: Detect SAP SID
 # =============================
@@ -229,7 +240,8 @@ if ($os =~ /MSWin32/i) {
     
     if ($ENV{DSMI_CONFIG}) {
         my $opt_dir = dirname($ENV{DSMI_CONFIG});
-        my @opt_files = glob("$opt_dir/*.opt");
+        # Quote the path to handle spaces in directory names
+        my @opt_files = glob(qq{"$opt_dir/*.opt"});
         foreach my $opt_file (@opt_files) {
             collect_file($opt_file, basename($opt_file));
         }
@@ -242,53 +254,86 @@ if ($os =~ /MSWin32/i) {
 print $errfh "\n=== Collecting SAP Oracle Files ===\n" if $verbose;
 
 foreach my $sid (@sids) {
+
     next if $sid eq "XXX";
-    
-    # init<SID>.sap
-    my @init_sap_paths = (
-        "/oracle/$sid/sapbackup/init${sid}.sap",
-        "/oracle/$sid/init${sid}.sap",
-        "/oracle/$sid/dbs/init${sid}.sap",
-    );
-    
+
+    my (@init_sap_paths, @init_utl_paths, @init_ora_paths);
+
+    if ($os =~ /MSWin32/i) {
+
+        @init_sap_paths = (
+            glob("C:/oracle/$sid/*/database/init${sid}.sap"),
+            "C:/oracle/$sid/init${sid}.sap",
+        );
+
+        @init_ora_paths = (
+            glob("C:/oracle/$sid/*/database/init${sid}.ora"),
+            "C:/oracle/$sid/init${sid}.ora",
+        );
+
+        @init_utl_paths = (
+            "C:/usr/sap/$sid/sys/exe/run/init${sid}.utl",
+            "C:/oracle/$sid/sapbackup/init${sid}.utl",
+            "C:/oracle/$sid/init${sid}.utl",
+        );
+
+    } else {
+
+        @init_sap_paths = (
+            glob("/oracle/$sid/*/database/init${sid}.sap"),
+            "/oracle/$sid/dbs/init${sid}.sap",
+            "/oracle/$sid/init${sid}.sap",
+        );
+
+        @init_ora_paths = (
+            glob("/oracle/$sid/*/database/init${sid}.ora"),
+            "/oracle/$sid/dbs/init${sid}.ora",
+            "/oracle/$sid/init${sid}.ora",
+        );
+
+        @init_utl_paths = (
+            "/usr/sap/$sid/SYS/exe/run/init${sid}.utl",
+            "/usr/sap/$sid/sys/exe/run/init${sid}.utl",
+            "/oracle/$sid/sapbackup/init${sid}.utl",
+            "/oracle/$sid/init${sid}.utl",
+            "/oracle/$sid/dbs/init${sid}.utl",
+        );
+    }
+
     foreach my $file (@init_sap_paths) {
         if (-e $file) {
             collect_file($file, "init${sid}.sap");
             last;
         }
     }
-    
-    # init<SID>.utl with location
-    my @init_utl_paths = (
-        "/oracle/$sid/sapbackup/init${sid}.utl",
-        "/oracle/$sid/init${sid}.utl",
-        "/oracle/$sid/dbs/init${sid}.utl",
-    );
-    
-    foreach my $file (@init_utl_paths) {
+
+    foreach my $file (@init_ora_paths) {
         if (-e $file) {
-            collect_file($file, "init${sid}.utl");
-            print $errfh "Location of init${sid}.utl: $file\n";
+            collect_file($file, "init${sid}.ora");
             last;
         }
     }
-    
-    # init<SID>.bki with location
+
+    foreach my $file (@init_utl_paths) {
+        if (-e $file) {
+            collect_file($file, "init${sid}.utl");
+            last;
+        }
+    }
+
     my @init_bki_paths = (
         "/oracle/$sid/sapbackup/init${sid}.bki",
         "/oracle/$sid/init${sid}.bki",
         "/oracle/$sid/dbs/init${sid}.bki",
     );
-    
+
     foreach my $file (@init_bki_paths) {
         if (-e $file) {
             collect_file($file, "init${sid}.bki");
-            print $errfh "Location of init${sid}.bki: $file\n";
             last;
         }
     }
 }
-
 # =============================
 # SECTION 8: sbtio.log
 # =============================
@@ -338,66 +383,136 @@ foreach my $sid (@sids) {
 # =============================
 print $errfh "\n=== Collecting SAP BRTOOLS Logs ===\n" if $verbose;
 
+make_path("$output_dir/sapbackup");
+make_path("$output_dir/saparch");
+make_path("$output_dir/sapreorg");
+
 foreach my $sid (@sids) {
 
     next if $sid eq "XXX";
 
-    # ----------------------------------
-    # Standard SAP backup logs
-    # ----------------------------------
+    my ($sapbackup, $saparch, $sapreorg);
 
-    collect_file(
-        "/oracle/$sid/sapbackup/back${sid}.log",
-        "back${sid}.log"
-    );
+    if ($os =~ /MSWin32/i) {
 
-    collect_file(
-        "/oracle/$sid/sapbackup/recov${sid}.log",
-        "recov${sid}.log"
-    );
+        $sapbackup = "C:/oracle/$sid/sapbackup";
+        $saparch   = "C:/oracle/$sid/saparch";
+        $sapreorg  = "C:/oracle/$sid/sapreorg";
 
-    collect_file(
-        "/oracle/$sid/sapbackup/rest${sid}.log",
-        "rest${sid}.log"
-    );
+    } else {
+
+        $sapbackup = "/oracle/$sid/sapbackup";
+        $saparch   = "/oracle/$sid/saparch";
+        $sapreorg  = "/oracle/$sid/sapreorg";
+    }
 
     # ----------------------------------
-    # Latest generated BRTOOLS files
+    # Standard SAP logs
     # ----------------------------------
 
-    collect_latest_file(
-        "/oracle/$sid/sapbackup",
-        "${sid}"
+    collect_if_exists(
+        "$sapbackup/back${sid}.log",
+        "sapbackup/back${sid}.log"
     );
 
-    collect_latest_file(
-        "/oracle/$sid/saparch",
-        "${sid}"
+    collect_if_exists(
+        "$sapbackup/recov${sid}.log",
+        "sapbackup/recov${sid}.log"
+    );
+
+    collect_if_exists(
+        "$sapbackup/rest${sid}.log",
+        "sapbackup/rest${sid}.log"
+    );
+
+    collect_if_exists(
+        "$saparch/arch${sid}.log",
+        "saparch/arch${sid}.log"
+    );
+
+    collect_if_exists(
+        "$sapreorg/space${sid}.log",
+        "sapreorg/space${sid}.log"
+    );
+
+    collect_if_exists(
+        "$sapreorg/CNTRL${sid}.DBF",
+        "sapreorg/CNTRL${sid}.DBF"
     );
 
     # ----------------------------------
-    # Existing backint logs
+    # Latest generated file from sapbackup
+    # (.fnr .crv .rsb etc)
     # ----------------------------------
 
-    my @backup_dirs = (
-        "/oracle/$sid/sapbackup",
-        "/oracle/$sid/saparch",
-    );
+    if (-d $sapbackup) {
 
-    foreach my $dir (@backup_dirs) {
+        opendir(my $dh, $sapbackup);
 
-        next unless -d $dir;
+        my @files = grep {
+            -f "$sapbackup/$_"
+            && $_ !~ /\.log$/i
+        } readdir($dh);
 
-        my $dirname = basename($dir);
+        closedir($dh);
 
-        if (-e "$dir/backint.log") {
+        if (@files) {
+
+            my @sorted = sort {
+                (stat("$sapbackup/$b"))[9] <=>
+                (stat("$sapbackup/$a"))[9]
+            } @files;
 
             collect_file(
-                "$dir/backint.log",
-                "backint.log_${dirname}_${sid}"
+                "$sapbackup/$sorted[0]",
+                "sapbackup/$sorted[0]"
             );
         }
     }
+
+    # ----------------------------------
+    # Latest generated file from saparch
+    # (.svd etc)
+    # ----------------------------------
+
+    if (-d $saparch) {
+
+        opendir(my $dh, $saparch);
+
+        my @files = grep {
+            -f "$saparch/$_"
+            && $_ !~ /\.log$/i
+        } readdir($dh);
+
+        closedir($dh);
+
+        if (@files) {
+
+            my @sorted = sort {
+                (stat("$saparch/$b"))[9] <=>
+                (stat("$saparch/$a"))[9]
+            } @files;
+
+            collect_file(
+                "$saparch/$sorted[0]",
+                "saparch/$sorted[0]"
+            );
+        }
+    }
+
+    # ----------------------------------
+    # backint.log
+    # ----------------------------------
+
+    collect_if_exists(
+        "$sapbackup/backint.log",
+        "sapbackup/backint.log"
+    );
+
+    collect_if_exists(
+        "$saparch/backint.log",
+        "saparch/backint.log"
+    );
 }
 
 # =============================
