@@ -31,15 +31,13 @@
 # 04/30/25 added sudoCmd to snapconfig.json - version 1.2.1
 # 11/13/25 allow script to be located in any directory; replace syntax by usage function - version 1.3
 # 04/28/26 adopt global functions isnapfunctions.sh with new configuration file format - version 1.4
+# 06/05/26 move variables gpfsPath to isnapfunctions.sh 
 
 #---------------------------------------
 # global parameters
 #---------------------------------------
 # common functions file name
 funcFile="isnapfunctions.sh"
-
-# path of GPFS commands
-gpfsPath="/usr/lpp/mmfs/bin"
 
 # version of the program
 ver="1.4"
@@ -165,7 +163,7 @@ do
 done
  
 ### get the parameters for this instance user from the config_file
-echo "INFO: Parsing configuration parameters from config file $configFile for instance user $instUser."
+# echo "INFO: Parsing configuration parameters from config file $configFile for instance user $instUser."
 if ! parse_config; then
   exit 2
 fi

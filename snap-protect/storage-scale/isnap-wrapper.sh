@@ -9,7 +9,7 @@
 #
 # Dependencies:
 # - this scripts must run on the host where the instance is running
-# - isnap-scripts must exist in $isnapPath
+# - isnap-scripts must exist in the same path as this program ($isnapPath)
 # - must be executed by privileged user that can invoke the $instUser via su
 #
 # Usage:
@@ -33,15 +33,19 @@
 # 04/18/25 first implementation
 # 04/30/25 add logPath and log command output into logfile
 # 04/30/25 add instance name as command line option, along with operation codes - version 0.91
-# 11/13/25 allow script to be located in any directory, replace syntax by usage function - version 1.0
+# 11/13/25 allow script to be located in any directory ($isnapPath), replace syntax by usage function - version 1.0
 # 04/28/26 pass through apiCredential, source instance user profile for create operation - version 1.1
+# 06/05/26 add insapfunctions.sh when checking if scripts are available in $isnapPath
 
 
 # Global variables
 #------------------
 
-# path of the isnap-script, may be adjusted to the directory where the wrapper is started from
-isnapPath="/usr/local/bin"
+### determine directory where the script is started from, we assume all other scripts are in this path
+isnapPath=$(dirname $0)
+if [[ $isnapPath = "." ]]; then
+  isnapPath=$PWD
+fi
 
 #log file path
 logPath="/var/log/isnap"
@@ -166,15 +170,10 @@ if [[ ! -d $logPath ]]; then
    fi
 fi   
 
-### determine directory where the script is started from
-isnapPath=$(dirname $0)
-if [[ $isnapPath = "." ]]; then
-  isnapPath=$PWD
-fi
-echo "WRAPPER DEBUG: isnap path for $0: $isnapPath"
 
 # check if isnap-scripts exist in isnapPath
-for s in isnap-create.sh isnap-del.sh isnap-list.sh isnap-fscap.sh;
+echo "WRAPPER DEBUG: isnap path for $0: $isnapPath"
+for s in isnap-create.sh isnap-del.sh isnap-list.sh isnap-fscap.sh isnapfunctions.sh;
 do
    if [[ ! -a $isnapPath/$s ]]; then
      echo "WRAPPER ERROR: $s does not exist in $isnapPath. Ensure all script are in the same directory."

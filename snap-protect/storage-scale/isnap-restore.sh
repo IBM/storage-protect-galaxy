@@ -34,6 +34,8 @@
 # 08/15/25 set default for configuration parameter dbName (TSMDB1)
 # 11/13/25 allow script to be located in any directory
 # 04/28/26 adopt global functions isnapfunctions.sh with new configuration file format, print command to copy & paste, fix df for AIX - version 2.0
+# 06/05/26 move variables gpfsPath, os to isnapfunctions.sh
+# 06/09/26 added messages to disable replication after restore - version 2.1
 
 #---------------------------------------
 # global parameters
@@ -41,14 +43,11 @@
 # common functions file name
 funcFile="isnapfunctions.sh"
 
-# path of GPFS commands
-gpfsPath="/usr/lpp/mmfs/bin"
-
 # initialized snapName to be given as argument
 snapName=""
 
 # program version
-ver=2.0
+ver=2.1
 
 
 #------------------------------------------------------------------
@@ -377,8 +376,14 @@ if (( rc == 0 )); then
     # if the server instance directory is given, then change to this directory
     cd $serverInstDir
 
+    echo -e "\n-------------------------------------------------------------------------------"
     echo "INFO: $(date) starting the instance in maintenance mode, client session are not allowed."
-    echo "      Check the instance and if everything is good, stop it (halt) and start it as service." 
+    echo "      Check the instance and if everything is good, stop it (halt) and start it as service."
+    echo -e "\nACTION: If node replication is enabled, then disable replication while in maintenance mode using commmand: disable replication"
+    echo -e "        To re-synchronize source and target server follow the procedure to Replicate client node data after a database restore"
+    echo -e "        (https://www.ibm.com/docs/en/storage-protect/8.2.1?topic=replication-replicating-client-node-data-after-database-restore)"
+    echo -e "-------------------------------------------------------------------------------\n"
+
     dsmserv maintenance
     exit 0
   elif [[ "$dbName" == "ERMM" ]]; then
@@ -400,7 +405,7 @@ if (( rc > 0 && rc != 1391 )); then
   exit 6
 fi
 
-# take this path if API is used
+# take this path if API is used or autoRestore=false
 # print copy command
 echo -e "\nCOPY COMMAND: You can copy and paste the commands below to accommodate the action:\n$copyCmd"
 echo
@@ -442,8 +447,8 @@ if [[ "$a" == "yes" ]]; then
 	  fi
   done
 
-  ### set du that is platform specific, -h is not available in AIX
-  os=$(uname -s)
+  ### set df option that is platform specific, -h is not available in AIX
+  #os=$(uname -s)
   dfOpt=""
   case "$os" in
   Linux)
@@ -462,7 +467,7 @@ if [[ "$a" == "yes" ]]; then
   echo "-------------------------------------------------------------------------"
   echo
   echo "DEBUG: fileset state for all relevant file systems"
-  echo "$fsList" | sed 's/|/\n/g' | while read line;
+  for line in $(echo "$fsList" | sed 's/|/ /g')
   do 
      if [[ ! -z $line ]]; then
        if [[ -z $apiServer ]]; then
@@ -520,15 +525,17 @@ if [[ "$a" == "yes" ]]; then
     echo "ACTION: Change the directory to server instance directory $serverInstDir"
     echo "# cd $serverInstDir"
     echo
-
+    echo -e "\n-------------------------------------------------------------------------------"
     echo "ACTION: Start the instance in maintenance mode, client session are not allowed."
-    echo "Check the instance and if everything is good, stop it (halt) and start it as service." 
     echo "# dsmserv maintenance"
     echo
-    echo "INFO: After starting the server in maintenance mode, check the actlog,"
-    echo "      and run audit storage pool for all pools. When the server state is good,"
-    echo "      then stop the server (halt) and start the instance. Good luck!"
+    echo "ACTION: If node replication is enabled, then disable replication in maintencance mode using commmand: disable replication"
+    echo "        To re-synchronize source and target server follow the procedure to Replicate client node data after a database restore"
+    echo "        (https://www.ibm.com/docs/en/storage-protect/8.2.1?topic=replication-replicating-client-node-data-after-database-restore)"
     echo
+    echo "ACTION: After starting the server in maintenance mode, check the actlog,"
+    echo "      and run audit storage pool for all pools. When the server state is good,"
+    echo "      then stop the server (halt) and start the instance in background. Good luck!"
     echo "==========================================================================="
     echo
     exit 0
