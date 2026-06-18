@@ -543,10 +543,16 @@ if (!@db2_instances) {
 
             if ($os =~ /MSWin32/i) {
 
-                @diag_logs =
-                    glob("$sap_dir\\sqllib\\db2dump\\*\\db2diag.log");
+                @diag_logs = (
 
-            } else {
+                    glob("$sap_dir\\sqllib\\db2dump\\*\\db2diag.log"),
+
+                    glob("C:\\ProgramData\\IBM\\DB2\\DB2COPY1\\DB2$sid\\DIAG*\\db2diag.log"),
+
+                    glob("C:\\ProgramData\\IBM\\DB2\\*\\DB2$sid\\DIAG*\\db2diag.log")
+                );
+
+            }  else {
 
                 @diag_logs =
                     glob("$sap_dir/sqllib/db2dump/*/db2diag.log");
