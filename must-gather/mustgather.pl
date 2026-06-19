@@ -55,6 +55,7 @@ if ($help) {
         'sp-client-exchange' => 1, 
         'sp-client-domino'   => 1, 
         'sp-client-sap-hana'   => 1,   
+        'sp-client-api-db2'   => 1,   
     );
 
     unless (exists $valid_products{$product}) {
@@ -224,6 +225,7 @@ print "Starting must-gather for product: $product\n" if $verbose;
         'sp-client-domino' => "$FindBin::Bin/sp-client-domino/mustgather.pl",
         'sp-client-exchange' => "$FindBin::Bin/sp-client-exchange/mustgather.pl",
         'sp-client-vmware' => "$FindBin::Bin/sp-client-vmware/mustgather.pl",
+        'sp-client-api-db2' => "$FindBin::Bin/sp-client-api-db2/mustgather.pl",
         # Add more products as developed
     );
 
