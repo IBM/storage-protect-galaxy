@@ -56,6 +56,7 @@ if ($help) {
         'sp-client-sap-oracle' =>1,  
         'sp-client-sap-db2'   => 1,
         'sp-client-hsm'   => 1, 
+        'sp-client-api-db2'   => 1,   
     );
 
     unless (exists $valid_products{$product}) {
@@ -217,7 +218,6 @@ print "Starting must-gather for product: $product\n" if $verbose;
  my %product_scripts = (
         'sp-client-ba' => "$FindBin::Bin/sp-client-ba/mustgather.pl",
         'sp-server' => "$FindBin::Bin/sp-server/mustgather.pl",
-        'sp-server-sta' => "$FindBin::Bin/sp-server-sta/mustgather.pl",
         'sp-client-hyperv' => "$FindBin::Bin/sp-client-hyperv/mustgather.pl",
         'sp-client-sql' => "$FindBin::Bin/sp-client-sql/mustgather.pl",
         'sp-client-oracle' => "$FindBin::Bin/sp-client-oracle/mustgather.pl",
@@ -228,6 +228,7 @@ print "Starting must-gather for product: $product\n" if $verbose;
         'sp-client-sap-oracle'=> "$FindBin::Bin/sp-client-sap-oracle/mustgather.pl",
         'sp-client-sap-db2'=> "$FindBin::Bin/sp-client-sap-db2/mustgather.pl",
         'sp-client-hsm' => "$FindBin::Bin/sp-client-hsm/mustgather.pl",
+        'sp-client-api-db2' => "$FindBin::Bin/sp-client-api-db2/mustgather.pl",
         # Add more products as developed
     );
 
