@@ -1,4 +1,4 @@
-# Must-Gather for IBM Spectrum Protect API for DB2
+# Must-Gather for IBM Spectrum Protect DB2 client backup using the API
 
 ## Overview
 
