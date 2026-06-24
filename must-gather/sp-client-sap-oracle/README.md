@@ -55,7 +55,7 @@ perl mustgather.pl --product sp-client-sap-oracle --output-dir /tmp/mustgather_o
 
 - `performance` : Captures performance metrics Instrumentation logs(`dsminstr.log`).
 
-- `sap-oracle` : Collects SAP Oracle-specific configuration files (dsm.sys, dsierror.log, init<SID> files, sbtio.log, backint logs), environment variables, Oracle version, and platform-specific package information (lslpp/rpm/registry).
+- `sap-oracle` : Collects SAP Oracle configuration and diagnostic data including init<SID>.utl, init<SID>.sap, init<SID>.ora, Oracle backup and recovery logs (back<SID>.log, recov<SID>.log, rest<SID>.log, arch<SID>.log), BRTOOLS-generated files (*.fnr, *.crv, *.rsb, *.svd), space<SID>.log, sbtio.log, Oracle version information, environment settings, and platform-specific Oracle/IBM Storage Protect components. Supports AIX, Linux, and Windows environments and provides comprehensive data for troubleshooting SAP Oracle backup, restore, archive, and recovery operations with IBM Storage Protect.
 
 ## Output
 The collected data will be saved in the specified output directory and compressed into a `.zip` file (unless `--no-compress` is used).
