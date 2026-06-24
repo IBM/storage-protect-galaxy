@@ -57,5 +57,7 @@ perl mustgather.pl --product sp-client-sap-db2 --output-dir /tmp/mustgather_outp
 
 - `performance` : Captures performance metrics Instrumentation logs(`dsminstr.log`).
 
-- `Sap-db2` : Collects SAP-specific configuration files (init*.sap, init*.utl), DB2 database configurations, API client settings (dsm.sys/dsm.opt from API directories), and diagnostic logs including db2diag.log and TDP DB2 logs.
-  This module provides comprehensive data for troubleshooting SAP DB2 backup and recovery issues with IBM Storage Protect.
+- `sapdb2` : Collects SAP DB2 configuration and diagnostic data, including init<SID>.utl, vendor.env, DB2 database configuration (db2 get db cfg), DB2 diagnostic logs (db2diag.log), and all TDP DB2 log files from the tdplog directory (such as backom.log, tdpdb2.*.log, and tdprlf.*.log). The module supports AIX, Linux, and Windows environments and provides comprehensive data for troubleshooting SAP DB2 backup, restore, and recovery operations with IBM Storage Protect.
+
+## Output
+The collected data will be saved in the specified output directory and compressed into a `.zip` file (unless `--no-compress` is used).
