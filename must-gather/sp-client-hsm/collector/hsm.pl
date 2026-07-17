@@ -206,6 +206,14 @@ if ($os =~ /MSWin32/i) {
         "$output_dir/hsmfilespaces.txt",
         "HSM_Filespaces"
     );
+
+    system("xcopy \"$hsm_path\\logs\" \"$output_dir\\logs\" /E /I /Y >nul 2>&1");
+
+    if (-d "$output_dir/logs") {
+        $collected_items{"HSM_Logs"} = "Success";
+    } else {
+        $collected_items{"HSM_Logs"} = "Failed";
+    }
     
 } else {
     # Unix/Linux-specific HSM commands
