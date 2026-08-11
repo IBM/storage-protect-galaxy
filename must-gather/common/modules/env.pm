@@ -4,7 +4,7 @@ use warnings;
 use Exporter 'import';
 use File::Spec;
 
-our @EXPORT_OK = qw(_os get_ba_base_path get_server_address get_hyperv_base_path get_sql_base_path get_oracle_base_path get_api_base_path get_domino_base_path get_vmware_base_path get_exchange_base_path);
+our @EXPORT_OK = qw(_os get_ba_base_path get_server_address get_hyperv_base_path get_sql_base_path get_oracle_base_path get_sap_oracle_base_path get_api_base_path get_domino_base_path get_vmware_base_path get_exchange_base_path);
 
 ###############################################################################
 # _os
@@ -385,6 +385,65 @@ sub _get_oracle_path_from_tdpoconf {
         }
     }
 
+    return undef;
+}
+
+###############################################################################
+# get_sap_oracle_base_path
+#
+# Purpose  : Determine Data Protection for SAP Oracle client base installation directory.
+# Input    : None
+# Output   : Absolute path to SAP Oracle client directory, or undef if not found.
+# Behavior :
+#   1. Check DSMI_DIR environment variable (highest priority).
+#   2. Run 'tdpoconf showenvironment' to extract installation path (all platforms).
+#   3. Fallback to OS-specific SAP Oracle default install paths.
+#   4. Return undef if product is not installed or path missing.
+###############################################################################
+sub get_sap_oracle_base_path {
+    my $os = _os();
+
+    # 1. Environment override (DSMI_DIR is the standard variable for TDP Oracle)
+    if ($ENV{DSMI_DIR} && -d $ENV{DSMI_DIR}) {
+        return $ENV{DSMI_DIR} if -f "$ENV{DSMI_DIR}/tdpo.opt";
+    }
+
+    # 2. Use tdpoconf showenvironment (works on all platforms including Windows)
+    my $tdpoconf_path = _get_oracle_path_from_tdpoconf();
+    return $tdpoconf_path if $tdpoconf_path;
+
+    # 3. OS-specific SAP Oracle fallback paths
+    if ($os =~ /MSWin32/i) {
+        # Windows: SAP-specific paths
+        foreach my $path (
+            "C:/Program Files/Tivoli/TSM/tdp_r3/ora64",
+            "C:/Program Files/Tivoli/TSM/tdp_r3/ora",
+            "C:/Program Files (x86)/Tivoli/TSM/tdp_r3/ora64",
+            "C:/Program Files (x86)/Tivoli/TSM/tdp_r3/ora"
+        ) {
+            return $path if -d $path ;
+        }
+    }
+    elsif ($os =~ /aix/i) {
+        # AIX paths - SAP Oracle
+        foreach my $path (
+            "/usr/tivoli/tsm/tdp_r3/ora64",
+            "/usr/tivoli/tsm/tdp_r3/ora"
+        ) {
+            return $path if -d $path;
+        }
+    }
+    elsif ($os =~ /linux|sunos|solaris/i) {
+        # Linux, Solaris paths - SAP Oracle
+        foreach my $path (
+            "/opt/tivoli/tsm/tdp_r3/ora64",
+            "/opt/tivoli/tsm/tdp_r3/ora"
+        ) {
+            return $path if -d $path;
+        }
+    }
+
+    # 4. Not found
     return undef;
 }
 
