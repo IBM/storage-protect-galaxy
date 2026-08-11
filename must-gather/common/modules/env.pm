@@ -4,7 +4,7 @@ use warnings;
 use Exporter 'import';
 use File::Spec;
 
-our @EXPORT_OK = qw(_os get_ba_base_path get_server_address get_hyperv_base_path get_sql_base_path get_oracle_base_path get_sap_oracle_base_path get_api_base_path get_domino_base_path get_vmware_base_path get_exchange_base_path);
+our @EXPORT_OK = qw(_os get_ba_base_path get_server_address get_hyperv_base_path get_sql_base_path get_oracle_base_path get_sap_oracle_base_path get_api_base_path get_domino_base_path get_vmware_base_path get_exchange_base_path get_sap_db2_base_path);
 
 ###############################################################################
 # _os
@@ -729,6 +729,57 @@ sub get_exchange_base_path{
                 return $path if -d $path;
             }
         }
+    return undef;
+}
+
+###############################################################################
+# get_sap_db2_base_path
+#
+# Purpose  : Determine Data Protection for SAP on DB2 installation directory.
+# Input    : None
+# Output   : Absolute path to SAP DB2 client directory, or undef if not found.
+# Behavior :
+#   1. Check DSMI_DIR environment variable (highest priority).
+#   2. Fallback to OS-specific default install paths for TDP R3 DB2.
+#   3. Return undef if product is not installed or path missing.
+###############################################################################
+sub get_sap_db2_base_path {
+    my $os = _os();
+
+    # 1. Environment override
+    if ($ENV{DSMI_DIR} && -d $ENV{DSMI_DIR}) {
+        return $ENV{DSMI_DIR};
+    }
+
+    # 2. OS-specific fallback paths
+    if ($os =~ /aix/i) {
+        foreach my $path (
+            "/usr/tivoli/tsm/tdp_r3/db264",
+            "/usr/tivoli/tsm/tdp_r3/db2"
+        ) {
+            return $path if -d $path;
+        }
+    }
+    elsif ($os =~ /linux|sunos|solaris/i) {
+        foreach my $path (
+            "/opt/tivoli/tsm/tdp_r3/db264",
+            "/opt/tivoli/tsm/tdp_r3/db2"
+        ) {
+            return $path if -d $path;
+        }
+    }
+    elsif ($os =~ /MSWin32/i) {
+        foreach my $path (
+            "C:/Program Files/Tivoli/TSM/tdp_r3/db264",
+            "C:/Program Files/Tivoli/TSM/tdp_r3/db2",
+            "C:/Program Files (x86)/Tivoli/TSM/tdp_r3/db264",
+            "C:/Program Files (x86)/Tivoli/TSM/tdp_r3/db2"
+        ) {
+            return $path if -d $path;
+        }
+    }
+
+    # 3. Not found
     return undef;
 }
 
