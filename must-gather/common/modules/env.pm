@@ -4,7 +4,7 @@ use warnings;
 use Exporter 'import';
 use File::Spec;
 
-our @EXPORT_OK = qw(_os get_ba_base_path get_server_address get_hyperv_base_path get_sql_base_path get_oracle_base_path get_sap_oracle_base_path get_api_base_path get_domino_base_path get_vmware_base_path get_exchange_base_path get_sap_db2_base_path);
+our @EXPORT_OK = qw(_os get_ba_base_path get_server_address get_hyperv_base_path get_sql_base_path get_oracle_base_path get_sap_oracle_base_path get_api_base_path get_domino_base_path get_vmware_base_path get_exchange_base_path get_sap_db2_base_path get_hsm_base_path);
 
 ###############################################################################
 # _os
@@ -782,5 +782,86 @@ sub get_sap_db2_base_path {
     # 3. Not found
     return undef;
 }
+# -----------------------------
+# get_hsm_base_path
+#
+# Purpose  : Determine IBM Spectrum Protect HSM client installation directory.
+# Input    : None
+# Output   : Absolute path to HSM bin directory, or undef if not found.
+# Behavior :
+#   1. Check HSM_DIR environment variable (highest priority).
+#   2. Fallback to OS-specific default install paths.
+#   3. For Windows: Check registry keys.
+#   4. For Unix/Linux: Check standard installation paths.
+# -----------------------------
+sub get_hsm_base_path {
+    my $os = _os();
+
+    # 1. Environment override
+    if ($ENV{HSM_DIR} && -d $ENV{HSM_DIR}) {
+        return $ENV{HSM_DIR};
+    }
+
+    # 2. Windows-specific paths
+    if ($os =~ /MSWin32/i) {
+        # Check registry for HSM installation
+        my @reg_keys = (
+            "HKLM\\SOFTWARE\\IBM\\ADSM\\CurrentVersion\\HSM",
+            "HKLM\\SOFTWARE\\WOW6432Node\\IBM\\ADSM\\CurrentVersion\\HSM",
+            "HKLM\\SOFTWARE\\IBM\\Tivoli\\TSM\\HSM",
+            "HKLM\\SOFTWARE\\WOW6432Node\\IBM\\Tivoli\\TSM\\HSM"
+        );
+        
+        foreach my $key (@reg_keys) {
+            my $cmd = qq{reg query "$key" /v Path 2>NUL};
+            my $out = `$cmd`;
+            if ($out =~ /Path\s+REG_\w+\s+([^\r\n]+)/i) {
+                my $path = $1;
+                $path =~ s/^\s+|\s+$//g;
+            return $path if -d $path;
+        }
+    }
+
+        # Fallback to common Windows paths
+        foreach my $path (
+            "C:/Program Files/Tivoli/TSM/HSMClient",
+            "C:/Program Files (x86)/Tivoli/TSM/HSMClient",
+            "C:/Program Files/Tivoli/TSM/HSM",
+            "C:/Program Files (x86)/Tivoli/TSM/HSM"
+        ) {
+            return $path if -d $path;
+        }
+    }
+    # 3. Unix/Linux/AIX/Solaris paths
+    elsif ($os =~ /linux/i) {
+        foreach my $path (
+            "/opt/tivoli/tsm/client/hsm/bin",
+            "/opt/tivoli/tsm/HSMClient"
+        ) {
+            return $path if -d $path;
+        }
+    }
+    elsif ($os =~ /aix/i) {
+        foreach my $path (
+            "/usr/tivoli/tsm/client/hsm/bin64",
+            "/usr/tivoli/tsm/client/hsm/bin",
+            "/usr/tivoli/tsm/HSMClient"
+        ) {
+            return $path if -d $path;
+        }
+    }
+    elsif ($os =~ /sunos|solaris/i) {
+        foreach my $path (
+            "/opt/tivoli/tsm/client/hsm/bin",
+            "/opt/tivoli/tsm/HSMClient"
+        ) {
+            return $path if -d $path;
+        }
+    }
+
+    # 4. Not found
+    return undef;
+}
+
 
 1;
