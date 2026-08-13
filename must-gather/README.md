@@ -11,16 +11,16 @@ The must-gather scripts are developed to collect diagnostic data across multiple
 | Storage Agent               | sp-server-sta               |
 | SP Client – Backup-Archive  | sp-client-ba                |
 | SP Client – Space Management| sp-client-space-mgmt        |
-| SP Client – HSM for Windows | sp-client-hsm               |
+| SP Client – HSM             | sp-client-hsm               |
 | SP4VE – VMware              | sp-client-vmware            |
 | SP4VE – Hyper-V             | sp-client-hyperv            |
 | SP4DB – Oracle              | sp-client-oracle            |
 | SP4DB – SQL                 | sp-client-sql               |
 | SP4Mail – Exchange          | sp-client-exchange          |
 | SP4Mail – Domino            | sp-client-domino            |
-| SP4ERP – SAP HANA           | sp-client-erp-sap-hana      |
-| SP4ERP – DB2                | sp-client-erp-db2           |
-| SP4ERP – Oracle             | sp-client-erp-oracle        |
+| SP4ERP – SAP HANA           | sp-client-sap-hana      |
+| SP4ERP – DB2                | sp-client-sap-db2           |
+| SP4ERP – Oracle             | sp-client-sap-oracle        |
 
 
 #### Each product directory contains its own script and a product-specific README that describes the modules applicable to that product.
