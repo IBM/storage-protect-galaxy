@@ -204,7 +204,7 @@ Data stored in the cold data cache storage pool cannot be immediately accessed v
 | **Object Agent** | IBM Storage Protect Object Agent | S3 server implementation layer |
 | **Disk Cache** | Cold Data Cache Storage Pool | File-based storage pool for temporary storage |
 | **Tape Management** | IBM Storage Protect Tape Pool | Sequential access storage for long-term storage |
-| **Physical Storage** | Tape Library / Drives | LTO-8 or newer / IBM Jaguar (TS1160) or newer, or similar, recommended |
+| **Physical Storage** | Tape Library / Drives | LTO-8 or newer (LTO-10 preferred) / IBM Jaguar (TS1160) or newer, or similar, recommended |
 
 ---
 
@@ -569,7 +569,7 @@ sequenceDiagram
 | Component | Minimum | Recommended | Notes |
 |-----------|---------|-------------|-------|
 | Tape Drives | 2 | 4-8+ | For parallel migration and other tape activity |
-| Drive Type |  LTO-8 / TS1155 | LTO-9 / TS1160 / TS1170 | For performance and capacity |
+| Drive Type |  LTO-8 / TS1155 | LTO-10 / TS1160 / TS1170 | For performance and capacity |
 | Throughput | 300 MB/s | 400 MB/s | Per drive |
 | Tape Slots | 50 | 100+ | Based on archive capacity/retention needs |
 | Connectivity | FC 8Gb | FC 16Gb | For drive performance |
@@ -939,7 +939,7 @@ Total: 80 TiB usable capacity
 
 | Component | Specification | Notes |
 |-----------|---------------|-------|
-| Tape Drives | LTO-8 / TS1155 or newer recommended | LTO-9 / TS1160 / TS1170 better for performance |
+| Tape Drives | LTO-8 / TS1155 or newer recommended | LTO-10 / TS1160 / TS1170 better for performance |
 | Cold Cache Disk Capacity | Total Protection Group Archive Job Size + Total Restore Job(s) Size (Active at a time) + 20% buffer | Based on sizing formula |
 | Cold Cache Disk Technology | NVM-E/Flash/SSD recommended for AIX/JFS2 platforms | Overlapped 256 KiB I/O |
 | Network | 10 GbE+ | Between IBM Storage Defender Data Protect and IBM Storage Protect |
@@ -1423,7 +1423,7 @@ mindmap
 
 | Component | Metric | Typical Value | Notes |
 |-----------|--------|---------------|-------|
-| **Tape Recall** | Read throughput | 300-400 MB/s | Per drive, LTO-8/9 or TS1155/TS1160/TS1170 |
+| **Tape Recall** | Read throughput | 300-400 MB/s | Per drive, LTO-8/9/10 or TS1155/TS1160/TS1170 |
 | **Tape Mount** | Mount time | 30-60 seconds | Per tape |
 | **Cold Cache Stage** | Write throughput | 500-800 MB/s | To cache |
 | **Network Transfer** | Transfer rate | 800-1000 MB/s | Cache to IBM Storage Defender Data Protect |
@@ -2378,8 +2378,8 @@ iris_cli cluster delete-protection-group --id group_id
 
 | Parameter | Value | Calculation |
 |-----------|-------|-------------|
-| Tape type | | LTO-8 / LTO-9 / TS1160 / TS1155 |
-| Native capacity per tape | | 12 TB (LTO-8) / 18 TB (LTO-9) / 20 TB (TS1160) / 50 TB (TS1170) |
+| Tape type | | LTO-8 / LTO-9 / LTO-10 / TS1160 / TS1155 |
+| Native capacity per tape | | 12 TB (LTO-8) / 18 TB (LTO-9) / 30 TB (LTO-10) / 20 TB (TS1160) / 50 TB (TS1170) |
 | **Tapes needed (native)** | | Total Requirement ÷ Native Capacity |
 | **Tapes needed (compressed)** | | Total Requirement ÷ Compressed Capacity |
 | Tape drives required | | 4-8 recommended |
