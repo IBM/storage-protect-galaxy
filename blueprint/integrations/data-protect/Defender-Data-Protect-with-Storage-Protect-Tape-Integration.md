@@ -879,9 +879,9 @@ Total: 80 TiB usable capacity
 
 **Encryption Layers**:
 
-1. **IBM Storage Defender Data Protect**: Enable encryption for protection groups
-2. **External target**: Enable encryption for the "Tape Based" External Target
-3. **IBM Storage Protect**: Enable encryption for tape storage pool
+1. **IBM Storage Defender Data Protect Storage Domain**: Enable storage domain encryption for initial backups (AES-256 GCM)
+2. **External target**: Enable encryption for the "Tape Based" External Target (AES-256 GCM)
+3. **Tape**: Enable encryption for the tape library/drive
 4. **Network**: Use HTTPS for S3 communication (the default)
 
 **Key Management**:
