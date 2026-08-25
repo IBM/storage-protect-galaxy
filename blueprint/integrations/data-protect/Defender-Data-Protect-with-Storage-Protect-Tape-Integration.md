@@ -1463,12 +1463,15 @@ Annual Requirement: 50 TiB × 12 = 600 TiB
 7-Year Requirement: 600 TiB × 7 = 4,200 TiB (4.2 PiB)
 ```
 
-**Tape Capacity**:
+**Tape Capacity by Generation**:
 
-- Native capacity: 18 TiB per tape
-- Compressed capacity: 45 TiB per tape (2.5:1 ratio)
-- Tapes needed (native): 4,200 TiB ÷ 18 TiB = 234 tapes
-- Tapes needed (compressed): 4,200 TiB ÷ 45 TiB = 94 tapes
+| LTO Generation | Native Capacity | Compressed Capacity (2.5:1) | Tapes Needed (Native) | Tapes Needed (Compressed) |
+|----------------|-----------------|-----------------------------|-----------------------|---------------------------|
+| LTO-8          | 12 TiB          | 30 TiB                      | 4,200 ÷ 12 = **350**  | 4,200 ÷ 30 = **140**      |
+| LTO-9          | 18 TiB          | 45 TiB                      | 4,200 ÷ 18 = **234**  | 4,200 ÷ 45 = **94**       |
+| LTO-10         | 36 TiB          | 90 TiB                      | 4,200 ÷ 36 = **117**  | 4,200 ÷ 90 = **47**       |
+
+> **Note**: LTO-10 halves the tape count compared to LTO-9, significantly reducing slot requirements and physical media costs for large archives.
 
 #### Growth Planning
 
