@@ -508,6 +508,7 @@ sequenceDiagram
     DP->>OA: S3 GET Object
     OA->>CC: Check cache
     CC-->>OA: Not in cache
+    OA-->>DP: S3 GET Response (failure - data not staged)
     
     Note over OA,TD: Tape Recall
     OA->>RP: Request recall - S3 Restore
@@ -518,9 +519,16 @@ sequenceDiagram
     TD->>CC: Stage to cache
     
     Note over DP,TD: Data Retrieval
+    loop Poll until staged
+        DP->>OA: Poll restore status
+        OA->>CC: Check cache
+        CC-->>OA: Staging status
+        OA-->>DP: Restore status (continue until staged)
+    end
+    DP->>OA: S3 GET Request
     OA->>CC: Read from cache
     CC-->>OA: Return data
-    OA-->>DP: S3 GET Response
+    OA-->>DP: S3 GET Response (success)
     
     Note over CC: Retention Period (default 7 days)
     Note over CC: Data deleted from cache after retention period
