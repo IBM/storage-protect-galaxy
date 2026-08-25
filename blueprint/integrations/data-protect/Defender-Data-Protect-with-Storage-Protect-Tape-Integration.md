@@ -549,7 +549,7 @@ sequenceDiagram
 
 | Component | Minimum | Recommended | Notes |
 |-----------|---------|-------------|-------|
-| Server Version | 8.1.20 | 8.1.23+ | Required for object agent tape support |
+| Server Version | 8.1.20 | 8.2.0+ | Required for object agent tape support |
 | CPU Cores | 8 | 16+ | For object agent and migration performance |
 | Memory | 32 GiB | 64 GiB+ | For object agent and migration performance |
 | Network | 10 GbE | 25 GbE | For S3 and tape traffic |
