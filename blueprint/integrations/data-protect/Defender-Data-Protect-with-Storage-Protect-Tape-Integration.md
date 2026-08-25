@@ -954,7 +954,7 @@ DEFINE STGPOOL S3COLDCACHE
 
 **Considerations**:
 
-- Cold data cache storage pools are 10 GiB in size by default
+- Cold data cache storage pools use a 10 GiB volume size by default
 - Configure `MAXSCRATCH` based on total desired capacity (number of scratch volumes x 10 GiB = max capacity)
   - Or just set `MAXSCRATCH` to something much higher
 
