@@ -2374,6 +2374,15 @@ iris_cli cluster delete-protection-group --id group_id
 | Buffer percentage | 20% | Recommended |
 | **Total cold cache required** | | Total archive size + Total restore size + Buffer |
 
+**NOTE**: Cold Data Cache storage pool capacity is determined by:
+- The `MAXSCRATCH` setting on the pool (updated via `UPDATE STGPOOL`)
+- The capacity of the directories (file systems) provided to the storage pool (via `DEFINE/UPDATE STGPOOL`)
+
+The volume size of cold data cache storage pools is 10 GiB. Assuming that the file systems provide sufficient capacity, the size limit for the pool is determined by:
+```
+MAXSCRATCH * 10 GiB
+```
+
 #### Tape Library Sizing
 
 | Parameter | Value | Calculation |
