@@ -925,34 +925,6 @@ Total: 80 TiB usable capacity
 
 ## Setup and Configuration
 
-### Prerequisites
-
-#### Software Requirements
-
-| Component | Version | Purpose |
-|-----------|---------|---------|
-| IBM Storage Defender Data Protect | 7.1+ | Source backup system |
-| IBM Storage Protect Server | 8.1.20+ | Tape management and object agent |
-| Tape Library Firmware | Current | Tape hardware support |
-
-#### Hardware Requirements
-
-| Component | Specification | Notes |
-|-----------|---------------|-------|
-| Tape Drives | LTO-8 / TS1155 or newer recommended | LTO-10 / TS1160 / TS1170 better for performance |
-| Cold Cache Disk Capacity | Total Protection Group Archive Job Size + Total Restore Job(s) Size (Active at a time) + 20% buffer | Based on sizing formula |
-| Cold Cache Disk Technology | NVM-E/Flash/SSD recommended for AIX/JFS2 platforms | Overlapped 256 KiB I/O |
-| Network | 10 GbE+ | Between IBM Storage Defender Data Protect and IBM Storage Protect |
-| Tape Connectivity | FC 8Gb+ | FC 16Gb recommended |
-
-#### Network Requirements
-
-- **Connectivity**: Network path exists between IBM Storage Defender Data Protect cluster and IBM Storage Protect server
-- **Bandwidth**: Sufficient for archive operations (10 GbE minimum)
-- **Latency**: Low latency preferred (< 5ms)
-- **Ports**: TCP port 9000 (default S3 port) open between systems
-- **DNS**: Proper DNS resolution for hostnames
-
 ### Configuration Steps
 
 #### Step 1: Prepare IBM Storage Protect Server
