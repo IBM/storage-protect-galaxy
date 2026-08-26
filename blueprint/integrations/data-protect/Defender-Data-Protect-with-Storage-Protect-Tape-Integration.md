@@ -179,7 +179,7 @@ Data stored in the cold data cache storage pool cannot be immediately accessed v
 
 - Cold data cache storage volumes only become eligible for migration after the volume is either full or closed for a short period of time, and any S3 protocol "multi-part" objects stored within those volumes have been "completed".
 - IBM Storage Defender Data Protect protection group archives make use of S3 protocol "multi-part" objects for storing data. These objects are only "completed" by the protection job after all data for the protection group has been archived.
-- Therefore, the cold data cache (disk) storage pool must be larged enough to fit all data for all protection group archives performed within the same window of time (see sizing considerations later in this document).
+- Therefore, the cold data cache (disk) storage pool must be large enough to fit all data for all protection group archives performed within the same window of time (see sizing considerations later in this document).
 
 ![Object Agent Archive Flow](../images/ColdDataCacheMovement.png)
 
@@ -265,6 +265,18 @@ gantt
 - Maintain continuity of tape-based archives during and after migration
 - Unified IBM data protection strategy with proven tape integration
 - Continue to be able to restore IBM Storage Protect Plus archives from tape
+
+> **Note**: Restores of data that was originally archived by IBM Storage Protect Plus must be performed using IBM Storage Protect Plus — IBM Storage Defender Data Protect cannot restore archives created by IBM Storage Protect Plus.
+
+**Migration Considerations**:
+
+When migrating from IBM Storage Protect Plus to IBM Storage Defender Data Protect, the following considerations apply:
+
+- The existing IBM Storage Protect S3 client node credentials and S3 bucket (filespace) can be reused for both IBM Storage Protect Plus and IBM Storage Defender Data Protect simultaneously — no reconfiguration of the IBM Storage Protect server is required to begin using the new platform alongside the old one.
+- IBM Storage Defender Data Protect cannot restore data that was originally archived by IBM Storage Protect Plus. The archive formats are incompatible, and only IBM Storage Protect Plus can restore its own archives.
+- The recommended migration path is to allow existing IBM Storage Protect Plus archives to age off (expire) over time according to their existing retention policies, while all new archives are taken with IBM Storage Defender Data Protect going forward. There is no bulk migration of archive data.
+
+> **Important**: IBM Storage Defender Data Protect cannot restore data archived by IBM Storage Protect Plus. Administrators must retain access to a functional IBM Storage Protect Plus environment for as long as any IBM Storage Protect Plus archives remain within their retention period. Do not decommission IBM Storage Protect Plus until all of its archives have expired.
 
 ### Use Case 3: Leveraging Existing Tape Infrastructure
 
@@ -1444,6 +1456,33 @@ Buffer: 20%
 Base Capacity = 10 TiB + 5 TiB = 15 TiB
 With Buffer = 15 TiB × 1.20 = 18 TiB
 ```
+
+#### Protection Group Archive Size Estimation
+
+IBM Storage Defender Data Protect protection group archives are **non-deduplicated, full archives**. Each archive job transfers the complete front-end data size of the protection group. Archive size is therefore primarily a function of the front-end data size, with optional compression applied at the external target.
+
+Compression is **optional** and is performed by IBM Storage Defender Data Protect as data is written out to the external target. Note that usage of compression within the external target setting may reduce the compressibility of data when eventually written to tape media.
+
+**Protection Group Archive Size**:
+```
+Protection Group Archive Size = Front-End Data Size ÷ Compression Ratio
+
+Where:
+  Compression Ratio = 1.0  (compression disabled, or incompressible data)
+  Compression Ratio = 1.5  (conservative estimate, typical enterprise mixed data)
+  Compression Ratio = 2.0  (optimistic estimate, highly compressible data)
+```
+
+**Example Calculation**:
+```
+Front-End Data Size (entire protection group): 5 TiB
+
+Without compression (ratio 1.0):      5 TiB ÷ 1.0 = 5.0 TiB per archive
+Conservative compression (ratio 1.5): 5 TiB ÷ 1.5 = 3.3 TiB per archive
+Optimistic compression (ratio 2.0):   5 TiB ÷ 2.0 = 2.5 TiB per archive
+```
+
+> **Note**: Archives are full (non-deduplicated), so every archive job transfers the full front-end data size before compression — there is no deduplication savings between archive jobs. Compression ratio varies significantly by data type: incompressible data (media files, already-compressed data) achieves approximately 1:1; typical enterprise mixed workloads achieve approximately 1.5:1–2:1. Use the conservative 1.5:1 estimate for initial capacity planning and refine after observing actual compression ratios on your workloads.
 
 #### Tape Capacity Planning
 
