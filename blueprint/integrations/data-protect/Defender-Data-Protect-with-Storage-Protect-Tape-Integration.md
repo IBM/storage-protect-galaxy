@@ -2262,14 +2262,20 @@ SELECT * FROM S3_ARCHIVE_RESTORE
 ```
 
 #### IBM Storage Defender Data Protect CLI Commands
+**NOTE**: The following `iris_cli` commands are run from the Cohesity CLI, accessed either remotely or locally as described in the Cohesity CLI Reference Guide (accessible from within the https://docs.cohesity.com/ customer portal).
 
 # List External Targets
+```
 iris_cli cluster list-external-targets
+```
 
 # Update External Target
+```
 iris_cli cluster update-external-target --id target_id --parameters
+```
 
 # Unregister External Target
+```
 iris_cli cluster unregister-external-target --id target_id
 ```
 
