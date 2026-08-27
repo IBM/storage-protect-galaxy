@@ -641,12 +641,17 @@ graph TD
 
 #### Organize by Recovery Requirements
 
-Group VMs based on:
+The primary goal when forming protection groups for tape archival is to place VMs that would naturally need to be recovered **together** to satisfy some business requirement into the same group. Tape recall is expensive and time-consuming, so a recovery operation will almost always target an entire protection group; grouping by recovery unit minimises unnecessary data recall.
 
-- **Business criticality**: Critical, important, standard
-- **Recovery time objectives**: Fast, medium, slow
-- **Logical relationships**: Application tiers, departments
-- **Data characteristics**: Size, change rate, access patterns
+Group VMs using the following criteria, listed in order of priority:
+
+1. **Recovery unit (application dependency)**: VMs that form a single application tier or service — for example, a web front-end, its application servers, and its databases — should be in the same group. Recovering them from separate groups would require multiple tape recalls and complicate consistency.
+
+2. **Recovery point objective (RPO)**: VMs with similar acceptable data-age tolerances belong together. Since tape is positioned as the final tier in a layered protection strategy (snapshot → replication → backup → archive), RPO for archived data is typically measured in weeks or months. VMs with different RPO expectations should be separated so that archive frequency can be tuned per group.
+
+3. **Organisational or compliance boundary**: VMs belonging to the same department, regulatory scope, or data-classification tier often share retention requirements. Aligning these into a group simplifies compliance reporting and retention policy management.
+
+4. **Data characteristics**: Size and change rate affect archive job duration and cold data cache consumption. Grouping VMs with similar data profiles helps keep individual protection group sizes within the recommended ≤10 TiB limit and avoids one large VM dominating a group's recall cost.
 
 ### 2. Archive Frequency and Retention
 
