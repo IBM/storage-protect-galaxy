@@ -562,9 +562,14 @@ sequenceDiagram
 | Component | Minimum | Recommended | Notes |
 |-----------|---------|-------------|-------|
 | Server Version | 8.1.20 | 8.2.0+ | Required for object agent tape support |
-| CPU Cores | 8 | 16+ | For object agent and migration performance |
-| Memory | 32 GiB | 64 GiB+ | For object agent and migration performance |
-| Network | 10 GbE | 25 GbE | For S3 and tape traffic |
+| Blueprint Size | Small | Varies | Dependent on total managed data and daily ingest |
+| Network | 10 GbE | Varies | Dependent on total ingest requirements |
+
+**Considerations:**
+- IBM Storage Protect server size requirements will depend on the total managed data and daily data ingest requirements that are needed
+- This can include IBM Storage Defender Data Protect archive workloads in addition to other server workloads
+- At a minmum, a "Small Blueprint" IBM Storage Protect server with 10 GbE capability should be available for archive workloads
+- See the References section of this document for links to IBM Storage Protect Blueprint documentation for further sizing guidance
 
 #### Cold Data Cache Storage Pool
 
