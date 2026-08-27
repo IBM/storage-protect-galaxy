@@ -5,7 +5,7 @@
 
 **Version**: 1.0
 
-**Last Updated**: 2026-07-01
+**Last Updated**: 2026-08-27
 
 **Target Audience**: Storage Architects, System Administrators, Data Protection Engineers
 
@@ -2511,7 +2511,7 @@ MAXSCRATCH * 10 GiB
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
-| 1.0 | 2026-07-01 | Dominic Müller-Wicke, Jason Basler, James Damgar | Initial version |
+| 1.0 | 2026-08-27 | Dominic Müller-Wicke, Jason Basler, James Damgar | Initial version |
 
 ---
 
