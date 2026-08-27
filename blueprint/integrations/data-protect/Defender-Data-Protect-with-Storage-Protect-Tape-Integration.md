@@ -565,7 +565,8 @@ sequenceDiagram
 | Blueprint Size | Small | Varies | Dependent on total managed data and daily ingest |
 | Network | 10 GbE | Varies | Dependent on total ingest requirements |
 
-**Considerations:**
+**Considerations**:
+
 - IBM Storage Protect server size requirements will depend on the total managed data and daily data ingest requirements that are needed
 - This can include IBM Storage Defender Data Protect archive workloads in addition to other server workloads
 - At a minmum, a "Small Blueprint" IBM Storage Protect server with 10 GbE capability should be available for archive workloads
@@ -599,7 +600,10 @@ sequenceDiagram
 
 #### Keep Protection Groups Small
 
-**Recommendation**: Limit protection groups that archive to tape to **≤100 VMs** per group.
+**Recommendation**:
+
+- Limit protection groups that archive to tape to **<=10 TiB** per group.
+  - For example, with a VMware virtual machine (VM) workload that has an average archived VM size of 100 GiB, limit protection groups to **≤100 VMs** per group.
 
 **Rationale**:
 
