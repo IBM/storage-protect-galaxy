@@ -766,7 +766,7 @@ Currently, this tuning should be pursued with the assistance of IBM Storage Defe
 
 #### Object Client Node Configuration
 
-**IBM Storage Protect MAXNUMMP Parameter**: Set to **at least 100** to match the default, per-node session pool size of the object agent. Each object client session that is writing in parallel to the cold data cache storage pool requires a "mount point".
+**IBM Storage Protect MAXNUMMP Parameter**: Set to **at least 100** to match the default, per-node session pool size of the object agent. Each object client session that is writing in parallel to the cold data cache storage pool requires a "mount point". For guidance on sizing the cold data cache storage pool itself, see [Sizing the cold data cache storage pool](https://www.ibm.com/docs/en/storage-protect/8.2.2?topic=server-sizing-cold-data-cache-storage-pool) in the IBM Storage Protect documentation.
 
 ```sql
 REGISTER NODE DATAPROTECT_TAPE
@@ -818,7 +818,7 @@ REGISTER NODE DATAPROTECT_TAPE
 **Example**:
 ```sql
 UPDATE STGPOOL TAPEPOOL
-    COLLOCATE=GROUP
+    COLLOCATE=FILESPACE
 ```
 
 **Options**:
