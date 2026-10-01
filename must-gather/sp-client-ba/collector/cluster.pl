@@ -48,7 +48,7 @@ if ($os =~ /MSWin32/i) {
     # ------------------------------------------------------------------
     # 1a. Microsoft Cluster log file
     # ------------------------------------------------------------------
-    my $cluster_log_dir = $ENV{SystemRoot} ? "$ENV{SystemRoot}\\Cluster" : 'C:\Windows\Cluster\Reports';
+    my $cluster_log_dir = $ENV{SystemRoot} ? "$ENV{SystemRoot}\\Cluster\\Reports" : 'C:\Windows\Cluster\Reports';
     my $cluster_log     = "$cluster_log_dir\\cluster.log";
 
     if (-e $cluster_log) {
@@ -159,7 +159,7 @@ close($errfh);
 # Summary
 # -----------------------------
 if ($verbose) {
-    print "\n=== Core Module Summary ===\n";
+    print "\n=== cluster Module Summary ===\n";
     if (%collected) {
         foreach my $file (sort keys %collected) {
             printf "  %-40s : %s\n", $file, $collected{$file};
