@@ -61,3 +61,5 @@ perl mustgather.pl --product sp-client-ba --output-dir /tmp/mustgather_output --
 - `performance` : Captures performance metrics Instrumentation logs(`dsminstr.log`).
 
 - `core` : Searches and collects the latest core dumps.
+
+- `cluster`: Collect the inforamtion related to cluster.
