@@ -4,7 +4,7 @@ use warnings;
 use Exporter 'import';
 use File::Spec;
 
-our @EXPORT_OK = qw(_os get_ba_base_path get_server_address get_hyperv_base_path get_sql_base_path get_oracle_base_path get_api_base_path get_domino_base_path get_vmware_base_path get_exchange_base_path);
+our @EXPORT_OK = qw(_os get_ba_base_path get_server_address get_hyperv_base_path get_sql_base_path get_oracle_base_path get_sap_oracle_base_path get_api_base_path get_domino_base_path get_vmware_base_path get_exchange_base_path get_sap_db2_base_path get_hsm_base_path);
 
 ###############################################################################
 # _os
@@ -389,6 +389,65 @@ sub _get_oracle_path_from_tdpoconf {
 }
 
 ###############################################################################
+# get_sap_oracle_base_path
+#
+# Purpose  : Determine Data Protection for SAP Oracle client base installation directory.
+# Input    : None
+# Output   : Absolute path to SAP Oracle client directory, or undef if not found.
+# Behavior :
+#   1. Check DSMI_DIR environment variable (highest priority).
+#   2. Run 'tdpoconf showenvironment' to extract installation path (all platforms).
+#   3. Fallback to OS-specific SAP Oracle default install paths.
+#   4. Return undef if product is not installed or path missing.
+###############################################################################
+sub get_sap_oracle_base_path {
+    my $os = _os();
+
+    # 1. Environment override (DSMI_DIR is the standard variable for TDP Oracle)
+    if ($ENV{DSMI_DIR} && -d $ENV{DSMI_DIR}) {
+        return $ENV{DSMI_DIR} if -f "$ENV{DSMI_DIR}/tdpo.opt";
+    }
+
+    # 2. Use tdpoconf showenvironment (works on all platforms including Windows)
+    my $tdpoconf_path = _get_oracle_path_from_tdpoconf();
+    return $tdpoconf_path if $tdpoconf_path;
+
+    # 3. OS-specific SAP Oracle fallback paths
+    if ($os =~ /MSWin32/i) {
+        # Windows: SAP-specific paths
+        foreach my $path (
+            "C:/Program Files/Tivoli/TSM/tdp_r3/ora64",
+            "C:/Program Files/Tivoli/TSM/tdp_r3/ora",
+            "C:/Program Files (x86)/Tivoli/TSM/tdp_r3/ora64",
+            "C:/Program Files (x86)/Tivoli/TSM/tdp_r3/ora"
+        ) {
+            return $path if -d $path ;
+        }
+    }
+    elsif ($os =~ /aix/i) {
+        # AIX paths - SAP Oracle
+        foreach my $path (
+            "/usr/tivoli/tsm/tdp_r3/ora64",
+            "/usr/tivoli/tsm/tdp_r3/ora"
+        ) {
+            return $path if -d $path;
+        }
+    }
+    elsif ($os =~ /linux|sunos|solaris/i) {
+        # Linux, Solaris paths - SAP Oracle
+        foreach my $path (
+            "/opt/tivoli/tsm/tdp_r3/ora64",
+            "/opt/tivoli/tsm/tdp_r3/ora"
+        ) {
+            return $path if -d $path;
+        }
+    }
+
+    # 4. Not found
+    return undef;
+}
+
+###############################################################################
 # is_sp_server_running
 #
 # Purpose  : Detect whether the IBM Storage Protect Server is running.
@@ -672,5 +731,137 @@ sub get_exchange_base_path{
         }
     return undef;
 }
+
+###############################################################################
+# get_sap_db2_base_path
+#
+# Purpose  : Determine Data Protection for SAP on DB2 installation directory.
+# Input    : None
+# Output   : Absolute path to SAP DB2 client directory, or undef if not found.
+# Behavior :
+#   1. Check DSMI_DIR environment variable (highest priority).
+#   2. Fallback to OS-specific default install paths for TDP R3 DB2.
+#   3. Return undef if product is not installed or path missing.
+###############################################################################
+sub get_sap_db2_base_path {
+    my $os = _os();
+
+    # 1. Environment override
+    if ($ENV{DSMI_DIR} && -d $ENV{DSMI_DIR}) {
+        return $ENV{DSMI_DIR};
+    }
+
+    # 2. OS-specific fallback paths
+    if ($os =~ /aix/i) {
+        foreach my $path (
+            "/usr/tivoli/tsm/tdp_r3/db264",
+            "/usr/tivoli/tsm/tdp_r3/db2"
+        ) {
+            return $path if -d $path;
+        }
+    }
+    elsif ($os =~ /linux|sunos|solaris/i) {
+        foreach my $path (
+            "/opt/tivoli/tsm/tdp_r3/db264",
+            "/opt/tivoli/tsm/tdp_r3/db2"
+        ) {
+            return $path if -d $path;
+        }
+    }
+    elsif ($os =~ /MSWin32/i) {
+        foreach my $path (
+            "C:/Program Files/Tivoli/TSM/tdp_r3/db264",
+            "C:/Program Files/Tivoli/TSM/tdp_r3/db2",
+            "C:/Program Files (x86)/Tivoli/TSM/tdp_r3/db264",
+            "C:/Program Files (x86)/Tivoli/TSM/tdp_r3/db2"
+        ) {
+            return $path if -d $path;
+        }
+    }
+
+    # 3. Not found
+    return undef;
+}
+# -----------------------------
+# get_hsm_base_path
+#
+# Purpose  : Determine IBM Spectrum Protect HSM client installation directory.
+# Input    : None
+# Output   : Absolute path to HSM bin directory, or undef if not found.
+# Behavior :
+#   1. Check HSM_DIR environment variable (highest priority).
+#   2. Fallback to OS-specific default install paths.
+#   3. For Windows: Check registry keys.
+#   4. For Unix/Linux: Check standard installation paths.
+# -----------------------------
+sub get_hsm_base_path {
+    my $os = _os();
+
+    # 1. Environment override
+    if ($ENV{HSM_DIR} && -d $ENV{HSM_DIR}) {
+        return $ENV{HSM_DIR};
+    }
+
+    # 2. Windows-specific paths
+    if ($os =~ /MSWin32/i) {
+        # Check registry for HSM installation
+        my @reg_keys = (
+            "HKLM\\SOFTWARE\\IBM\\ADSM\\CurrentVersion\\HSM",
+            "HKLM\\SOFTWARE\\WOW6432Node\\IBM\\ADSM\\CurrentVersion\\HSM",
+            "HKLM\\SOFTWARE\\IBM\\Tivoli\\TSM\\HSM",
+            "HKLM\\SOFTWARE\\WOW6432Node\\IBM\\Tivoli\\TSM\\HSM"
+        );
+        
+        foreach my $key (@reg_keys) {
+            my $cmd = qq{reg query "$key" /v Path 2>NUL};
+            my $out = `$cmd`;
+            if ($out =~ /Path\s+REG_\w+\s+([^\r\n]+)/i) {
+                my $path = $1;
+                $path =~ s/^\s+|\s+$//g;
+            return $path if -d $path;
+        }
+    }
+
+        # Fallback to common Windows paths
+        foreach my $path (
+            "C:/Program Files/Tivoli/TSM/HSMClient",
+            "C:/Program Files (x86)/Tivoli/TSM/HSMClient",
+            "C:/Program Files/Tivoli/TSM/HSM",
+            "C:/Program Files (x86)/Tivoli/TSM/HSM"
+        ) {
+            return $path if -d $path;
+        }
+    }
+    # 3. Unix/Linux/AIX/Solaris paths
+    elsif ($os =~ /linux/i) {
+        foreach my $path (
+            "/opt/tivoli/tsm/client/hsm/bin",
+            "/opt/tivoli/tsm/HSMClient"
+        ) {
+            return $path if -d $path;
+        }
+    }
+    elsif ($os =~ /aix/i) {
+        foreach my $path (
+            "/usr/tivoli/tsm/client/hsm/bin64",
+            "/usr/tivoli/tsm/client/hsm/bin",
+            "/usr/tivoli/tsm/HSMClient"
+        ) {
+            return $path if -d $path;
+        }
+    }
+    elsif ($os =~ /sunos|solaris/i) {
+        foreach my $path (
+            "/opt/tivoli/tsm/client/hsm/bin",
+            "/opt/tivoli/tsm/HSMClient"
+        ) {
+            return $path if -d $path;
+        }
+    }
+
+    # 4. Not found
+    return undef;
+}
+
 
 1;
