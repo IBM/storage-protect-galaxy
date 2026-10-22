@@ -1,0 +1,28 @@
+{
+  "instances":
+  [
+    {
+      "instName": "tsminst1",
+      "dbName": "TSMDB1",
+      "snapPrefix": "aaa-tsminst1",
+      "snapRetention": "2",
+      "serverInstDir": "/home/tsminst1/tsminst1/",
+      "sudoCommand": "/usr/bin/sudo",
+      "apiServerIP": "9.11.90.19",
+      "apiServerPort": "7443",
+      "apiCredential": "ZGVmZW5kZXI6U2FuZGVkITIyaGFkb3B0",
+      "autoRestore": "false",
+      "safeGuarded": "true",
+      "vgfsMapping": [
+        {
+          "vgName": "aaa-critical-spserver-db",
+          "fSystems": [ "/tsminst1/TSMdbspace00", "/tsminst1/TSMdbspace00", "/tsminst1/TSMalog" ]
+        },
+        {
+          "vgName": "aaa-critical-spserver-stg",
+          "fSystems": [  "/tsminst1/TSMarchlog", "/tsminst1/TSMbkup00", "/tsminst1/TSMfile00", "/tsminst1/TSMfile01" ]
+        }
+      ]
+    }
+  ]
+}
