@@ -10,6 +10,8 @@ This project provides scripts that facilitate the creation and restoration of co
 This project supports the following storage system:
 
 - IBM Storage Scale version 5.1.9 and above - see [Storage Scale scripts](storage-scale/Readme.md)
+- IBM FlashSystem version 8.7 and above - see [Flashsystem scripts](flashsystem/Readme.md)
+
 
 
 
