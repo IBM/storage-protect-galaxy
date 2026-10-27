@@ -125,7 +125,7 @@ foreach my $module (@selected_modules) {
     push @args, ("-p", $port)      if $module eq "network" && $port;
     push @args, "-v"               if $verbose;
     push @args, ("--optfile", $optfile)
-        if $optfile && ($module eq "config" || $module eq "server");
+        if $optfile && ($module eq "config" || $module eq "server" || $module eq "cluster");
 
     my $exit_code = system(@args) >> 8;
     $module_status{$module} =
