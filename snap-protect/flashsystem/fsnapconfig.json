@@ -4,25 +4,67 @@
     {
       "instName": "tsminst1",
       "dbName": "TSMDB1",
-      "snapPrefix": "aaa-tsminst1",
-      "snapRetention": "2",
-      "serverInstDir": "/home/tsminst1/tsminst1/",
-      "sudoCommand": "/usr/bin/sudo",
-      "apiServerIP": "9.11.90.19",
-      "apiServerPort": "7443",
-      "apiCredential": "ZGVmZW5kZXI6U2FuZGVkITIyaGFkb3B0",
-      "autoRestore": "false",
-      "safeGuarded": "true",
+      "snapPrefix": "tsminst1",
+      "snapRetention": "1",
+      "serverInstDir": "/path-to-server-instance-dir",
+      "sudoCommand": "/usr/bin/sudo",   
+      "apiServerIP": "<Flashsystem-1 IP>",
+      "apiServerPort": "<Flashsystem-1 port>",
+      "apiCredential": "base64 encode user:password for FlashSystem API",
+      "autoRestore": " true | false",
+      "safeGuarded": "true | false", 
       "vgfsMapping": [
         {
-          "vgName": "aaa-critical-spserver-db",
-          "fSystems": [ "/tsminst1/TSMdbspace00", "/tsminst1/TSMdbspace00", "/tsminst1/TSMalog" ]
+          "vgName": "isp_inst01_db",
+          "fSystems": [ "/tsm/inst01/tsmdb", "/tsm/inst01/tsmlog" ]
         },
         {
-          "vgName": "aaa-critical-spserver-stg",
-          "fSystems": [  "/tsminst1/TSMarchlog", "/tsminst1/TSMbkup00", "/tsminst1/TSMfile00", "/tsminst1/TSMfile01" ]
+          "vgName": "isp_inst01_stg",
+          "fSystems": [  "/tsm/inst01/tsmstg" ]
         }
       ]
-    }
+    },      
+    {
+      "instName": "tsminst1",
+      "dbName": "TSMDB1",
+      "snapPrefix": "tsminst1",
+      "snapRetention": "1",
+      "serverInstDir": "/path-to-server-instance-dir",
+      "sudoCommand": "/usr/bin/sudo",   
+      "apiServerIP": "<Flashsystem-2 IP>",
+      "apiServerPort": "<Flashsystem-2 port>",
+      "apiCredential": "base64 encode user:password for FlashSystem API",
+      "autoRestore": "true | false",
+      "safeGuarded": "true | false",
+      "vgfsMapping": [
+        {
+          "vgName": "isp_inst01_config",
+          "fSystems": [ "/tsm/inst01/tsmconfig" ]
+        }
+      ]    
+    },   
+    {
+      "instName": "tsminst2",
+      "dbName": "TSMDB1",
+      "snapPrefix": "tsminst2",
+      "snapRetention": "1",
+      "serverInstDir": "",
+      "sudoCommand": "",
+      "apiServerIP": "<Flashsystem IP>",
+      "apiServerPort": "<Flashsystem port>",
+      "apiCredential": "base64 encode user:password for FlashSystem API",
+      "autoRestore": "true | false",
+      "safeGuarded": "true | false", 
+      "vgfsMapping": [
+        {
+          "vgName": "isp_inst02_db",
+          "fSystems": [ "/tsm/inst02/tsmdb", "/tsm/inst02/tsmlog" ]
+        },
+        {
+          "vgName": "isp_inst02_stg",
+          "fSystems": [  "/tsm/inst02/tsmstg" ]
+        }
+      ]
+    } 
   ]
 }
